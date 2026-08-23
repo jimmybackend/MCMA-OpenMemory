@@ -26,6 +26,8 @@ MCMA-OpenMemory separates memory semantics, cryptography, indexing and physical 
   MinIO / NAS / WebDAV / future adapters
 ```
 
+The architecture is open source and provider-agnostic. Model vendors and storage vendors are consumers or adapters around the memory layer, not owners of the memory format.
+
 ## MCMA Core
 
 The core is responsible for logical memory operations rather than provider APIs. It should understand:
@@ -36,7 +38,9 @@ The core is responsible for logical memory operations rather than provider APIs.
 - memory scope;
 - memory identifiers;
 - routing and retrieval policy;
-- controlled movement between lifecycle states.
+- controlled movement between lifecycle states;
+- capture/reuse policy for remembered knowledge;
+- validation and confidence metadata.
 
 The core should not require provider-specific concepts such as bucket names, repositories or cloud account IDs.
 
@@ -52,8 +56,10 @@ Responsibilities may include:
 - choose or change temperature;
 - consolidate related memories;
 - preserve provenance;
+- preserve validation/confidence state;
 - determine whether a memory should remain active, cool down or be frozen;
-- request retrieval through indexes.
+- request retrieval through indexes;
+- decide, under policy, whether a previously validated memory can answer without another model call.
 
 ## Crypto Engine
 
@@ -75,9 +81,13 @@ AES-256-GCM + authenticated metadata
 
 The storage layer never needs the master key or plaintext.
 
+A mature implementation should support separate derivation contexts or keys for memory objects, catalogs, semantic indexes and backups.
+
 ## Index Engine
 
-Indexes are optional accelerators, not the source of truth.
+The Index Engine is the routing layer that answers **where is the memory I need?**
+
+Indexes are accelerators and catalogs around authoritative encrypted memory objects.
 
 Possible index types:
 
@@ -88,9 +98,30 @@ Possible index types:
 - recency/activity;
 - summaries;
 - retrieval scores;
-- routing hints.
+- routing hints;
+- provenance/validation state;
+- memory-ID to logical-URI mappings.
 
-A future design should allow indexes to be rebuilt from authorized memory where possible.
+### Encrypted catalog design
+
+A privacy-oriented deployment should not leave a readable map of the user's memory beside encrypted objects. MCMA therefore supports the concept of an encrypted root catalog and encrypted shards.
+
+```text
+mcma://system/index/root
+        │
+        ├── encrypted hot index
+        ├── encrypted warm index
+        ├── encrypted cold index
+        ├── encrypted frozen index
+        ├── encrypted cognitive-layer shards
+        └── encrypted semantic-index manifests
+```
+
+The root should be deterministic to locate, while the entries and shard contents remain encrypted.
+
+Large stores can shard by temperature, cognitive layer, scope, project, topic, time range or another deterministic policy.
+
+The Index Engine should decrypt only the minimum shard necessary to resolve the requested memory.
 
 ## Storage Adapter
 
@@ -146,7 +177,7 @@ Agent question
     ↓
 intent / topic / scope detection
     ↓
-index lookup
+encrypted index lookup
     ↓
 logical MCMA object reference
     ↓
@@ -156,10 +187,58 @@ Crypto Engine authentication + decrypt
     ↓
 selected plaintext memory
     ↓
-agent context
+agent context or direct remembered answer
 ```
 
 The goal is to retrieve only relevant objects instead of sending an entire memory repository into the model context.
+
+## Memory-first answer flow
+
+When a question has already been researched and stored as durable knowledge, MCMA can attempt to avoid unnecessary model inference.
+
+```text
+New request
+    ↓
+resolve remembered knowledge
+    ↓
+check validation_state
+    ↓
+check confidence
+    ↓
+check freshness / current-data requirement
+    ↓
+┌───────────────────────┬────────────────────────┐
+│ policy allows reuse   │ revalidation required  │
+│                       │                        │
+▼                       ▼
+return memory        source/model/tool refresh
+without LLM call         ↓
+                        update memory state
+```
+
+This mechanism is intended as a knowledge cache with provenance, not as an assumption that every stored answer is permanently true.
+
+## Portable continuity flow
+
+```text
+Model A + Storage A
+        │
+        ▼
+ encrypted MCMA memory
+ encrypted MCMA indexes
+        │
+        ├── export/copy
+        ▼
+Model B + Storage B
+        │
+        ▼
+configure compatible adapter + authorized keys
+        │
+        ▼
+continue with prior context and knowledge
+```
+
+Portable continuity can include user preferences, project state, procedures, prior knowledge and user-defined behavioral/persona context. Different underlying models may still behave differently; MCMA transports the memory/context layer, not the model itself.
 
 ## Lifecycle flow
 
