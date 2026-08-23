@@ -1,0 +1,29 @@
+# Secrets
+.env
+.env.*
+*.env
+!config/mcma.env.example
+
+# Private MCMA memory objects
+*.mcma
+
+# Local secret/config variants
+*.local
+config/*.local
+
+# Keys and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime/debug output
+*.log
+*.tmp
+/tmp/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
