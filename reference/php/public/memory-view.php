@@ -155,14 +155,9 @@ try {
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $input = trim((string) ($_POST['memory'] ?? ''));
-        $submittedToken = (string) ($_POST['token'] ?? '');
-
-        if (!hash_equals($bridgeToken, $submittedToken)) {
-            throw new RuntimeException('Token MCMA incorrecto.');
-        }
 
         $githubPath = normalizeGithubPath($input, $owner, $repo, $branch);
-        $result = readMemory($githubPath, $submittedToken);
+        $result = readMemory($githubPath, $bridgeToken);
     }
 } catch (Throwable $e) {
     $error = $e->getMessage();
@@ -288,16 +283,6 @@ if (is_array($result)) {
             required
             value="<?= h($input) ?>"
             placeholder="memories/hot/manual/archivo.mcma o https://github.com/.../archivo.mcma"
-        >
-
-        <label for="token">Token MCMA</label>
-        <input
-            id="token"
-            name="token"
-            type="password"
-            required
-            autocomplete="off"
-            placeholder="MCMA_BRIDGE_TOKEN"
         >
 
         <button type="submit">Leer y descifrar</button>
