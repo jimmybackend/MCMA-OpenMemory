@@ -251,6 +251,21 @@ if (is_array($result)) {
         resize: vertical;
         white-space: pre-wrap;
     }
+    .memory-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 12px 0 14px;
+    }
+    .memory-actions button {
+        border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+    }
+    .memory-status {
+        min-height: 1.4em;
+        margin: 4px 0 0;
+        font-size: .95rem;
+        opacity: .75;
+    }
     .meta {
         display: grid;
         grid-template-columns: 160px 1fr;
@@ -313,9 +328,157 @@ if (is_array($result)) {
             </div>
 
             <label for="decoded">Texto</label>
+
+            <div class="memory-actions">
+                <button type="button" id="copy-memory">Copiar texto</button>
+                <button type="button" id="speak-memory">Leer en voz alta</button>
+                <button type="button" id="stop-memory" hidden>Detener lectura</button>
+            </div>
+
             <textarea id="decoded" readonly><?= h($text) ?></textarea>
+            <p id="memory-status" class="memory-status" aria-live="polite"></p>
         </section>
     <?php endif; ?>
 </main>
+
+<script>
+(() => {
+    const textarea = document.getElementById('decoded');
+    if (!textarea) return;
+
+    const copyButton = document.getElementById('copy-memory');
+    const speakButton = document.getElementById('speak-memory');
+    const stopButton = document.getElementById('stop-memory');
+    const status = document.getElementById('memory-status');
+
+    const setStatus = (message) => {
+        status.textContent = message;
+    };
+
+    copyButton.addEventListener('click', async () => {
+        const text = textarea.value;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            setStatus('Texto copiado al portapapeles.');
+        } catch (error) {
+            textarea.focus();
+            textarea.select();
+            const copied = document.execCommand('copy');
+            textarea.setSelectionRange(0, 0);
+
+            setStatus(
+                copied
+                    ? 'Texto copiado al portapapeles.'
+                    : 'No fue posible copiar el texto.'
+            );
+        }
+    });
+
+    if (!('speechSynthesis' in window)) {
+        speakButton.disabled = true;
+        speakButton.title = 'Este navegador no soporta lectura en voz alta.';
+        return;
+    }
+
+    let queue = [];
+    let queueIndex = 0;
+    let reading = false;
+
+    const splitText = (text, maxLength = 180) => {
+        const sentences = text
+            .replace(/\s+/g, ' ')
+            .match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+
+        const chunks = [];
+
+        for (const sentenceRaw of sentences) {
+            let sentence = sentenceRaw.trim();
+
+            while (sentence.length > maxLength) {
+                let cut = sentence.lastIndexOf(' ', maxLength);
+                if (cut < 40) cut = maxLength;
+
+                chunks.push(sentence.slice(0, cut).trim());
+                sentence = sentence.slice(cut).trim();
+            }
+
+            if (sentence) chunks.push(sentence);
+        }
+
+        return chunks;
+    };
+
+    const finishReading = () => {
+        reading = false;
+        queue = [];
+        queueIndex = 0;
+        stopButton.hidden = true;
+        speakButton.disabled = false;
+        setStatus('Lectura terminada.');
+    };
+
+    const speakNext = () => {
+        if (!reading || queueIndex >= queue.length) {
+            finishReading();
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(queue[queueIndex]);
+        utterance.lang = 'es-MX';
+
+        utterance.onend = () => {
+            queueIndex += 1;
+            speakNext();
+        };
+
+        utterance.onerror = () => {
+            reading = false;
+            stopButton.hidden = true;
+            speakButton.disabled = false;
+            setStatus('La lectura en voz alta fue interrumpida.');
+        };
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    speakButton.addEventListener('click', () => {
+        const text = textarea.value.trim();
+
+        if (!text) {
+            setStatus('No hay texto para leer.');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        queue = splitText(text);
+        queueIndex = 0;
+        reading = true;
+
+        speakButton.disabled = true;
+        stopButton.hidden = false;
+        setStatus('Leyendo memoria en voz alta…');
+
+        speakNext();
+    });
+
+    stopButton.addEventListener('click', () => {
+        reading = false;
+        window.speechSynthesis.cancel();
+        queue = [];
+        queueIndex = 0;
+        stopButton.hidden = true;
+        speakButton.disabled = false;
+        setStatus('Lectura detenida.');
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+    });
+})();
+</script>
 </body>
 </html>
