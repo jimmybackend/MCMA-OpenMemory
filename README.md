@@ -1,5 +1,7 @@
 # MCMA-OpenMemory
 
+## MCMA — Modular Cognitive Memory Archive
+
 **Open-source, provider-agnostic encrypted memory architecture for AI systems and agents.**
 
 > **AI memory should belong to the user, not to the model provider or the storage provider.**
@@ -290,6 +292,27 @@ MCMA-OpenMemory/
         └── legacy/
             └── mcma-crypto-v1.php
 ```
+
+
+## Current design baseline
+
+The project now explicitly treats MCMA as a **file-first, database-free portable personal memory archive** that can be opened **with AI or without AI**.
+
+The next design baseline adds:
+
+- living identity documents such as profile.mcma;
+- knowledge maturity: raw → observed → classified → knowledge → confirmed;
+- independent permissions;
+- vault.mcma as a protected secret boundary;
+- normal and private metadata modes;
+- stable object IDs and hash-based storage;
+- hierarchical indexes;
+- virtual Hot / Warm / Cold / Frozen views;
+- manual non-AI tools as a first-class requirement.
+
+See docs/DESIGN-INDEX.md and docs/CURRENT-STATE.md.
+
+> **Intelligence can change. Memory belongs to the person.**
 
 ## Security note
 

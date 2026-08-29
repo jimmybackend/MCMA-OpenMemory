@@ -18,6 +18,26 @@ MCMA-OpenMemory is being developed from a working encrypted-memory prototype tow
 - [ ] Define machine-readable JSON Schema for `.mcma`
 - [ ] Add conformance test vectors using synthetic keys/data
 
+
+## Design baseline — portable personal archive
+
+- [x] Define MCMA as **Modular Cognitive Memory Archive**
+- [x] Adopt file-first/database-free core as an interoperability goal
+- [x] Define first-run modes: with AI / without AI / configuration
+- [x] Adopt living profile.mcma concept
+- [x] Adopt knowledge maturity: raw / observed / classified / knowledge / confirmed
+- [x] Adopt independent permission model
+- [x] Adopt vault.mcma security boundary
+- [x] Define normal/private metadata modes
+- [x] Adopt stable-object/hash-based storage direction
+- [x] Adopt hierarchical index and virtual temperature-view direction
+- [ ] Define manifest.mcma
+- [ ] Define stable object ID and hash rules
+- [ ] Define next envelope/AAD rules without breaking mcma-v2
+- [ ] Define memory:// URI resolution independent of temperature
+- [ ] Define machine-readable profile, permissions, knowledge and history schemas
+- [ ] Implement non-AI CLI core before optional mcma ask
+
 ## v0.2 — Storage abstraction
 
 - [ ] Define stable storage adapter interface
