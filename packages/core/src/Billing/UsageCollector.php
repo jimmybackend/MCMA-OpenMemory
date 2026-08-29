@@ -12,7 +12,7 @@ final class UsageCollector
         $this->components[] = [
             'kind'=>'embedding',
             'provider_id'=>$providerId,
-            'input_tokens'=>max(0,$tokens),
+            'input_tokens'=>0,
             'output_tokens'=>0,
             'cached_tokens'=>0,
             'embedding_tokens'=>max(0,$tokens),
