@@ -39,7 +39,8 @@ MCMA Core
 StorageAdapter
    ├── Local filesystem
    ├── GitHub
-   └── S3 / S3-compatible
+   ├── S3 / S3-compatible
+   └── WebDAV
 ```
 
 Locations:
@@ -48,9 +49,10 @@ Locations:
 /local/path
 github://OWNER/REPO/optional/prefix?branch=main
 s3://BUCKET/optional/prefix?region=us-east-1
+webdav+https://HOST/existing/library/root
 ```
 
-S3-compatible custom endpoints are configured outside the library with `MCMA_S3_ENDPOINT` and optional `MCMA_S3_PATH_STYLE`.
+Master keys and provider credentials remain outside storage.
 
 ## Implemented CLI
 
@@ -73,13 +75,12 @@ mcma storage-copy
 
 `storage-copy` performs byte-preserving provider migration and publishes the manifest only after encrypted objects have been copied and checked.
 
-Master keys and provider credentials remain outside storage.
+## Provider concurrency
 
-## S3 security/concurrency
-
-The S3 adapter signs requests with AWS Signature Version 4.
-
-Immutable object creation uses conditional create semantics, and mutable `manifest.mcma` updates use ETag compare-and-swap. A stale writer fails instead of silently replacing newer library state.
+- Local: exclusive filesystem lock + compare-and-swap.
+- GitHub: Git blob SHA compare-and-swap.
+- S3: ETag + conditional PUT.
+- WebDAV: ETag + HTTP conditional PUT.
 
 ## Repository
 

@@ -11,6 +11,7 @@ final class StorageFactory
     {
         if (str_starts_with($location, 'github://')) return self::github($location);
         if (str_starts_with($location, 's3://')) return self::s3($location);
+        if (str_starts_with($location, 'webdav+https://') || str_starts_with($location, 'webdav+http://')) return self::webdav($location);
         return new LocalFilesystemAdapter(rtrim($location, DIRECTORY_SEPARATOR));
     }
 
@@ -47,6 +48,24 @@ final class StorageFactory
         $sessionToken = self::firstEnv(['MCMA_S3_SESSION_TOKEN', 'AWS_SESSION_TOKEN']);
 
         return new S3StorageAdapter($bucket, $region, $prefix, $endpoint, $pathStyle, $accessKey, $secretKey, $sessionToken);
+    }
+
+
+    private static function webdav(string $location): StorageAdapter
+    {
+        $endpoint = preg_replace('#^webdav\\+#', '', $location);
+        if (!is_string($endpoint) || $endpoint === $location) throw new RuntimeException('Invalid WebDAV storage location');
+
+        $token = self::firstEnv(['MCMA_WEBDAV_TOKEN']);
+        $username = self::firstEnv(['MCMA_WEBDAV_USERNAME']);
+        $password = self::firstEnv(['MCMA_WEBDAV_PASSWORD']);
+        $auth = self::firstEnv(['MCMA_WEBDAV_AUTH']);
+        if ($auth === null) {
+            if ($token !== null) $auth = 'bearer';
+            elseif ($username !== null || $password !== null) $auth = 'basic';
+            else $auth = 'none';
+        }
+        return new WebDavStorageAdapter($endpoint, strtolower($auth), $username, $password, $token);
     }
 
     private static function firstEnv(array $names): ?string

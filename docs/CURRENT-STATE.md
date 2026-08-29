@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Provider-neutral MCMA 1.0 core with Local, GitHub and S3-compatible storage implemented.**
+Status: **MCMA 1.0 storage abstraction completed across Local, GitHub, S3-compatible and WebDAV.**
 
 ## Storage boundary
 
@@ -12,62 +12,49 @@ Library
 StorageAdapter
   ├── LocalFilesystemAdapter
   ├── GitHubStorageAdapter
-  └── S3StorageAdapter
+  ├── S3StorageAdapter
+  └── WebDavStorageAdapter
 ```
 
-The core uses only portable locators such as `manifest.mcma` and `objects/...mcma`.
+The core uses provider-neutral locators only.
 
-## S3 implementation
+## WebDAV
 
-The S3 adapter implements:
+The WebDAV adapter implements:
 
-- AWS Signature Version 4;
-- GET/HEAD/PUT/DELETE;
-- ListObjectsV2 prefix listing;
-- ETag provider versions;
+- GET / HEAD / PUT / DELETE;
+- PROPFIND depth-1 recursive listing;
+- MKCOL parent creation;
+- ETag versions;
 - `If-None-Match: *` create-only writes;
 - `If-Match` compare-and-swap updates;
-- AWS S3 default endpoints;
-- custom S3-compatible endpoints;
-- optional path-style addressing;
-- temporary/session credentials.
+- Basic authentication;
+- Bearer authentication;
+- credential-free storage URLs.
 
-Credentials remain outside MCMA objects.
-
-## Locations
+Location:
 
 ```text
-/local/path
-github://OWNER/REPO/prefix?branch=main
-s3://BUCKET/prefix?region=us-east-1
+webdav+https://HOST/existing/library/root
 ```
 
-Custom S3-compatible services are configured through `MCMA_S3_ENDPOINT` and `MCMA_S3_PATH_STYLE`.
+The root WebDAV collection must already exist. MCMA creates child collections beneath it.
 
 ## Tests
 
-Added:
-
 ```text
-tests/conformance/aws-sigv4-s3.php
-tests/integration/s3-storage-adapter.php
-tests/integration/provider-migration-s3.php
+tests/integration/webdav-storage-adapter.php
+tests/integration/provider-migration-webdav.php
 ```
-
-The SigV4 test reproduces the official AWS S3 signature vector.
 
 The provider migration test performs:
 
 ```text
-Local → S3-compatible → Local
+Local → WebDAV → Local
 ```
 
-and verifies exact bytes after the round trip.
-
-## Existing behavior retained
-
-Stable object IDs, storage hashes, encrypted revisions, temperature transitions, recovery and historical V1/V2 migration are unchanged.
+and verifies exact encrypted bytes after the round trip.
 
 ## Next block
 
-Implement WebDAV or move upward into the permissions/vault layer.
+Permissions + Vault.

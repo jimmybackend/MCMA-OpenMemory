@@ -14,7 +14,7 @@ Optional AI / Agents
    ├── Local
    ├── GitHub
    ├── S3 / S3-compatible
-   └── WebDAV (future)
+   └── WebDAV
 ```
 
 ## Portable identity
@@ -35,30 +35,34 @@ StorageAdapter
 
 No storage provider participates in permanent memory identity.
 
-## Storage contract
+## Concurrency boundary
 
-The implemented adapter contract provides get/put/exists/delete/list, provider versions, compare-and-swap support, write coordination and capability discovery.
+Local uses an exclusive filesystem lock.
 
-Local storage coordinates writers with an exclusive filesystem lock.
+Remote adapters use optimistic compare-and-swap when publishing mutable `manifest.mcma` state:
 
-GitHub uses the current Git blob SHA of `manifest.mcma` as an optimistic compare-and-swap version.
+- GitHub: Git blob SHA;
+- S3: ETag + `If-Match`;
+- WebDAV: ETag + `If-Match`.
 
-S3 uses ETag versions with SigV4-signed conditional writes. Immutable objects use create-only semantics; mutable manifest publication uses compare-and-swap.
-
-Content-addressed revisions are immutable. The manifest is written last.
+Immutable content-addressed objects use create-only semantics.
 
 ## Provider migration
 
-MCMA copies exact encrypted bytes between adapters. Storage migration does not decrypt or re-encrypt MCMA 1.0 objects and therefore preserves object IDs and storage hashes.
+Storage migration copies exact encrypted bytes without decrypt/re-encrypt, preserving `object_id`, `storage_hash` and cryptographic identity.
 
-Tested migration includes:
+## Next architectural layer
+
+With provider abstraction complete, the next layer is authorization:
 
 ```text
-Local → S3-compatible → Local
+actor
+  ↓
+Permission Engine
+  ↓
+resource/action decision
+  ↓
+Memory/Vault operation
 ```
 
-Keys remain an independent security responsibility.
-
-## Compatibility
-
-Historical V1/V2 readers remain under `reference/compatibility/` and migration creates real MCMA 1.0 objects rather than relabeling old ciphertext.
+The vault remains a special cryptographic/security boundary.

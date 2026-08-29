@@ -29,28 +29,25 @@
 - [x] historical V1/V2 migration
 - [x] local concurrency protection
 
-## Storage abstraction — Local + GitHub + S3 complete
+## Storage abstraction — complete
 
 - [x] stable StorageAdapter interface
-- [x] refactor core away from direct filesystem access
 - [x] LocalFilesystemAdapter
 - [x] GitHubStorageAdapter
-- [x] GitHub optimistic manifest CAS
 - [x] S3StorageAdapter
-- [x] AWS Signature Version 4
-- [x] S3 If-None-Match create-only writes
-- [x] S3 If-Match manifest CAS
-- [x] S3 prefix listing
-- [x] custom S3-compatible endpoint/path-style support
-- [x] storage-copy command
-- [x] Local ↔ S3 byte-preservation tests
-- [ ] WebDAV adapter
+- [x] WebDavStorageAdapter
+- [x] Local/GitHub/S3/WebDAV compare-and-swap strategy
+- [x] provider-neutral storage-copy
+- [x] byte-preserving provider migration tests
 
-## Identity, permissions and security
+## Identity, permissions and security — next/active
 
-- [ ] profile/history schemas beyond base payload
-- [ ] permission enforcement
-- [ ] vault implementation
+- [ ] permission policy engine
+- [ ] actor/action/resource enforcement
+- [ ] encrypted permissions object
+- [ ] vault container implementation
+- [ ] vault metadata-only listing
+- [ ] internal use_secret boundary
 - [x] first encrypted recovery bundle
 - [ ] key rotation
 - [ ] device authorization
