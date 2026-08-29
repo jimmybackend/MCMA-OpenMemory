@@ -29,6 +29,16 @@ jobs:
           php tests/conformance/run.php
           php tests/conformance/jcs-numbers.php
           php tests/conformance/aws-sigv4-s3.php
+          php tests/conformance/oop-production.php
+
+      - name: CLI OOP smoke
+        run: |
+          set +e
+          php apps/cli/mcma --help >/tmp/mcma-cli-help.txt 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 2
+          grep -q "MCMA 1.0 CLI" /tmp/mcma-cli-help.txt
 
       - name: Core integrations
         run: |

@@ -92,6 +92,15 @@
 - [x] configurable embedding compatibility fingerprint/prefix for llama.cpp
 - [x] no Bedrock credentials required for local mode
 
+## PHP architecture — OOP production boundary complete
+- [x] core services/classes/interfaces
+- [x] storage adapters as objects
+- [x] AI/embedding connectors as objects
+- [x] CLI dispatch moved to CliApplication
+- [x] provider selection moved to ProviderFactory
+- [x] production global-function conformance guard
+- [x] minimal executable/bootstrap entrypoints only
+
 ## Next
 - [ ] real EC2 + Bedrock end-to-end smoke test
 - [ ] real EC2 + Ollama end-to-end smoke test

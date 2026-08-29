@@ -116,3 +116,14 @@ Local mode does not require Bedrock credentials. Memory storage remains independ
 CI tests use simulated providers and make no real Bedrock network calls.
 
 The next operational milestones are real EC2 smoke tests with Bedrock, Ollama and llama.cpp. All use the same MCMA memory architecture and any implemented StorageAdapter.
+
+
+## PHP object-oriented architecture
+
+Production PHP logic follows an object-oriented boundary.
+
+The CLI is implemented by `MCMA\Core\Cli\CliApplication`; provider construction is isolated in `ProviderFactory`. The executable `apps/cli/mcma` contains only the minimal bootstrap/delegation needed to start the application.
+
+Core, storage adapters, security, knowledge, semantic retrieval, agents and AI connectors remain class/interface based.
+
+CI includes an OOP conformance check that rejects new global function declarations inside production source directories.
