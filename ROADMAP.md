@@ -82,15 +82,20 @@
 ## Local AI — first implementation complete
 - [x] Ollama local embedding provider
 - [x] Ollama local generation provider
-- [x] local /api/embed integration
-- [x] local /api/chat integration
-- [x] mcma ask selectable with Ollama
-- [x] semantic commands selectable with Ollama
+- [x] llama.cpp local embedding provider
+- [x] llama.cpp local generation provider
+- [x] Ollama /api/embed and /api/chat integration
+- [x] llama.cpp /v1/embeddings and /v1/chat/completions integration
+- [x] mcma ask selectable with Ollama or llama.cpp
+- [x] semantic commands selectable with Ollama or llama.cpp
+- [x] provider-specific embedding index identity
+- [x] configurable embedding compatibility fingerprint/prefix for llama.cpp
 - [x] no Bedrock credentials required for local mode
 
 ## Next
 - [ ] real EC2 + Bedrock end-to-end smoke test
 - [ ] real EC2 + Ollama end-to-end smoke test
+- [ ] real EC2 + llama.cpp end-to-end smoke test
 - [ ] additional provider AI connectors outside core
 - [ ] relation graph
 - [ ] automatic maturity and temperature policies

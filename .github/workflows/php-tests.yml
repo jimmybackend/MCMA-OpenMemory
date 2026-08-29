@@ -62,4 +62,6 @@ jobs:
           php tests/integration/bedrock-converse-provider.php
 
       - name: Local AI providers
-        run: php tests/integration/ollama-local-providers.php
+        run: |
+          php tests/integration/ollama-local-providers.php
+          php tests/integration/llamacpp-local-providers.php

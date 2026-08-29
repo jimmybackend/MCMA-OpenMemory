@@ -1,6 +1,6 @@
-# Local AI with Ollama
+# Local AI with Ollama or llama.cpp
 
-MCMA can use a local Ollama process for both provider interfaces while keeping the core and memory format unchanged.
+MCMA can use Ollama or llama.cpp for both provider interfaces while keeping the core and memory format unchanged.
 
 ## Architecture
 
@@ -82,3 +82,56 @@ Because semantic indexes are provider-specific derived data, changing the embedd
 The default Ollama URL is loopback.
 
 Do not expose the Ollama service port directly to the public Internet for the MCMA web architecture. Nginx should expose the MCMA application/API over HTTPS; the application then talks to Ollama locally.
+
+
+## llama.cpp
+
+MCMA uses the OpenAI-compatible llama.cpp server routes:
+
+~~~text
+chat       /v1/chat/completions
+embeddings /v1/embeddings
+~~~
+
+Recommended local layout:
+
+~~~text
+127.0.0.1:8080  chat model
+127.0.0.1:8081  embedding model
+~~~
+
+Environment:
+
+~~~bash
+export MCMA_LLAMACPP_CHAT_URL=http://127.0.0.1:8080
+export MCMA_LLAMACPP_EMBED_URL=http://127.0.0.1:8081
+export MCMA_LLAMACPP_CHAT_MODEL=mcma-chat
+export MCMA_LLAMACPP_EMBED_MODEL=mcma-embed
+export MCMA_LLAMACPP_EMBED_PREFIX='query: '
+export MCMA_LLAMACPP_EMBED_ID=multilingual-e5-small-mean-l2-v1
+~~~
+
+Example server layout:
+
+~~~bash
+./llama-server -m /models/chat-model.gguf \
+  --host 127.0.0.1 --port 8080 --alias mcma-chat
+
+./llama-server -m /models/multilingual-e5-small.gguf \
+  --host 127.0.0.1 --port 8081 --alias mcma-embed \
+  --embedding --pooling mean --embd-normalize 2
+~~~
+
+Full local ask:
+
+~~~bash
+mcma ask LOCATION question.txt \
+  --actor=ai \
+  --embedding-provider=llamacpp \
+  --generation-provider=llamacpp \
+  --top-k=5
+~~~
+
+Equal vector dimension is not enough to claim compatibility. Reuse the same `MCMA_LLAMACPP_EMBED_ID` only when weights, tokenizer, pooling and normalization are compatible. The configured input prefix is also fingerprinted into the provider id.
+
+Ollama and llama.cpp indexes remain separate by default even when they appear to use the same model. That prevents accidental cross-runtime vector mixing.

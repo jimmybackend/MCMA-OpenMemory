@@ -84,14 +84,14 @@ MIT License.
 
 ## Optional semantic connector
 
-Embedding connectors include Amazon Titan Text Embeddings V2 on Bedrock and local Ollama. Both are optional; MCMA core remains model/provider independent. Semantic indexes are derived encrypted caches and can be rebuilt without changing knowledge object identity.
+Embedding connectors include Amazon Titan Text Embeddings V2 on Bedrock, local Ollama and local llama.cpp. All are optional; MCMA core remains model/provider independent. Semantic indexes are derived encrypted caches and can be rebuilt without changing knowledge object identity.
 
 
 ## Optional ask orchestration
 
 `mcma ask` can reuse exact or semantic memory before calling any generation model. Generation is provider-neutral through `GenerationProvider`.
 
-Generation connectors include Amazon Bedrock Converse and local Ollama. Fresh generated answers are returned to the caller but, when captured, default to unverified knowledge until an explicit validation workflow promotes them for reuse.
+Generation connectors include Amazon Bedrock Converse, local Ollama and local llama.cpp. Fresh generated answers are returned to the caller but, when captured, default to unverified knowledge until an explicit validation workflow promotes them for reuse.
 
 
 ## Local AI
@@ -104,3 +104,15 @@ MCMA can run without Bedrock by using Ollama for either or both provider roles:
 ~~~
 
 Ollama is expected on loopback by default. The local model process is independent from the memory StorageAdapter, so encrypted MCMA memory may still live in S3, GitHub, WebDAV or the local filesystem.
+
+
+### llama.cpp local runtime
+
+MCMA also supports llama.cpp through its OpenAI-compatible HTTP server:
+
+~~~text
+--embedding-provider=llamacpp
+--generation-provider=llamacpp
+~~~
+
+Chat and embeddings can run on separate loopback ports, so a small quantized chat model and a dedicated embedding model can be managed independently.

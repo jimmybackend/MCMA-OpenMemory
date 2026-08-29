@@ -18,6 +18,8 @@ use MCMA\Connectors\Aws\BedrockTitanEmbeddingProvider;
 use MCMA\Connectors\Aws\BedrockConverseGenerationProvider;
 use MCMA\Connectors\Local\OllamaEmbeddingProvider;
 use MCMA\Connectors\Local\OllamaGenerationProvider;
+use MCMA\Connectors\Local\LlamaCppEmbeddingProvider;
+use MCMA\Connectors\Local\LlamaCppGenerationProvider;
 use MCMA\Core\Storage\StorageFactory;
 use MCMA\Core\Storage\StorageMigrator;
 
@@ -95,12 +97,12 @@ knowledge / semantic options:
   --min-similarity=-1.0..1.0
   --top-k=1..100
   --dimensions=256|512|1024
-  --embedding-provider=bedrock-titan-v2|ollama
+  --embedding-provider=bedrock-titan-v2|ollama|llamacpp
 
 ask options:
   --actor=ai
-  --embedding-provider=none|bedrock-titan-v2|ollama
-  --generation-provider=none|bedrock-converse|ollama
+  --embedding-provider=none|bedrock-titan-v2|ollama|llamacpp
+  --generation-provider=none|bedrock-converse|ollama|llamacpp
   --remember=yes|no
   --capture-confidence=0.0..1.0
   --capture-validation=unverified|plausible|supported|verified|disputed|retracted
@@ -112,6 +114,7 @@ ask options:
 Bedrock credentials are read from AWS_BEARER_TOKEN_BEDROCK or standard AWS credentials.
 Bedrock generation also requires MCMA_BEDROCK_CHAT_MODEL.
 Ollama defaults to http://127.0.0.1:11434 and requires MCMA_OLLAMA_EMBED_MODEL and/or MCMA_OLLAMA_CHAT_MODEL.
+llama.cpp defaults to separate local servers on 127.0.0.1:8081 (embeddings) and 127.0.0.1:8080 (chat).
 INPUT may be '-' to read from STDIN.
 TXT
     );
@@ -193,6 +196,7 @@ function embeddingProvider(array $opts): EmbeddingProvider
         return BedrockTitanEmbeddingProvider::fromEnvironment($dimensions);
     }
     if($provider==='ollama') return OllamaEmbeddingProvider::fromEnvironment();
+    if($provider==='llamacpp') return LlamaCppEmbeddingProvider::fromEnvironment();
     fail('Unsupported embedding provider: '.$provider);
 }
 function optionalEmbeddingProvider(array $opts): ?EmbeddingProvider
@@ -207,6 +211,7 @@ function generationProvider(array $opts): ?GenerationProvider
     if($provider==='none') return null;
     if($provider==='bedrock-converse') return BedrockConverseGenerationProvider::fromEnvironment();
     if($provider==='ollama') return OllamaGenerationProvider::fromEnvironment();
+    if($provider==='llamacpp') return LlamaCppGenerationProvider::fromEnvironment();
     fail('Unsupported generation provider: '.$provider);
 }
 function recoveryPassphrase(array $opts): string

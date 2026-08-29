@@ -62,9 +62,10 @@ Implemented generation connectors are:
 ~~~text
 BedrockConverseGenerationProvider
 OllamaGenerationProvider
+LlamaCppGenerationProvider
 ~~~
 
-They remain outside the core. Bedrock lives under the AWS connector package; Ollama lives under the local connector package.
+They remain outside the core. Bedrock lives under the AWS connector package; Ollama and llama.cpp live under the local connector package.
 
 ## Bedrock configuration
 
@@ -153,3 +154,29 @@ mcma ask /path/to/library question.txt \
 The memory location can also be an S3, GitHub or WebDAV LOCATION. Local AI and memory storage are independent choices.
 
 For local deployments, keep Ollama on loopback by default and place any public web access behind the MCMA application/API layer rather than exposing the Ollama port directly.
+
+
+## Local llama.cpp configuration
+
+llama.cpp can provide both generation and semantic embeddings through separate OpenAI-compatible local servers.
+
+~~~bash
+export MCMA_LLAMACPP_CHAT_URL=http://127.0.0.1:8080
+export MCMA_LLAMACPP_EMBED_URL=http://127.0.0.1:8081
+export MCMA_LLAMACPP_CHAT_MODEL=mcma-chat
+export MCMA_LLAMACPP_EMBED_MODEL=mcma-embed
+export MCMA_LLAMACPP_EMBED_PREFIX='query: '
+export MCMA_LLAMACPP_EMBED_ID=multilingual-e5-small-mean-l2-v1
+~~~
+
+Full local ask route:
+
+~~~bash
+mcma ask LOCATION question.txt \
+  --actor=ai \
+  --embedding-provider=llamacpp \
+  --generation-provider=llamacpp \
+  --top-k=5
+~~~
+
+llama.cpp and Ollama semantic indexes remain separate by default. Equal vector dimensions do not imply compatible embeddings.

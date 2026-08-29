@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock or local Ollama AI.**
+Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
 
 ## Semantic retrieval
 
@@ -91,12 +91,28 @@ Local Ollama example:
 --generation-provider=ollama
 ~~~
 
-Ollama defaults to `http://127.0.0.1:11434`. Its embedding and chat models are selected independently with `MCMA_OLLAMA_EMBED_MODEL` and `MCMA_OLLAMA_CHAT_MODEL`.
+Local llama.cpp example:
 
-Local mode does not require Bedrock credentials. Memory storage remains independent: the same local AI process can use Local, S3, GitHub or WebDAV through the existing StorageAdapters.
+~~~text
+--embedding-provider=llamacpp
+--generation-provider=llamacpp
+~~~
+
+Ollama defaults to `http://127.0.0.1:11434`.
+
+llama.cpp defaults to separate local servers:
+
+~~~text
+chat       http://127.0.0.1:8080/v1/chat/completions
+embeddings http://127.0.0.1:8081/v1/embeddings
+~~~
+
+For llama.cpp embeddings, `MCMA_LLAMACPP_EMBED_PREFIX` and `MCMA_LLAMACPP_EMBED_ID` participate in semantic-index identity so incompatible vectors are not silently mixed.
+
+Local mode does not require Bedrock credentials. Memory storage remains independent: Local, S3, GitHub or WebDAV all remain valid StorageAdapters.
 
 ## Verification status
 
 CI tests use simulated providers and make no real Bedrock network calls.
 
-The next operational milestones are real EC2 smoke tests: one with Amazon Bedrock credentials and one with Ollama running locally. Both can use the same MCMA memory architecture and any implemented StorageAdapter.
+The next operational milestones are real EC2 smoke tests with Bedrock, Ollama and llama.cpp. All use the same MCMA memory architecture and any implemented StorageAdapter.
