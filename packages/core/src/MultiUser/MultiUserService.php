@@ -185,6 +185,53 @@ final class MultiUserService
         return $out;
     }
 
+    public function resolveUserIdForService(string $userId, bool $requireActive = true): Library
+    {
+        self::validateUserId($userId);
+        $registry = $this->ensureRegistryLibrary();
+        $record = $this->findRecord($registry, $userId);
+        if ($record === null) throw new RuntimeException('User is not registered');
+        if ($requireActive && ($record['status'] ?? null) !== 'active') {
+            throw new RuntimeException('User is not active');
+        }
+        return $this->openAndVerifyUserLibrary($record);
+    }
+
+    public function infoUserId(string $userId): array
+    {
+        self::validateUserId($userId);
+        $registry = $this->ensureRegistryLibrary();
+        $record = $this->findRecord($registry, $userId);
+        if ($record === null) throw new RuntimeException('User is not registered');
+        $library = $this->openAndVerifyUserLibrary($record);
+        return $this->publicRecord($record) + ['library'=>$library->info()];
+    }
+
+    public function setUserStatus(string $userId, string $status): array
+    {
+        self::validateUserId($userId);
+        if (!in_array($status, ['active','disabled'], true)) throw new RuntimeException('Invalid user status');
+
+        $result = $this->mutateRegistry(function(array $payload) use ($userId,$status): array {
+            $users = $payload['users'] ?? [];
+            if (!is_array($users) || ($users !== [] && array_is_list($users))) {
+                throw new RuntimeException('Malformed multi-user registry users map');
+            }
+            $record = $users[$userId] ?? null;
+            if (!is_array($record)) throw new RuntimeException('User is not registered');
+            $record['status'] = $status;
+            $record['updated_at'] = self::now();
+            $users[$userId] = $record;
+            $payload['users'] = $users;
+            $payload['updated_at'] = self::now();
+            return $payload;
+        });
+
+        $record = $this->findRecord($result['library'], $userId);
+        if ($record === null) throw new RuntimeException('User status update failed');
+        return $this->publicRecord($record);
+    }
+
     public function userStoragePrefix(string $issuer, string $subject): string
     {
         $identity = AuthenticatedIdentity::fromSubject($issuer, $subject, $this->pepper);
@@ -425,6 +472,11 @@ final class MultiUserService
             || str_contains($message, 'logical reference already exists')
             || str_contains($message, 'non-empty storage')
             || str_contains($message, 'already exists');
+    }
+
+    private static function validateUserId(string $userId): void
+    {
+        if (!preg_match('/^usr_[0-9a-f]{64}$/', $userId)) throw new RuntimeException('Invalid multi-user user_id');
     }
 
     private static function now(): string

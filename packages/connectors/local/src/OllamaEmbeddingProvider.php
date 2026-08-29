@@ -5,13 +5,15 @@ namespace MCMA\Connectors\Local;
 
 use JsonException;
 use MCMA\Core\Semantic\EmbeddingProvider;
+use MCMA\Core\Billing\UsageAwareEmbeddingProvider;
 use MCMA\Core\Semantic\VectorMath;
 use RuntimeException;
 
-final class OllamaEmbeddingProvider implements EmbeddingProvider
+final class OllamaEmbeddingProvider implements EmbeddingProvider, UsageAwareEmbeddingProvider
 {
     /** @var null|callable */
     private $requester;
+    private array $lastUsage = ['inputTokens'=>0,'totalTokens'=>0,'method'=>'unavailable'];
 
     public function __construct(
         private readonly string $baseUrl,
@@ -71,10 +73,23 @@ final class OllamaEmbeddingProvider implements EmbeddingProvider
             throw new RuntimeException('Ollama embedding response did not contain embeddings');
         }
 
+        $count = $response['prompt_eval_count'] ?? null;
+        if (is_int($count) && $count >= 0) {
+            $this->lastUsage = ['inputTokens'=>$count,'totalTokens'=>$count,'method'=>'provider'];
+        } else {
+            $estimate = max(1, strlen($text));
+            $this->lastUsage = ['inputTokens'=>$estimate,'totalTokens'=>$estimate,'method'=>'estimated-bytes-upper-bound'];
+        }
+
         return VectorMath::normalize($embeddings[0]);
     }
 
     /** @return array{0:int,1:string,2:array<string,string>} */
+    public function lastUsage(): array
+    {
+        return $this->lastUsage;
+    }
+
     private function request(string $method, string $url, array $headers, string $body): array
     {
         if ($this->requester !== null) {

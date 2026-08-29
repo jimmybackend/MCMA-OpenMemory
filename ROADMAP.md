@@ -133,6 +133,28 @@
 - [x] no database dependency
 - [ ] real EC2 HTTPS + live OIDC smoke test
 
+## Metering + Billing + Commercial API — first implementation complete
+- [x] encrypted daily usage ledger per user
+- [x] input/output/cached/embedding token metering
+- [x] exact provider counts when available, explicit estimates otherwise
+- [x] integer credits and integer currency micros
+- [x] lazy credit reservation before first AI call
+- [x] settlement and reservation release
+- [x] exact-memory responses do not consume AI credits
+- [x] pricing snapshots per usage event
+- [x] encrypted pricing catalog
+- [x] Free / Starter / Pro / Business plan catalog
+- [x] request, daily and concurrency controls
+- [x] external API keys stored as HMAC only
+- [x] web and API requests share the same user billing ledger
+- [x] SuperAdmin authorization and encrypted audit ledger
+- [x] service/access suspension, plan changes and credit adjustments
+- [x] payment ledger with duplicate-payment protection
+- [x] recorded Stripe / PayPal / Mercado Pago / bank-transfer / manual payment types
+- [x] user billing/API-key dashboard
+- [x] SuperAdmin web panel
+- [ ] live payment checkout/webhook verification connectors
+
 ## PHP architecture — OOP production boundary complete
 - [x] core services/classes/interfaces
 - [x] storage adapters as objects

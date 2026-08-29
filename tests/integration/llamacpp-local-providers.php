@@ -46,6 +46,7 @@ if (count($vector) !== 3 || abs($vector[0]-0.6) > 1e-12 || abs($vector[1]-0.8) >
 
 $expectedId = 'llamacpp:multilingual-e5-small-mean-v1:embed:l2:prefix-' . substr(hash('sha256', 'query: '), 0, 16);
 if ($embedding->id() !== $expectedId) throw new RuntimeException('llama.cpp embedding provider id mismatch');
+if (($embedding->lastUsage()['inputTokens'] ?? null) !== 3 || ($embedding->lastUsage()['method'] ?? null) !== 'provider') throw new RuntimeException('llama.cpp embedding usage mismatch');
 
 $otherPrefix = new LlamaCppEmbeddingProvider(
     'http://127.0.0.1:8081',

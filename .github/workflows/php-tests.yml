@@ -64,6 +64,11 @@ jobs:
           php tests/integration/web-oidc.php
           php tests/integration/web-application.php
 
+      - name: Billing and commercial API
+        run: |
+          php tests/integration/billing-metering-admin.php
+          php tests/integration/web-billing-api.php
+
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php
 

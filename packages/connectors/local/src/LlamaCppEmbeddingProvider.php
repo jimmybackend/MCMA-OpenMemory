@@ -5,13 +5,15 @@ namespace MCMA\Connectors\Local;
 
 use JsonException;
 use MCMA\Core\Semantic\EmbeddingProvider;
+use MCMA\Core\Billing\UsageAwareEmbeddingProvider;
 use MCMA\Core\Semantic\VectorMath;
 use RuntimeException;
 
-final class LlamaCppEmbeddingProvider implements EmbeddingProvider
+final class LlamaCppEmbeddingProvider implements EmbeddingProvider, UsageAwareEmbeddingProvider
 {
     /** @var null|callable */
     private $requester;
+    private array $lastUsage = ['inputTokens'=>0,'totalTokens'=>0,'method'=>'unavailable'];
 
     public function __construct(
         private readonly string $baseUrl,
@@ -85,7 +87,20 @@ final class LlamaCppEmbeddingProvider implements EmbeddingProvider
         $vector = $response['data'][0]['embedding'] ?? null;
         if (!is_array($vector)) throw new RuntimeException('llama.cpp embedding response did not contain data[0].embedding');
 
+        $count = $response['usage']['prompt_tokens'] ?? null;
+        if (is_int($count) && $count >= 0) {
+            $this->lastUsage = ['inputTokens'=>$count,'totalTokens'=>$count,'method'=>'provider'];
+        } else {
+            $estimate = max(1, strlen($text));
+            $this->lastUsage = ['inputTokens'=>$estimate,'totalTokens'=>$estimate,'method'=>'estimated-bytes-upper-bound'];
+        }
+
         return VectorMath::normalize($vector);
+    }
+
+    public function lastUsage(): array
+    {
+        return $this->lastUsage;
     }
 
     private function headers(): array

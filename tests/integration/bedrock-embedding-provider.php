@@ -22,7 +22,7 @@ $bearerRequester = function (string $method, string $url, array $headers, string
     $request = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
     if (($request['dimensions'] ?? null) !== 256 || ($request['normalize'] ?? null) !== true) throw new RuntimeException('Bedrock request options mismatch');
     $bearerSeen = true;
-    return [200, json_encode(['embedding'=>embedding256()], JSON_THROW_ON_ERROR), []];
+    return [200, json_encode(['embedding'=>embedding256(),'inputTextTokenCount'=>4], JSON_THROW_ON_ERROR), []];
 };
 
 $bearer = new BedrockTitanEmbeddingProvider(
@@ -37,6 +37,7 @@ $bearer = new BedrockTitanEmbeddingProvider(
 );
 $vector = $bearer->embed('semantic test');
 if (!$bearerSeen || count($vector) !== 256 || abs($vector[0] - 1.0) > 1e-12) throw new RuntimeException('Bedrock bearer embedding test failed');
+if (($bearer->lastUsage()['inputTokens'] ?? null) !== 4 || ($bearer->lastUsage()['method'] ?? null) !== 'provider') throw new RuntimeException('Bedrock embedding usage mismatch');
 
 $sigSeen = false;
 $sigRequester = function (string $method, string $url, array $headers, string $body) use (&$sigSeen): array {
@@ -45,7 +46,7 @@ $sigRequester = function (string $method, string $url, array $headers, string $b
     if (!str_contains($authorization, '/us-east-1/bedrock/aws4_request')) throw new RuntimeException('Bedrock SigV4 signing scope mismatch');
     if (!isset($headers['x-amz-content-sha256'], $headers['x-amz-date'])) throw new RuntimeException('Bedrock SigV4 headers missing');
     $sigSeen = true;
-    return [200, json_encode(['embeddingsByType'=>['float'=>embedding256()]], JSON_THROW_ON_ERROR), []];
+    return [200, json_encode(['embeddingsByType'=>['float'=>embedding256()],'inputTextTokenCount'=>5], JSON_THROW_ON_ERROR), []];
 };
 
 $signed = new BedrockTitanEmbeddingProvider(
@@ -60,6 +61,7 @@ $signed = new BedrockTitanEmbeddingProvider(
 );
 $vector2 = $signed->embed('signed semantic test');
 if (!$sigSeen || count($vector2) !== 256 || abs($vector2[0] - 1.0) > 1e-12) throw new RuntimeException('Bedrock SigV4 embedding test failed');
+if (($signed->lastUsage()['inputTokens'] ?? null) !== 5) throw new RuntimeException('Bedrock signed embedding usage mismatch');
 
 if ($signed->id() !== 'bedrock:amazon.titan-embed-text-v2:0:dimensions=256:normalize=true') throw new RuntimeException('Bedrock provider id mismatch');
 

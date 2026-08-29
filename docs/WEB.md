@@ -241,3 +241,30 @@ CI contains:
 - assertion that raw provider subjects do not appear in stored MCMA bytes.
 
 The remaining operational milestone is a live EC2 + HTTPS + real OIDC provider smoke test.
+
+
+## Billing and external API
+
+When `MCMA_BILLING_ENABLED=true`, the web/API layer uses the billing ledger before and after AI provider calls.
+
+User routes:
+
+~~~text
+GET    /mcma/v1/billing
+GET    /mcma/v1/billing/usage?date=YYYY-MM-DD
+GET    /mcma/v1/api-keys
+POST   /mcma/v1/api-keys
+DELETE /mcma/v1/api-keys/{key_id}
+~~~
+
+External clients authenticate with:
+
+~~~text
+Authorization: Bearer mcma_api_...
+~~~
+
+The API key resolves to the same isolated MCMA user library. The billing event records origin=api and the non-secret API key id.
+
+SuperAdmin routes are documented in `docs/BILLING.md`. The browser panel is `/admin.html`.
+
+Billing is disabled by default. Configure pricing and credits before enabling paid AI calls.

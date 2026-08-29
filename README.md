@@ -174,3 +174,14 @@ POST /logout
 ~~~
 
 See `docs/WEB.md` and `config/nginx/mcma-web.conf.example`.
+
+
+## Metering, credits and SuperAdmin
+
+MCMA can meter AI usage without SQL. Each user has encrypted daily billing ledgers with input, output, cached and embedding tokens, provider/model identity, pricing snapshot, credit charge and cost in integer currency micros.
+
+The web application supports user balances, API keys, external Bearer API calls and a SuperAdmin panel at `/admin.html`.
+
+SuperAdmin can manage plans, credits, service/access state, pricing and already verified payment records without receiving an API for reading private memory or Vault contents.
+
+See `docs/BILLING.md`.

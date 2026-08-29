@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Portable multi-cloud storage + encrypted multi-user libraries + complete OIDC web application + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + AI metering/credits/SuperAdmin + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
 
 ## Semantic retrieval
 
@@ -185,3 +185,18 @@ It provides OIDC Authorization Code + PKCE login, RS256/JWKS ID-token validation
 The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
 
 The remaining web milestone is a real EC2 HTTPS + live OIDC smoke test.
+
+
+## Metering and billing
+
+MCMA now has encrypted per-user daily ledgers for AI usage, credits, reservations, payments and adjustments.
+
+Generation and embedding calls are metered separately. Provider-reported token counts are preferred; fallback estimates are explicitly marked as estimates.
+
+Billing uses integer credit units and integer currency micros. Pricing snapshots are persisted with each usage event.
+
+External API keys are stored as HMAC only and resolve to the same user library/billing account as OIDC web sessions.
+
+SuperAdmin can inspect account/billing totals, change plans, adjust credits, suspend service/access, configure provider pricing and record already verified payments. No SuperAdmin route reads private memory content or Vault secrets.
+
+Live payment-provider checkout/webhook verification remains an operational connector milestone.

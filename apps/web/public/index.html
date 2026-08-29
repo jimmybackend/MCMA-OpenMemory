@@ -9,25 +9,39 @@
 <body>
   <main class="shell">
     <header>
-      <div>
-        <h1>MCMA OpenMemory</h1>
-        <p>Memoria cifrada, multiusuario y portable.</p>
-      </div>
+      <div><h1>MCMA OpenMemory</h1><p>Memoria cifrada, multiusuario y portable.</p></div>
       <div class="actions">
         <span id="status">Comprobando sesión…</span>
+        <a id="adminLink" href="/admin.html" hidden>Administrar</a>
         <a id="login" href="/login" hidden>Iniciar sesión</a>
         <button id="logout" type="button" hidden>Salir</button>
       </div>
     </header>
 
     <section id="account" class="card" hidden>
-      <strong>Biblioteca</strong>
-      <span id="library"></span>
+      <h2>Cuenta</h2>
+      <div class="stats">
+        <div><small>Biblioteca</small><strong id="library">—</strong></div>
+        <div><small>Plan</small><strong id="plan">—</strong></div>
+        <div><small>Servicio</small><strong id="service">—</strong></div>
+        <div><small>Créditos</small><strong id="balance">—</strong></div>
+        <div><small>Tokens IA</small><strong id="tokens">—</strong></div>
+        <div><small>Créditos usados</small><strong id="spent">—</strong></div>
+      </div>
     </section>
 
     <section id="registerBox" class="card" hidden>
       <p>Tu identidad está autenticada pero aún no tiene una biblioteca MCMA registrada.</p>
       <button id="register" type="button">Crear mi memoria</button>
+    </section>
+
+    <section id="apiKeysBox" class="card" hidden>
+      <div class="row between">
+        <div><h2>API keys</h2><p>El secreto sólo se muestra al crearlo.</p></div>
+        <button id="createKey" type="button">Nueva API key</button>
+      </div>
+      <div id="newKey" class="secret" hidden></div>
+      <div id="keyList"></div>
     </section>
 
     <section class="card">
@@ -42,9 +56,7 @@
       </form>
     </section>
 
-    <section class="card">
-      <pre id="answer">La respuesta aparecerá aquí.</pre>
-    </section>
+    <section class="card"><pre id="answer">La respuesta aparecerá aquí.</pre></section>
   </main>
   <script src="/app.js" defer></script>
 </body>

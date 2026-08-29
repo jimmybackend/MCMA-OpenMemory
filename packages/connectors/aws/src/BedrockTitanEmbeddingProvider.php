@@ -5,14 +5,16 @@ namespace MCMA\Connectors\Aws;
 
 use JsonException;
 use MCMA\Core\Semantic\EmbeddingProvider;
+use MCMA\Core\Billing\UsageAwareEmbeddingProvider;
 use MCMA\Core\Semantic\VectorMath;
 use MCMA\Core\Storage\AwsSigV4;
 use RuntimeException;
 
-final class BedrockTitanEmbeddingProvider implements EmbeddingProvider
+final class BedrockTitanEmbeddingProvider implements EmbeddingProvider, UsageAwareEmbeddingProvider
 {
     /** @var null|callable */
     private $requester;
+    private array $lastUsage = ['inputTokens'=>0,'totalTokens'=>0,'method'=>'unavailable'];
 
     public function __construct(
         private readonly string $region = 'us-east-1',
@@ -109,10 +111,23 @@ final class BedrockTitanEmbeddingProvider implements EmbeddingProvider
         $embedding = $response['embedding'] ?? ($response['embeddingsByType']['float'] ?? null);
         if (!is_array($embedding)) throw new RuntimeException('Bedrock embedding response did not contain a float embedding');
 
+        $count = $response['inputTextTokenCount'] ?? null;
+        if (is_int($count) && $count >= 0) {
+            $this->lastUsage = ['inputTokens'=>$count,'totalTokens'=>$count,'method'=>'provider'];
+        } else {
+            $estimate = max(1, strlen($text));
+            $this->lastUsage = ['inputTokens'=>$estimate,'totalTokens'=>$estimate,'method'=>'estimated-bytes-upper-bound'];
+        }
+
         return VectorMath::normalize($embedding, $this->dimensions);
     }
 
     /** @return array{0:int,1:string,2:array<string,string>} */
+    public function lastUsage(): array
+    {
+        return $this->lastUsage;
+    }
+
     private function request(string $method, string $url, array $headers, string $body): array
     {
         if ($this->requester !== null) {

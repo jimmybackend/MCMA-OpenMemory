@@ -32,6 +32,7 @@ if (count($vector) !== 3 || abs($vector[0]-0.6) > 1e-12 || abs($vector[1]-0.8) >
     throw new RuntimeException('Ollama embedding normalization mismatch');
 }
 if ($embedding->id() !== 'ollama:embedding-model:embed') throw new RuntimeException('Ollama embedding provider id mismatch');
+if (($embedding->lastUsage()['inputTokens'] ?? null) !== 3 || ($embedding->lastUsage()['method'] ?? null) !== 'provider') throw new RuntimeException('Ollama embedding usage mismatch');
 
 $chatSeen = false;
 $chatRequester = function (string $method, string $url, array $headers, string $body) use (&$chatSeen): array {
