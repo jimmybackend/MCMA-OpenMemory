@@ -53,6 +53,7 @@ jobs:
           php tests/integration/provider-migration-s3.php
           php tests/integration/webdav-storage-adapter.php
           php tests/integration/provider-migration-webdav.php
+          php tests/integration/multicloud-storage-adapters.php
 
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php

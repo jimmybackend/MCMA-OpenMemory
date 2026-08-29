@@ -109,7 +109,7 @@ embeddings http://127.0.0.1:8081/v1/embeddings
 
 For llama.cpp embeddings, `MCMA_LLAMACPP_EMBED_PREFIX` and `MCMA_LLAMACPP_EMBED_ID` participate in semantic-index identity so incompatible vectors are not silently mixed.
 
-Local mode does not require Bedrock credentials. Memory storage remains independent: Local, S3, GitHub or WebDAV all remain valid StorageAdapters.
+Local mode does not require Bedrock credentials. Memory storage remains independent: Local, GitHub, S3/S3-compatible, WebDAV, Google Cloud Storage, Google Drive, Azure Blob Storage and Alibaba OSS are available StorageAdapters.
 
 ## Verification status
 
@@ -127,3 +127,29 @@ The CLI is implemented by `MCMA\Core\Cli\CliApplication`; provider construction 
 Core, storage adapters, security, knowledge, semantic retrieval, agents and AI connectors remain class/interface based.
 
 CI includes an OOP conformance check that rejects new global function declarations inside production source directories.
+
+
+## Multi-cloud storage
+
+Implemented storage locations:
+
+~~~text
+/local/path
+github://OWNER/REPO/prefix?branch=main
+s3://BUCKET/prefix?region=us-east-1
+gcs://BUCKET/prefix
+gdrive://ROOT_FOLDER_ID
+azure://ACCOUNT/CONTAINER/prefix
+oss://BUCKET/prefix?region=cn-hangzhou
+webdav+https://HOST/library/root
+~~~
+
+Google Cloud Storage uses object generations and conditional generation matching for CAS.
+
+Azure Blob Storage uses ETags and conditional HTTP headers for CAS.
+
+Alibaba OSS uses its S3-compatible API through the existing S3 signing/storage engine and virtual-hosted addressing.
+
+Google Drive preserves exact encrypted bytes and exposes Drive's monotonically increasing file version, but is intentionally declared single-writer: MCMA does not claim atomic CAS for Drive.
+
+Provider credentials remain external to MCMA storage.

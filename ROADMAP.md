@@ -19,13 +19,18 @@
 - [x] recovery
 - [x] historical V1/V2 migration
 
-## Storage — complete
+## Storage — multi-cloud implementation complete
 - [x] Local
 - [x] GitHub
 - [x] S3-compatible
 - [x] WebDAV
-- [x] CAS/write coordination
+- [x] Google Cloud Storage
+- [x] Google Drive single-writer adapter
+- [x] Microsoft Azure Blob Storage
+- [x] Alibaba Cloud OSS through S3 compatibility
+- [x] CAS/write coordination where provider primitives support it
 - [x] byte-preserving provider migration
+- [x] provider capability reporting
 
 ## Permissions + Vault — first implementation complete
 - [x] actor/action/resource engine

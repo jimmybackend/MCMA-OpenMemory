@@ -258,6 +258,10 @@ LOCATION:
   /local/path
   github://OWNER/REPO/optional/prefix?branch=main
   s3://BUCKET/optional/prefix?region=us-east-1
+  gcs://BUCKET/optional/prefix
+  gdrive://ROOT_FOLDER_ID
+  azure://ACCOUNT/CONTAINER/optional/prefix
+  oss://BUCKET/optional/prefix?region=cn-hangzhou
   webdav+https://HOST/existing/library/root
 
 Usage:
@@ -299,6 +303,10 @@ No command prints raw vault secrets. vault-put reads the secret from ENV_VAR.
 Provider credentials:
   GitHub: MCMA_GITHUB_TOKEN
   S3: MCMA_S3_* or standard AWS_* variables
+  Google Cloud Storage: MCMA_GCS_ACCESS_TOKEN
+  Google Drive: MCMA_GDRIVE_ACCESS_TOKEN
+  Azure Blob: MCMA_AZURE_SAS_TOKEN or MCMA_AZURE_BEARER_TOKEN
+  Alibaba OSS: MCMA_OSS_* or ALIBABA_CLOUD_* variables
   WebDAV: MCMA_WEBDAV_AUTH plus username/password or bearer token
 
 write/update options:

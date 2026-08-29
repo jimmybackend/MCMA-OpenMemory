@@ -25,7 +25,7 @@ encrypted .mcma bytes
 
 ## Storage adapters
 
-Local, GitHub, S3/S3-compatible and WebDAV are implemented.
+Local, GitHub, S3/S3-compatible, WebDAV, Google Cloud Storage, Google Drive, Microsoft Azure Blob Storage and Alibaba Cloud OSS are implemented.
 
 ## Permissions + Vault
 
@@ -116,3 +116,21 @@ MCMA also supports llama.cpp through its OpenAI-compatible HTTP server:
 ~~~
 
 Chat and embeddings can run on separate loopback ports, so a small quantized chat model and a dedicated embedding model can be managed independently.
+
+
+## Multi-cloud storage
+
+MCMA storage is selected independently from the AI runtime.
+
+~~~text
+Local
+GitHub
+Amazon S3 / S3-compatible
+Google Cloud Storage
+Google Drive
+Microsoft Azure Blob Storage
+Alibaba Cloud OSS
+WebDAV
+~~~
+
+GCS, Azure and S3-style providers use their native conditional-write/version primitives. Google Drive is supported as a single-writer backend and does not claim atomic compare-and-swap.
