@@ -401,6 +401,11 @@ final class Library
         }
     }
 
+    public function refresh(): void
+    {
+        $this->reload();
+    }
+
     public function read(string $logicalRef): array
     {
         self::validateLogicalRef($logicalRef);

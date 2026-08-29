@@ -35,6 +35,7 @@ final class BillingService
 
     public function account(Library $library): array
     {
+        $library->refresh();
         $content=$library->read(self::ACCOUNT_REF)['payload']['content']??null;
         if(!is_array($content)||array_is_list($content)||($content['version']??null)!=='1.0') throw new RuntimeException('Malformed billing account');
         return $content;
@@ -64,6 +65,7 @@ final class BillingService
 
     public function state(Library $library): array
     {
+        $library->refresh();
         $refs=$this->ledgerRefs($library);
         if($refs===[]) return ['balance_units'=>0,'reserved_units'=>0,'active_reservations'=>[],'last_ledger_ref'=>null];
         $ref=end($refs);
@@ -320,6 +322,7 @@ final class BillingService
 
     public function totals(Library $library): array
     {
+        $library->refresh();
         $totals = [
             'requests'=>0,'input_tokens'=>0,'output_tokens'=>0,'cached_tokens'=>0,
             'embedding_tokens'=>0,'total_tokens'=>0,'model_calls'=>0,'duration_ms'=>0,
@@ -362,6 +365,7 @@ final class BillingService
 
     public function dailyUsage(Library $library,string $date): array
     {
+        $library->refresh();
         if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)) throw new RuntimeException('Date must be YYYY-MM-DD');
         $ref=self::ledgerRef($date);
         if(!$this->hasRef($library,$ref)) return ['date'=>$date,'events'=>[],'summary'=>self::emptyUsageSummary()];
