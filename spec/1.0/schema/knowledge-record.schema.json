@@ -38,10 +38,10 @@
     },
     "epistemic": {
       "type": "object",
-      "required": ["confidence_ppm", "validation_state", "evidence_count", "captured_at", "last_validated_at", "history"],
+      "required": ["confidence", "validation_state", "evidence_count", "captured_at", "last_validated_at", "history"],
       "additionalProperties": false,
       "properties": {
-        "confidence_ppm": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "validation_state": { "$ref": "#/$defs/validationState" },
         "evidence_count": { "type": "integer", "minimum": 0 },
         "captured_at": { "type": "string", "format": "date-time" },
@@ -56,12 +56,12 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["at", "validation_state", "confidence_ppm", "reason"],
+            "required": ["at", "validation_state", "confidence", "reason"],
             "additionalProperties": false,
             "properties": {
               "at": { "type": "string", "format": "date-time" },
               "validation_state": { "$ref": "#/$defs/validationState" },
-              "confidence_ppm": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
               "reason": { "type": "string", "minLength": 1 }
             }
           }

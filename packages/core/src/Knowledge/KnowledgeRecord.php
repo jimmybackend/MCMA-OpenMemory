@@ -71,7 +71,7 @@ final class KnowledgeRecord
             ],
             'provenance' => $provenance,
             'epistemic' => [
-                'confidence_ppm' => self::confidenceToPpm($confidence),
+                'confidence' => $confidence,
                 'validation_state' => $validationState,
                 'evidence_count' => count($provenance),
                 'captured_at' => $at,
@@ -79,7 +79,7 @@ final class KnowledgeRecord
                 'history' => [[
                     'at' => $at,
                     'validation_state' => $validationState,
-                    'confidence_ppm' => self::confidenceToPpm($confidence),
+                    'confidence' => $confidence,
                     'reason' => 'capture',
                 ]],
             ],
@@ -114,7 +114,7 @@ final class KnowledgeRecord
 
         $epistemic = $record['epistemic'] ?? null;
         if (!is_array($epistemic)) throw new RuntimeException('Knowledge epistemic metadata must be an object');
-        self::validateConfidencePpm($epistemic['confidence_ppm'] ?? null);
+        self::validateConfidence((float)($epistemic['confidence'] ?? -1));
         self::validateValidationState((string)($epistemic['validation_state'] ?? ''));
         if (!is_int($epistemic['evidence_count'] ?? null) || $epistemic['evidence_count'] < 0) throw new RuntimeException('Invalid evidence_count');
         if (($epistemic['evidence_count'] ?? -1) !== count($record['provenance'])) throw new RuntimeException('Knowledge evidence_count mismatch');
@@ -149,14 +149,14 @@ final class KnowledgeRecord
             $record['provenance'] = array_values(array_merge($record['provenance'], $normalized));
         }
 
-        $record['epistemic']['confidence_ppm'] = self::confidenceToPpm($confidence);
+        $record['epistemic']['confidence'] = $confidence;
         $record['epistemic']['validation_state'] = $state;
         $record['epistemic']['evidence_count'] = count($record['provenance']);
         $record['epistemic']['last_validated_at'] = $at;
         $record['epistemic']['history'][] = [
             'at' => $at,
             'validation_state' => $state,
-            'confidence_ppm' => self::confidenceToPpm($confidence),
+            'confidence' => $confidence,
             'reason' => $reason,
         ];
         self::validate($record);
@@ -172,7 +172,7 @@ final class KnowledgeRecord
         $epistemic = $record['epistemic'];
         $freshness = $record['freshness'];
         $state = $epistemic['validation_state'];
-        $confidence = self::confidenceFromPpm((int)$epistemic['confidence_ppm']);
+        $confidence = (float)$epistemic['confidence'];
         $policy = $freshness['reuse_policy'];
         $class = $freshness['class'];
         $reasons = [];
@@ -216,7 +216,7 @@ final class KnowledgeRecord
             'stale' => $stale,
             'intent_key' => $record['intent']['key'],
             'validation_state' => $record['epistemic']['validation_state'],
-            'confidence' => self::confidenceFromPpm((int)$record['epistemic']['confidence_ppm']),
+            'confidence' => $record['epistemic']['confidence'],
             'freshness_class' => $record['freshness']['class'],
             'reuse_policy' => $record['freshness']['reuse_policy'],
         ];
@@ -254,7 +254,7 @@ final class KnowledgeRecord
         if (!is_array($event)) throw new RuntimeException('Knowledge validation history event must be an object');
         self::validateTimestamp((string)($event['at'] ?? ''));
         self::validateValidationState((string)($event['validation_state'] ?? ''));
-        self::validateConfidencePpm($event['confidence_ppm'] ?? null);
+        self::validateConfidence((float)($event['confidence'] ?? -1));
         if (!is_string($event['reason'] ?? null) || trim($event['reason']) === '') throw new RuntimeException('Knowledge validation history reason required');
     }
 
@@ -267,23 +267,6 @@ final class KnowledgeRecord
     private static function validateConfidence(float $confidence): void
     {
         if (!is_finite($confidence) || $confidence < 0.0 || $confidence > 1.0) throw new RuntimeException('Knowledge confidence must be between 0 and 1');
-    }
-
-    private static function confidenceToPpm(float $confidence): int
-    {
-        self::validateConfidence($confidence);
-        return (int)round($confidence * 1000000);
-    }
-
-    private static function confidenceFromPpm(int $ppm): float
-    {
-        self::validateConfidencePpm($ppm);
-        return $ppm / 1000000;
-    }
-
-    private static function validateConfidencePpm(mixed $ppm): void
-    {
-        if (!is_int($ppm) || $ppm < 0 || $ppm > 1000000) throw new RuntimeException('Knowledge confidence_ppm must be an integer between 0 and 1000000');
     }
 
     private static function validateValidationState(string $state): void

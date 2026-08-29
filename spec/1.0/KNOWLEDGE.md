@@ -96,11 +96,9 @@ The default direct-answer policy requires supported or verified knowledge.
 
 ## Confidence
 
-The public API and CLI express confidence from 0.0 through 1.0.
+confidence is a numeric value from 0.0 through 1.0.
 
-The encrypted canonical record stores the same value as integer confidence_ppm from 0 through 1000000. This avoids floating-point canonicalization in the first PHP writer while retaining six decimal places.
-
-Confidence is an auditable quality/belief signal, not a mathematical guarantee of truth.
+It is an auditable quality/belief signal, not a mathematical guarantee of truth.
 
 The direct-answer path has a configurable minimum confidence threshold. The reference default is:
 
@@ -116,7 +114,7 @@ Validation updates append an event:
 {
   "at": "timestamp",
   "validation_state": "verified",
-  "confidence_ppm": 990000,
+  "confidence": 0.99,
   "reason": "working test passed"
 }
 ~~~

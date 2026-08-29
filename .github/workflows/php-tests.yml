@@ -27,6 +27,7 @@ jobs:
       - name: MCMA conformance
         run: |
           php tests/conformance/run.php
+          php tests/conformance/jcs-numbers.php
           php tests/conformance/aws-sigv4-s3.php
 
       - name: Core integrations
