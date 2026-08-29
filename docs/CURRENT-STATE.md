@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
 
 ## Semantic retrieval
 
@@ -153,3 +153,24 @@ Alibaba OSS uses its S3-compatible API through the existing S3 signing/storage e
 Google Drive preserves exact encrypted bytes and exposes Drive's monotonically increasing file version, but is intentionally declared single-writer: MCMA does not claim atomic CAS for Drive.
 
 Provider credentials remain external to MCMA storage.
+
+
+## Multi-user mode
+
+MCMA now supports multiple users on the same physical storage backend without SQL/database persistence.
+
+~~~text
+ROOT
+├── system/user-registry/...
+└── memories/
+    ├── usr_<hmac-sha256>/...
+    └── usr_<hmac-sha256>/...
+~~~
+
+The system registry is an encrypted MCMA library. Each user is also a distinct MCMA library with a different `library_id`, KeyStore key, permissions, indexes, vault and objects.
+
+The user path is derived from the authenticated identity using HMAC-SHA256 and `MCMA_MULTIUSER_PEPPER`. The original issuer/subject is not stored.
+
+Multi-user mode deliberately rejects `MCMA_MASTER_KEY_B64`; it requires per-library keys through the KeyStore.
+
+The web/application layer must authenticate the request first and pass verified issuer + subject to `MultiUserService::resolve()`. MCMA does not trust a browser-supplied user id.

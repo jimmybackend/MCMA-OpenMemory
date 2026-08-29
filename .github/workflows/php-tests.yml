@@ -55,6 +55,9 @@ jobs:
           php tests/integration/provider-migration-webdav.php
           php tests/integration/multicloud-storage-adapters.php
 
+      - name: Multi-user isolation
+        run: php tests/integration/multiuser.php
+
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php
 

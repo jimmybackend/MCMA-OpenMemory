@@ -7,6 +7,7 @@ use MCMA\Core\Crypto;
 use MCMA\Core\HistoricalCrypto;
 use MCMA\Core\KeyStore;
 use MCMA\Core\Library;
+use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Agent\Librarian;
 use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
@@ -218,6 +219,35 @@ final class CliApplication
             break;
         }
 
+        case 'users-init': {
+            $loc=array_shift($args)??$this->usage();if($args!==[])$this->usage();
+            echo $this->pretty($this->multiUser($loc)->bootstrap()).PHP_EOL;
+            break;
+        }
+        case 'user-register': {
+            $loc=array_shift($args)??$this->usage();$opts=$this->parseOptions($args);
+            [$issuer,$subject]=$this->authenticatedIdentity($opts);
+            echo $this->pretty($this->multiUser($loc)->register($issuer,$subject)).PHP_EOL;
+            break;
+        }
+        case 'user-info': {
+            $loc=array_shift($args)??$this->usage();$opts=$this->parseOptions($args);
+            [$issuer,$subject]=$this->authenticatedIdentity($opts);
+            echo $this->pretty($this->multiUser($loc)->info($issuer,$subject)).PHP_EOL;
+            break;
+        }
+        case 'user-disable': {
+            $loc=array_shift($args)??$this->usage();$opts=$this->parseOptions($args);
+            [$issuer,$subject]=$this->authenticatedIdentity($opts);
+            echo $this->pretty($this->multiUser($loc)->disable($issuer,$subject)).PHP_EOL;
+            break;
+        }
+        case 'users-list': {
+            $loc=array_shift($args)??$this->usage();if($args!==[])$this->usage();
+            echo $this->pretty($this->multiUser($loc)->listUsers()).PHP_EOL;
+            break;
+        }
+
         case 'key-export': {
             $loc=array_shift($args)??$this->usage();$out=array_shift($args)??$this->usage();$opts=$this->parseOptions($args);$lib=$this->library($loc);
             echo $this->pretty(KeyStore::exportRecovery($lib->libraryId(),$out,$this->recoveryPassphrase($opts))).PHP_EOL;break;
@@ -298,7 +328,14 @@ Usage:
   mcma migrate LOCATION HISTORICAL.mcma MEMORY_URI [options]
   mcma storage-copy SOURCE_LOCATION DESTINATION_LOCATION
 
+  mcma users-init ROOT_LOCATION
+  mcma user-register ROOT_LOCATION [--issuer-env=MCMA_AUTH_ISSUER] [--subject-env=MCMA_AUTH_SUBJECT]
+  mcma user-info ROOT_LOCATION [--issuer-env=MCMA_AUTH_ISSUER] [--subject-env=MCMA_AUTH_SUBJECT]
+  mcma user-disable ROOT_LOCATION [--issuer-env=MCMA_AUTH_ISSUER] [--subject-env=MCMA_AUTH_SUBJECT]
+  mcma users-list ROOT_LOCATION
+
 No command prints raw vault secrets. vault-put reads the secret from ENV_VAR.
+Multi-user identity is read from environment variables, not command-line values.
 
 Provider credentials:
   GitHub: MCMA_GITHUB_TOKEN
@@ -441,6 +478,18 @@ TXT
         $value=getenv($name);
         if(!is_string($value)) $this->fail('Secret environment variable is not set: '.$name);
         return $value;
+    }
+
+    private function multiUser(string $location): MultiUserService
+    {
+        return MultiUserService::fromEnvironment($this->storage($location));
+    }
+
+    private function authenticatedIdentity(array $opts): array
+    {
+        $issuerEnv=$opts['issuer-env']??'MCMA_AUTH_ISSUER';
+        $subjectEnv=$opts['subject-env']??'MCMA_AUTH_SUBJECT';
+        return [$this->envSecret($issuerEnv),$this->envSecret($subjectEnv)];
     }
 
     private function embeddingProvider(array $opts): EmbeddingProvider

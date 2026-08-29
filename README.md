@@ -134,3 +134,20 @@ WebDAV
 ~~~
 
 GCS, Azure and S3-style providers use their native conditional-write/version primitives. Google Drive is supported as a single-writer backend and does not claim atomic compare-and-swap.
+
+
+## Multi-user without a database
+
+MCMA can host many users on one storage backend while keeping each user in a separate encrypted library.
+
+~~~text
+system/user-registry/
+memories/usr_<hmac-sha256>/
+memories/usr_<hmac-sha256>/
+~~~
+
+The application authenticates the user first, then `MultiUserService` derives a non-PII stable user ID from verified issuer + subject, checks the encrypted registry, verifies the expected `library_id`, and returns only that user's Library.
+
+No raw email/subject is used as a storage path. Multi-user mode uses per-library KeyStore keys and rejects a shared `MCMA_MASTER_KEY_B64`.
+
+See `docs/MULTIUSER.md`.

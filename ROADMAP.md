@@ -97,6 +97,22 @@
 - [x] configurable embedding compatibility fingerprint/prefix for llama.cpp
 - [x] no Bedrock credentials required for local mode
 
+## Multi-user — first implementation complete
+- [x] encrypted user registry without SQL/database
+- [x] provider-neutral PrefixStorageAdapter
+- [x] deterministic non-PII user IDs via HMAC-SHA256
+- [x] separate library_id and KeyStore key per user
+- [x] memories/usr_<digest>/ namespace
+- [x] identity marker inside each user library
+- [x] register / resolve / info / list / disable
+- [x] atomic registry JSON mutation with locking/CAS where supported
+- [x] issuer/subject never stored in plaintext
+- [x] CLI identity read from environment, not shell arguments
+- [x] multi-user mode rejects global MCMA_MASTER_KEY_B64
+- [ ] pepper rotation/migration
+- [ ] bulk multi-user recovery workflow
+- [ ] production HTTP authentication adapter
+
 ## PHP architecture — OOP production boundary complete
 - [x] core services/classes/interfaces
 - [x] storage adapters as objects

@@ -149,6 +149,36 @@ final class Library
         });
     }
 
+    public function mutateJson(string $logicalRef, callable $mutator, ?string $actor = null): array
+    {
+        return $this->withWriteLock(function () use ($logicalRef, $mutator, $actor): array {
+            self::validateLogicalRef($logicalRef);
+            if ($actor !== null) $this->assertPermission($actor, 'update', $logicalRef);
+            self::assertOrdinaryRef($logicalRef);
+
+            $index = $this->loadRootIndex();
+            [$entryPosition, $entry] = $this->findEntryWithPosition($index['payload'], $logicalRef);
+            $payload = Crypto::decryptPayload($this->masterKey, $this->readObjectByHash($entry['storage_hash']));
+
+            if (($payload['content_format'] ?? null) !== 'json') {
+                throw new RuntimeException('mutateJson requires a JSON memory object');
+            }
+
+            $current = $payload['content'] ?? null;
+            $next = $mutator($current);
+            $payload['content'] = self::normalizeContent($next, 'json');
+
+            if (!isset($payload['metadata']) || !is_array($payload['metadata'])) {
+                throw new RuntimeException('Malformed object metadata');
+            }
+            $payload['metadata']['updated_at'] = self::now();
+            $payload['metadata']['revision'] = max(1, (int)($payload['metadata']['revision'] ?? 1)) + 1;
+            $payload['metadata']['previous_storage_hash'] = $entry['storage_hash'];
+
+            return $this->commitRevision($index, $entryPosition, $entry['object_id'], $payload, $logicalRef);
+        });
+    }
+
     public function setTemperature(string $logicalRef, string $temperature, ?string $actor = null): array
     {
         if (!in_array($temperature, ['hot', 'warm', 'cold', 'frozen'], true)) throw new RuntimeException('Invalid temperature');
