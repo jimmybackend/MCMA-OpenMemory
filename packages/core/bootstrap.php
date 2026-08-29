@@ -25,6 +25,8 @@ require_once __DIR__ . '/src/Semantic/SemanticIndexService.php';
 require_once __DIR__ . '/src/Ask/GenerationProvider.php';
 require_once __DIR__ . '/../connectors/aws/src/BedrockTitanEmbeddingProvider.php';
 require_once __DIR__ . '/../connectors/aws/src/BedrockConverseGenerationProvider.php';
+require_once __DIR__ . '/../connectors/local/src/OllamaEmbeddingProvider.php';
+require_once __DIR__ . '/../connectors/local/src/OllamaGenerationProvider.php';
 require_once __DIR__ . '/src/Agent/Librarian.php';
 require_once __DIR__ . '/src/Ask/AskService.php';
 require_once __DIR__ . '/src/Agent/SecurityAgent.php';

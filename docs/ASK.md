@@ -57,13 +57,14 @@ GenerationProvider
   generate(question, context): array
 ~~~
 
-The first connector is:
+Implemented generation connectors are:
 
 ~~~text
 BedrockConverseGenerationProvider
+OllamaGenerationProvider
 ~~~
 
-It is outside the core under the AWS connector package.
+They remain outside the core. Bedrock lives under the AWS connector package; Ollama lives under the local connector package.
 
 ## Bedrock configuration
 
@@ -125,3 +126,30 @@ Generated answers are remembered by default. Disable capture with:
 ~~~
 
 The real EC2 smoke test is intentionally separate from CI. CI uses simulated Bedrock requests and never requires production credentials.
+
+
+## Local Ollama configuration
+
+Ollama can provide both semantic embeddings and answer generation without Bedrock.
+
+~~~bash
+export MCMA_OLLAMA_BASE_URL=http://127.0.0.1:11434
+export MCMA_OLLAMA_EMBED_MODEL=REPLACE_WITH_INSTALLED_EMBED_MODEL
+export MCMA_OLLAMA_CHAT_MODEL=REPLACE_WITH_INSTALLED_CHAT_MODEL
+export MCMA_OLLAMA_MAX_TOKENS=1024
+export MCMA_OLLAMA_TEMPERATURE=0.2
+~~~
+
+Full local ask route:
+
+~~~bash
+mcma ask /path/to/library question.txt \
+  --actor=ai \
+  --embedding-provider=ollama \
+  --generation-provider=ollama \
+  --top-k=5
+~~~
+
+The memory location can also be an S3, GitHub or WebDAV LOCATION. Local AI and memory storage are independent choices.
+
+For local deployments, keep Ollama on loopback by default and place any public web access behind the MCMA application/API layer rather than exposing the Ollama port directly.

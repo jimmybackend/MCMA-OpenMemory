@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + optional ask orchestration.**
+Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock or local Ollama AI.**
 
 ## Semantic retrieval
 
@@ -77,15 +77,26 @@ mcma semantic-topk
 mcma ask
 ~~~
 
-For ask, both providers are optional. Example provider flags:
+For ask, both providers are optional. Bedrock example:
 
 ~~~text
 --embedding-provider=bedrock-titan-v2
 --generation-provider=bedrock-converse
 ~~~
 
+Local Ollama example:
+
+~~~text
+--embedding-provider=ollama
+--generation-provider=ollama
+~~~
+
+Ollama defaults to `http://127.0.0.1:11434`. Its embedding and chat models are selected independently with `MCMA_OLLAMA_EMBED_MODEL` and `MCMA_OLLAMA_CHAT_MODEL`.
+
+Local mode does not require Bedrock credentials. Memory storage remains independent: the same local AI process can use Local, S3, GitHub or WebDAV through the existing StorageAdapters.
+
 ## Verification status
 
 CI tests use simulated providers and make no real Bedrock network calls.
 
-The next operational milestone is a real EC2 + Amazon Bedrock end-to-end smoke test with actual credentials and a chosen Converse-compatible model.
+The next operational milestones are real EC2 smoke tests: one with Amazon Bedrock credentials and one with Ollama running locally. Both can use the same MCMA memory architecture and any implemented StorageAdapter.

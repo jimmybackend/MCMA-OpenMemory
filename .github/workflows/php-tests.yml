@@ -60,3 +60,6 @@ jobs:
         run: |
           php tests/integration/ask-orchestration.php
           php tests/integration/bedrock-converse-provider.php
+
+      - name: Local AI providers
+        run: php tests/integration/ollama-local-providers.php
