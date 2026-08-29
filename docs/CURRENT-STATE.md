@@ -2,66 +2,72 @@
 
 Date: 2026-08-29
 
-Status: **Provider-neutral MCMA 1.0 core with Local and GitHub storage adapters implemented.**
+Status: **Provider-neutral MCMA 1.0 core with Local, GitHub and S3-compatible storage implemented.**
 
-## Core/storage separation
-
-The active core is now:
+## Storage boundary
 
 ```text
 Library
   ↓
 StorageAdapter
   ├── LocalFilesystemAdapter
-  └── GitHubStorageAdapter
+  ├── GitHubStorageAdapter
+  └── S3StorageAdapter
 ```
 
-`Library` operates only on portable locators such as `manifest.mcma` and `objects/...mcma`.
+The core uses only portable locators such as `manifest.mcma` and `objects/...mcma`.
 
-The compatibility class `LocalLibrary` remains as a thin wrapper for existing local callers.
+## S3 implementation
 
-## Implemented storage behavior
+The S3 adapter implements:
 
-Local:
+- AWS Signature Version 4;
+- GET/HEAD/PUT/DELETE;
+- ListObjectsV2 prefix listing;
+- ETag provider versions;
+- `If-None-Match: *` create-only writes;
+- `If-Match` compare-and-swap updates;
+- AWS S3 default endpoints;
+- custom S3-compatible endpoints;
+- optional path-style addressing;
+- temporary/session credentials.
 
-- atomic file writes;
-- exclusive write lock;
-- compare-and-swap versions;
-- prefix listing.
+Credentials remain outside MCMA objects.
 
-GitHub:
-
-- GitHub Contents API byte storage;
-- Git blob SHA versions;
-- optimistic compare-and-swap for mutable manifest publication;
-- recursive prefix listing;
-- optional repository prefix and branch.
-
-## Provider migration
+## Locations
 
 ```text
-mcma storage-copy SOURCE_LOCATION DESTINATION_LOCATION
+/local/path
+github://OWNER/REPO/prefix?branch=main
+s3://BUCKET/prefix?region=us-east-1
 ```
 
-copies all encrypted content-addressed objects byte-for-byte and writes the manifest last.
-
-Tests verify exact byte preservation.
+Custom S3-compatible services are configured through `MCMA_S3_ENDPOINT` and `MCMA_S3_PATH_STYLE`.
 
 ## Tests
 
 Added:
 
 ```text
-tests/integration/storage-adapters.php
-tests/integration/github-storage-adapter.php
+tests/conformance/aws-sigv4-s3.php
+tests/integration/s3-storage-adapter.php
+tests/integration/provider-migration-s3.php
 ```
 
-The GitHub adapter test uses a simulated API transport; it does not require or expose a real token.
+The SigV4 test reproduces the official AWS S3 signature vector.
 
-## Existing functionality retained
+The provider migration test performs:
 
-Stable revisions, temperature transitions, recovery, historical V1/V2 migration, encrypted index routing and conformance behavior remain in the core.
+```text
+Local → S3-compatible → Local
+```
+
+and verifies exact bytes after the round trip.
+
+## Existing behavior retained
+
+Stable object IDs, storage hashes, encrypted revisions, temperature transitions, recovery and historical V1/V2 migration are unchanged.
 
 ## Next block
 
-Implement the S3-compatible adapter and provider migration tests Local ↔ S3-compatible. After that, implement WebDAV or begin the permissions/vault layer.
+Implement WebDAV or move upward into the permissions/vault layer.

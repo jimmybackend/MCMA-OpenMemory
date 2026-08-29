@@ -1,6 +1,6 @@
 # Storage Adapters
 
-MCMA 1.0 now has an implemented provider-neutral storage boundary.
+MCMA 1.0 has an implemented provider-neutral storage boundary.
 
 ## Interface
 
@@ -15,79 +15,84 @@ withWriteLock(callback)
 capabilities()
 ```
 
-The core uses portable locators such as:
+Portable locators:
 
 ```text
 manifest.mcma
 objects/ab/cd/<sha256>.mcma
 ```
 
-It does not use bucket names, repository paths or local filesystem paths as memory identity.
+Provider paths never define memory identity.
 
-## Local filesystem adapter
+## Local filesystem
 
-Implemented in:
+`LocalFilesystemAdapter` provides atomic file replacement, SHA-256 versions, prefix listing and exclusive `.mcma.lock` writes.
 
-```text
-packages/core/src/Storage/LocalFilesystemAdapter.php
-```
+## GitHub
 
-It provides atomic file replacement, SHA-256 compare-and-swap versions, prefix listing and exclusive `.mcma.lock` writes.
-
-## GitHub adapter
-
-Implemented in:
-
-```text
-packages/core/src/Storage/GitHubStorageAdapter.php
-```
-
-Location syntax:
+`GitHubStorageAdapter` uses GitHub Contents/Git tree APIs.
 
 ```text
 github://OWNER/REPO/optional/prefix?branch=main
 ```
 
-Authentication is supplied through:
+The mutable manifest is protected by optimistic compare-and-swap using its Git blob SHA.
+
+## S3 / S3-compatible
+
+`S3StorageAdapter` uses AWS Signature Version 4 and ETag-based versions.
 
 ```text
-MCMA_GITHUB_TOKEN
+s3://BUCKET/optional/prefix?region=us-east-1
 ```
 
-The branch must already exist.
+Environment configuration:
 
-GitHub object versions use Git blob SHA values. The adapter does not pretend to have a distributed lock; instead the core publishes mutable library state by updating `manifest.mcma` with compare-and-swap semantics. A stale manifest SHA causes the write to fail instead of silently overwriting another writer.
+```text
+MCMA_S3_REGION
+MCMA_S3_ACCESS_KEY_ID
+MCMA_S3_SECRET_ACCESS_KEY
+MCMA_S3_SESSION_TOKEN
+MCMA_S3_ENDPOINT
+MCMA_S3_PATH_STYLE
+```
+
+Standard `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_REGION` and `AWS_DEFAULT_REGION` are fallback inputs.
+
+Without a custom endpoint, MCMA uses normal AWS S3 regional virtual-hosted addressing. For custom compatible endpoints, path-style defaults to enabled unless explicitly overridden.
+
+S3 write coordination uses:
+
+```text
+new immutable object  → If-None-Match: *
+manifest update       → If-Match: <current ETag>
+```
+
+A stale mutable write fails instead of silently replacing newer library state.
 
 ## Byte-preserving provider migration
 
-`mcma storage-copy SOURCE DESTINATION` copies all content-addressed objects first and publishes `manifest.mcma` last.
+`mcma storage-copy SOURCE DESTINATION` copies content-addressed objects first, checks the returned bytes, and publishes `manifest.mcma` last.
 
-Each copied object's exact bytes are read back and compared.
+Storage migration therefore preserves:
 
-Moving storage therefore does not change:
-
-- encrypted envelope bytes;
+- exact encrypted bytes;
 - `object_id`;
 - `storage_hash`;
 - cryptographic identity.
 
-The encryption key remains outside the storage provider and is not copied by `storage-copy`.
+Keys are not copied into the storage provider.
 
-## Capabilities
+## Tests
 
-Adapters expose capabilities such as:
-
-```json
-{
-  "compare_and_swap": true,
-  "exclusive_lock": false,
-  "list_prefix": true,
-  "byte_preserving": true
-}
+```text
+tests/integration/storage-adapters.php
+tests/integration/github-storage-adapter.php
+tests/integration/s3-storage-adapter.php
+tests/integration/provider-migration-s3.php
+tests/conformance/aws-sigv4-s3.php
 ```
 
-Remote adapters must define their concurrency behavior explicitly.
+## Next adapter
 
-## Next adapters
-
-S3-compatible and WebDAV remain future implementations.
+WebDAV remains unimplemented.

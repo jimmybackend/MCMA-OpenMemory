@@ -13,7 +13,7 @@ Optional AI / Agents
   StorageAdapter
    ├── Local
    ├── GitHub
-   ├── S3-compatible (next)
+   ├── S3 / S3-compatible
    └── WebDAV (future)
 ```
 
@@ -41,13 +41,21 @@ The implemented adapter contract provides get/put/exists/delete/list, provider v
 
 Local storage coordinates writers with an exclusive filesystem lock.
 
-GitHub has no distributed lock in this implementation. Instead mutable library publication uses the current Git blob SHA of `manifest.mcma` as a compare-and-swap version. A stale writer fails.
+GitHub uses the current Git blob SHA of `manifest.mcma` as an optimistic compare-and-swap version.
 
-Content-addressed object revisions are immutable. The manifest is written last.
+S3 uses ETag versions with SigV4-signed conditional writes. Immutable objects use create-only semantics; mutable manifest publication uses compare-and-swap.
+
+Content-addressed revisions are immutable. The manifest is written last.
 
 ## Provider migration
 
-MCMA copies exact encrypted bytes between adapters. A storage migration does not decrypt or re-encrypt MCMA 1.0 objects and therefore preserves object IDs and storage hashes.
+MCMA copies exact encrypted bytes between adapters. Storage migration does not decrypt or re-encrypt MCMA 1.0 objects and therefore preserves object IDs and storage hashes.
+
+Tested migration includes:
+
+```text
+Local → S3-compatible → Local
+```
 
 Keys remain an independent security responsibility.
 

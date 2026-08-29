@@ -29,16 +29,21 @@
 - [x] historical V1/V2 migration
 - [x] local concurrency protection
 
-## Storage abstraction — Local + GitHub complete
+## Storage abstraction — Local + GitHub + S3 complete
 
 - [x] stable StorageAdapter interface
 - [x] refactor core away from direct filesystem access
 - [x] LocalFilesystemAdapter
 - [x] GitHubStorageAdapter
 - [x] GitHub optimistic manifest CAS
+- [x] S3StorageAdapter
+- [x] AWS Signature Version 4
+- [x] S3 If-None-Match create-only writes
+- [x] S3 If-Match manifest CAS
+- [x] S3 prefix listing
+- [x] custom S3-compatible endpoint/path-style support
 - [x] storage-copy command
-- [x] provider migration byte-preservation tests
-- [ ] S3-compatible adapter
+- [x] Local ↔ S3 byte-preservation tests
 - [ ] WebDAV adapter
 
 ## Identity, permissions and security

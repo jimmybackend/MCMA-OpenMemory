@@ -16,21 +16,40 @@ RFC 8785 canonical protected header/AAD
 
 ## Never commit
 
-Do not commit master keys, bearer tokens, provider secrets, plaintext private memories, production environment files, recovery passphrases or `*.mcma-key` recovery bundles.
+Do not commit master keys, bearer tokens, GitHub tokens, AWS/S3 credentials, plaintext private memories, production environment files, recovery passphrases or `*.mcma-key` recovery bundles.
 
 ## Storage credentials
 
-GitHub uses `MCMA_GITHUB_TOKEN` from process configuration. It is not written to `manifest.mcma`, memory objects or indexes.
+GitHub uses `MCMA_GITHUB_TOKEN`.
 
-Use the narrowest repository permissions compatible with the configured library path.
+S3 uses `MCMA_S3_ACCESS_KEY_ID`, `MCMA_S3_SECRET_ACCESS_KEY` and optional session token, with standard AWS environment variables supported as fallbacks.
+
+Credentials are process/deployment configuration. They are never written into `manifest.mcma`, memory objects or encrypted indexes.
+
+Use least-privilege provider permissions limited to the configured repository/bucket/prefix.
+
+## S3 request authentication
+
+The S3 adapter implements AWS Signature Version 4 with SHA-256 payload hashing.
+
+The repository includes a conformance test against the published AWS S3 signing example.
 
 ## Concurrency
 
 Local storage uses an exclusive filesystem lock plus compare-and-swap versions.
 
-GitHub does not use a fake distributed lock. It uses the current Git blob SHA of `manifest.mcma` as an optimistic compare-and-swap version. If another writer publishes first, a stale writer fails rather than silently overwriting the newer manifest.
+GitHub uses Git blob SHA optimistic compare-and-swap.
 
-Immutable content-addressed objects written before a failed manifest CAS may remain as unreferenced encrypted objects; this is preferable to corrupting authoritative library routing state.
+S3 uses atomic conditional `PutObject` behavior:
+
+```text
+If-None-Match: *        for new immutable locators
+If-Match: <ETag>        for mutable manifest updates
+```
+
+If another writer publishes first, a stale writer fails instead of silently overwriting newer library state.
+
+Encrypted objects written before a failed manifest CAS may remain unreferenced; this is preferable to corrupting authoritative library routing state.
 
 ## Recovery
 
@@ -46,4 +65,4 @@ Raw vault contents must never become ordinary model context. Raw biometric templ
 
 ## Production hardening
 
-Production deployments should consider KMS/HSM, key rotation, least privilege, token rotation, protected branches/repositories, recovery testing, secret-free audit logs, intrusion detection and formal cryptographic review.
+Production deployments should consider KMS/HSM or workload identities, short-lived credentials, key rotation, least privilege, bucket policies, recovery testing, secret-free audit logs, intrusion detection and formal cryptographic review.

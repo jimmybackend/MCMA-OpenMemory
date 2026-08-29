@@ -20,6 +20,7 @@ MCMA 1.0 CLI
 LOCATION:
   /local/path
   github://OWNER/REPO/optional/prefix?branch=main
+  s3://BUCKET/optional/prefix?region=us-east-1
 
 Usage:
   mcma init LOCATION [--mode=private|normal]
@@ -39,6 +40,11 @@ Usage:
 
 GitHub:
   MCMA_GITHUB_TOKEN provides the GitHub API token. The branch must already exist.
+
+S3 / S3-compatible:
+  Credentials come from MCMA_S3_* or standard AWS_* environment variables.
+  Optional custom endpoint: MCMA_S3_ENDPOINT.
+  Optional path style: MCMA_S3_PATH_STYLE=true.
 
 write/update options:
   --format=text|markdown|xml|json|binary
