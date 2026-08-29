@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mcma-openmemory.example/spec/1.0/schema/manifest-payload.schema.json",
+  "$id": "urn:mcma:spec:1.0:schema:manifest-payload",
   "title": "MCMA 1.0 Manifest Payload",
   "type": "object",
   "required": [
@@ -14,12 +14,25 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "library_version": { "const": "1.0" },
-    "created_at": { "type": "string", "format": "date-time" },
-    "metadata_mode": { "enum": ["normal", "private"] },
+    "library_version": {
+      "const": "1.0"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata_mode": {
+      "enum": [
+        "normal",
+        "private"
+      ]
+    },
     "root_index": {
       "type": "object",
-      "required": ["object_id", "storage_hash"],
+      "required": [
+        "object_id",
+        "storage_hash"
+      ],
       "additionalProperties": false,
       "properties": {
         "object_id": {
@@ -34,17 +47,29 @@
     },
     "entrypoints": {
       "type": "object",
-      "required": ["profile", "permissions", "vault"],
+      "required": [
+        "profile",
+        "permissions",
+        "vault"
+      ],
       "additionalProperties": true,
       "properties": {
-        "profile": { "const": "memory://identity/profile" },
-        "permissions": { "const": "memory://access/permissions" },
-        "vault": { "const": "memory://access/vault" }
+        "profile": {
+          "const": "memory://identity/profile"
+        },
+        "permissions": {
+          "const": "memory://access/permissions"
+        },
+        "vault": {
+          "const": "memory://access/vault"
+        }
       }
     },
     "crypto_policy": {
       "type": "object",
-      "required": ["active_key_version"],
+      "required": [
+        "active_key_version"
+      ],
       "additionalProperties": true,
       "properties": {
         "active_key_version": {
@@ -53,6 +78,8 @@
         }
       }
     },
-    "extensions": { "type": "object" }
+    "extensions": {
+      "type": "object"
+    }
   }
 }

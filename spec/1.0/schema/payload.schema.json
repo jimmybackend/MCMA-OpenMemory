@@ -1,28 +1,66 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mcma-openmemory.example/spec/1.0/schema/payload.schema.json",
+  "$id": "urn:mcma:spec:1.0:schema:payload",
   "title": "MCMA 1.0 Memory Payload",
   "type": "object",
-  "required": ["content_format", "metadata", "content"],
+  "required": [
+    "content_format",
+    "metadata",
+    "content"
+  ],
   "additionalProperties": false,
   "properties": {
     "content_format": {
-      "enum": ["json", "xml", "text", "markdown", "binary"]
+      "enum": [
+        "json",
+        "xml",
+        "text",
+        "markdown",
+        "binary"
+      ]
     },
     "metadata": {
       "type": "object",
-      "required": ["created_at", "logical_refs"],
+      "required": [
+        "created_at",
+        "logical_refs"
+      ],
       "additionalProperties": true,
       "properties": {
-        "created_at": { "type": "string", "format": "date-time" },
-        "updated_at": { "type": "string", "format": "date-time" },
-        "temperature": { "enum": ["hot", "warm", "cold", "frozen"] },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "temperature": {
+          "enum": [
+            "hot",
+            "warm",
+            "cold",
+            "frozen"
+          ]
+        },
         "cognitive_layer": {
           "type": "string",
           "pattern": "^(00-system|10-self|20-working|30-episodic|40-semantic|50-procedural|60-relational|70-preferences|80-goals|90-projects|95-world-model|99-meta)$"
         },
-        "scope": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "maturity": { "enum": ["raw", "observed", "classified", "knowledge", "confirmed"] },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "maturity": {
+          "enum": [
+            "raw",
+            "observed",
+            "classified",
+            "knowledge",
+            "confirmed"
+          ]
+        },
         "logical_refs": {
           "type": "array",
           "uniqueItems": true,
@@ -35,15 +73,25 @@
           "type": "string",
           "pattern": "^memory://[a-z][a-z0-9-]{0,31}(?:/[a-z0-9][a-z0-9._-]{0,127})+$"
         },
-        "provenance": { "type": "array" },
-        "extensions": { "type": "object" }
+        "provenance": {
+          "type": "array"
+        },
+        "extensions": {
+          "type": "object"
+        }
       }
     },
     "content": {}
   },
   "allOf": [
     {
-      "if": { "properties": { "content_format": { "const": "binary" } } },
+      "if": {
+        "properties": {
+          "content_format": {
+            "const": "binary"
+          }
+        }
+      },
       "then": {
         "properties": {
           "content": {
@@ -56,12 +104,20 @@
     {
       "if": {
         "properties": {
-          "content_format": { "enum": ["xml", "text", "markdown"] }
+          "content_format": {
+            "enum": [
+              "xml",
+              "text",
+              "markdown"
+            ]
+          }
         }
       },
       "then": {
         "properties": {
-          "content": { "type": "string" }
+          "content": {
+            "type": "string"
+          }
         }
       }
     }

@@ -1,18 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mcma-openmemory.example/spec/1.0/schema/index-payload.schema.json",
+  "$id": "urn:mcma:spec:1.0:schema:index-payload",
   "title": "MCMA 1.0 Index Payload",
   "type": "object",
-  "required": ["index_version", "index_type", "entries", "shards"],
+  "required": [
+    "index_version",
+    "index_type",
+    "entries",
+    "shards"
+  ],
   "additionalProperties": false,
   "properties": {
-    "index_version": { "const": "1.0" },
-    "index_type": { "enum": ["root", "shard"] },
+    "index_version": {
+      "const": "1.0"
+    },
+    "index_type": {
+      "enum": [
+        "root",
+        "shard"
+      ]
+    },
     "entries": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["object_id", "storage_hash", "logical_refs"],
+        "required": [
+          "object_id",
+          "storage_hash",
+          "logical_refs"
+        ],
         "additionalProperties": true,
         "properties": {
           "object_id": {
@@ -31,12 +47,23 @@
               "pattern": "^memory://[a-z][a-z0-9-]{0,31}(?:/[a-z0-9][a-z0-9._-]{0,127})+$"
             }
           },
-          "temperature": { "enum": ["hot", "warm", "cold", "frozen"] },
+          "temperature": {
+            "enum": [
+              "hot",
+              "warm",
+              "cold",
+              "frozen"
+            ]
+          },
           "cognitive_layer": {
             "type": "string",
             "pattern": "^(00-system|10-self|20-working|30-episodic|40-semantic|50-procedural|60-relational|70-preferences|80-goals|90-projects|95-world-model|99-meta)$"
           },
-          "scope": { "type": "string", "minLength": 1, "maxLength": 128 }
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
         }
       }
     },
@@ -44,10 +71,19 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "object_id", "storage_hash", "selector"],
+        "required": [
+          "name",
+          "object_id",
+          "storage_hash",
+          "selector"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
           "object_id": {
             "type": "string",
             "pattern": "^obj_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -56,7 +92,9 @@
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
-          "selector": { "type": "object" }
+          "selector": {
+            "type": "object"
+          }
         }
       }
     }
