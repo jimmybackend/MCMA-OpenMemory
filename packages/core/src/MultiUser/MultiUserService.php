@@ -79,7 +79,7 @@ final class MultiUserService
 
         $stored = $this->mutateRegistry(function(array $payload) use ($record, $identity): array {
             $users = $payload['users'] ?? [];
-            if (!is_array($users) || array_is_list($users)) {
+            if (!is_array($users) || ($users !== [] && array_is_list($users))) {
                 throw new RuntimeException('Malformed multi-user registry users map');
             }
 
@@ -146,7 +146,7 @@ final class MultiUserService
 
         $result = $this->mutateRegistry(function(array $payload) use ($identity): array {
             $users = $payload['users'] ?? [];
-            if (!is_array($users) || array_is_list($users)) {
+            if (!is_array($users) || ($users !== [] && array_is_list($users))) {
                 throw new RuntimeException('Malformed multi-user registry users map');
             }
 
@@ -172,7 +172,7 @@ final class MultiUserService
         $registry = $this->ensureRegistryLibrary();
         $payload = $this->registryPayload($registry);
         $users = $payload['users'] ?? [];
-        if (!is_array($users) || array_is_list($users)) {
+        if (!is_array($users) || ($users !== [] && array_is_list($users))) {
             throw new RuntimeException('Malformed multi-user registry users map');
         }
 
@@ -368,7 +368,7 @@ final class MultiUserService
         $payload = $this->registryPayload($registry);
         $users = $payload['users'] ?? [];
 
-        if (!is_array($users) || array_is_list($users)) {
+        if (!is_array($users) || ($users !== [] && array_is_list($users))) {
             throw new RuntimeException('Malformed multi-user registry users map');
         }
 

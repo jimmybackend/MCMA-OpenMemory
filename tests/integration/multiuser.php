@@ -5,8 +5,6 @@ require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
 use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Storage\LocalFilesystemAdapter;
-use RuntimeException;
-
 $base = sys_get_temp_dir() . '/mcma-multiuser-' . bin2hex(random_bytes(5));
 $storageRoot = $base . '/storage';
 $keyDir = $base . '/keys';
