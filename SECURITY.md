@@ -1,39 +1,42 @@
-# Security Model
+# MCMA 1.0 Security Model
 
-MCMA-OpenMemory is experimental R&D. This document describes the intended security boundary of the current reference implementation and the rules that should remain true as storage adapters are added.
+MCMA-OpenMemory is experimental R&D. This document defines security invariants for the active MCMA 1.0 architecture and records which protections are inherited from the working prototype.
 
 ## Threat model
 
-MCMA assumes the storage backend may be observable independently of the key-holding runtime. Therefore storage should be able to hold encrypted memory objects without receiving the plaintext master key.
+Storage may be observable or copied independently of the key-holding runtime.
 
-The current `.mcma` envelope intentionally contains metadata required for identification and authenticated decryption, but not the master key or derived object key.
+A storage provider should be able to store encrypted MCMA bytes without receiving plaintext memory or master keys.
 
-## Current cryptographic reference
+## Current cryptographic baseline
+
+The strongest working prototype uses:
 
 ```text
 AES-256-GCM
 HKDF-SHA256
 12-byte random IV
 16-byte authentication tag
-per-object derived key
-logical identity bound into AAD
+per-object derived keys
 ```
 
-The reference master key is 32 random bytes represented as Base64 in process configuration.
+MCMA 1.0 keeps this as the current algorithmic baseline while redefining stable identity, canonical AAD and authenticated metadata.
+
+The final MCMA 1.0 cryptographic contract is not frozen until conformance vectors exist.
 
 ## Secret classes
 
-Examples of secrets used by the current PHP deployment:
+Examples:
 
 ```text
 MCMA_MASTER_KEY_B64
 MCMA_API_TOKEN
 MCMA_BRIDGE_TOKEN
+provider-specific credentials
+recovery material
 ```
 
-Storage adapters may require provider-specific secrets such as API tokens. Those credentials are outside the core format and MUST NOT be embedded in `.mcma` files.
-
-Only variable names and placeholders belong in this public repository.
+Secrets MUST NOT be embedded in portable memory envelopes merely for convenience.
 
 ## Never commit
 
@@ -41,115 +44,117 @@ Do not commit:
 
 - master keys;
 - bearer tokens;
-- storage provider access tokens;
-- cloud secret keys;
-- decrypted memory content intended to remain private;
-- production `.env` files;
-- debug output that includes authorization headers.
+- provider secret keys;
+- plaintext private memories;
+- populated production environment files;
+- decrypted vault contents;
+- logs containing authorization headers or secrets.
 
-## Server-side key boundary
+## Key boundary
 
-The V2 prototype moved encryption/decryption into the server process so clients no longer need to receive derived encryption keys.
-
-Recommended flow:
+Encryption/decryption should occur inside an authorized runtime.
 
 ```text
-client / trusted caller
-      │ authenticated request
-      ▼
-MCMA Crypto Service
-      │ loads protected process secrets
-      ▼
-derive object key internally
-      │
-      ├── encrypt → return encrypted envelope
-      └── decrypt → return plaintext only to authorized caller
+authorized caller
+      ↓
+MCMA client / crypto boundary
+      ↓
+load protected key material
+      ↓
+derive/use object key internally
+      ↓
+encrypt or decrypt
+      ↓
+return only authorized result
 ```
 
-The master key and derived object key must not be returned by the HTTP API.
+Master and derived keys must not be returned to ordinary clients or AI context.
 
-## Environment file pattern
+## Vault boundary
 
-A Linux deployment may keep secrets in:
+`access/vault.mcma` represents a protected secret boundary.
+
+An AI may request an operation that requires a secret, but the client/security agent must use that secret internally and return only the permitted result.
+
+Raw vault content MUST NOT become normal model context.
+
+## Environment and server deployment
+
+A server may keep protected configuration outside the repository, for example:
 
 ```text
 /etc/mcma/mcma.env
 ```
 
-Recommended permissions:
+with restrictive OS permissions and explicit secret injection to the required process.
+
+The historical PHP-FPM deployment pattern is preserved under:
 
 ```text
-owner: root
-mode: 0600
+reference/compatibility/DEPLOYMENT-EC2-PHP-FPM.md
 ```
-
-The containing directory should also be restricted, for example `0700`.
-
-The environment file should be loaded by the service manager or another secret-delivery mechanism rather than copied into the web root.
-
-## PHP-FPM
-
-When PHP-FPM uses a cleared environment, explicitly pass only the environment variables required by the MCMA worker pool. Do not expose the entire host environment to PHP merely for convenience.
-
-A deployment may use a systemd `EnvironmentFile=` together with explicit PHP-FPM `env[...]` entries for the required names.
-
-See `docs/DEPLOYMENT-EC2-PHP-FPM.md`.
 
 ## Storage is not the key store
 
-The storage adapter and the cryptographic key store are separate responsibilities.
+Storage credentials, MCMA encryption keys and AI-provider credentials are separate responsibilities.
 
-A Git, S3, GCS, Azure, WebDAV, NAS or filesystem backend should be replaceable without moving the master key into that backend.
+Changing storage provider must not require exposing the MCMA master key to that provider.
 
 ## Metadata privacy
 
-Encryption of the payload does not automatically hide:
+Encryption of payloads alone does not hide:
 
-- directory names;
 - filenames;
+- directory names;
 - object sizes;
 - timestamps;
 - access patterns;
-- unencrypted indexes.
+- plaintext catalogs.
 
-For stronger privacy, prefer opaque memory IDs and encrypted or privacy-preserving indexes.
+Private libraries should use opaque physical identifiers and encrypted semantic indexes where required.
 
-Example:
+## Stable identity and authenticated metadata
 
-```text
-mem_01K34WQ8VGC7TJ6P6KJQ.mcma
-```
+MCMA 1.0 must bind cryptographic identity to stable object identity rather than mutable physical paths.
 
-instead of a filename that reveals a person's name or memory subject.
+Security-sensitive metadata must have a defined integrity boundary.
 
-## Identity-bound encryption
+The specification must explicitly define which fields participate in AAD/canonical authentication and which fields are encrypted or rebuildable.
 
-The current reference derives the per-object key from the logical path and filename and also authenticates that identity using GCM AAD.
+## Biometric boundary
 
-This prevents an object from being silently moved or renamed and then treated as the same cryptographic identity.
+Raw fingerprints, face templates or equivalent biometrics should not be ordinary MCMA memory.
 
-A legitimate rename or logical move therefore requires a controlled decrypt/re-encrypt migration.
+Use platform mechanisms such as Secure Enclave, TPM, Android Keystore, Windows Hello or passkeys to unlock keys without exposing biometric material to MCMA or AI.
 
-## Token permissions
+## Permissions
 
-Provider credentials should follow the deployment owner's security policy. For distributable applications and third-party integrations, prefer narrowly scoped credentials. Broad infrastructure credentials should never be embedded into client software or public code.
+Authorization is independent from temperature.
+
+Policies may distinguish owner, AI, librarian, security agent, applications, tools and devices.
+
+## Compatibility
+
+Historical encrypted memories retain their original cryptographic rules and are read only through compatibility code.
+
+Do not modify historical envelope metadata and relabel the result as MCMA 1.0.
 
 ## Production hardening
 
-A production deployment should consider:
+Production deployments should consider:
 
 - managed KMS/HSM or secret manager;
-- key rotation and key-version migration;
+- key rotation;
+- recovery testing;
 - separate service identities;
 - rate limiting;
 - network segmentation;
-- audit logs that never contain secrets or plaintext;
-- backup and recovery testing;
-- token expiration monitoring;
+- audit logs without plaintext/secrets;
+- token expiration;
 - intrusion detection;
 - formal cryptographic review;
-- authenticated authorization policies beyond possession of one bearer token.
+- signed releases and protected source branches.
 
 ## Responsible disclosure
 
-If this project evolves into a widely used implementation, a dedicated private security contact and disclosure process should be added before encouraging production adoption.
+Before encouraging broad production use, the project should publish a dedicated private security contact and disclosure process.

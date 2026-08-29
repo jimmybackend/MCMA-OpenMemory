@@ -1,132 +1,95 @@
 # Storage Adapters
 
-MCMA-OpenMemory treats physical storage as a replaceable implementation detail.
-
-The core should operate on logical MCMA objects while adapters translate those operations to a concrete backend.
+MCMA 1.0 treats physical storage as a replaceable implementation detail.
 
 ## Design rule
 
-A storage adapter must not need to understand plaintext memory content.
+The core operates on stable object identities and provider-neutral locators.
 
-It should receive an encrypted `.mcma` envelope or other provider-neutral bytes plus a logical object reference.
+A storage adapter should store/retrieve encrypted bytes without understanding plaintext memory.
 
 ## Conceptual interface
 
 ```text
-put(objectRef, bytes)
-get(objectRef) -> bytes
-exists(objectRef) -> bool
-delete(objectRef)
-list(prefix) -> objectRefs
+put(locator, bytes)
+get(locator) -> bytes
+exists(locator) -> bool
+delete(locator)
+list(prefix) -> locators
 ```
 
 Optional capabilities may include:
 
 ```text
-copy(source, destination)
-move(source, destination)
-version(objectRef)
-metadata(objectRef)
-health()
+copy
+version
+metadata
+health
+atomic_put
+etag
 ```
 
-## Adapter configuration
+## Logical vs physical
 
-Provider configuration belongs outside the portable envelope.
-
-Examples:
+Logical reference:
 
 ```text
-Local:
-  root = /var/lib/mcma
-
-S3-compatible:
-  endpoint / region / bucket / credential source
-
-Git-backed:
-  owner / repository / branch / credential source
-
-WebDAV:
-  base URL / credential source
+memory://projects/mcma
 ```
 
-The core specification must not require any one of these fields.
-
-## Logical to physical mapping
-
-Logical address:
+Authorized catalog resolution:
 
 ```text
-mcma://cold/40-semantic/project/mcma/storage/mem_01K....
+memory://projects/mcma
+        ↓
+object_id
+        ↓
+objects/7a/21/7a21....mcma
 ```
 
-Possible filesystem mapping:
+Possible backend mappings:
 
 ```text
-/var/lib/mcma/memories/cold/40-semantic/project/mcma/storage/mem_01K....mcma
+Local:  /var/lib/mcma/objects/7a/21/7a21....mcma
+Git:    objects/7a/21/7a21....mcma
+S3:     objects/7a/21/7a21....mcma
+WebDAV: objects/7a/21/7a21....mcma
 ```
 
-Possible Git-backed mapping:
-
-```text
-memories/cold/40-semantic/project/mcma/storage/mem_01K....mcma
-```
-
-Possible object-store key:
-
-```text
-memories/cold/40-semantic/project/mcma/storage/mem_01K....mcma
-```
-
-The identical relative mapping is convenient but not mandatory. What matters is that the adapter can deterministically resolve the logical reference.
+The identical relative mapping is convenient but not required.
 
 ## Migration
 
-Provider migration should support a byte-preserving mode:
+Provider migration should support byte-preserving copy for MCMA 1.0 objects:
 
 ```text
-source adapter GET
-        ↓
-exact .mcma bytes
-        ↓
-destination adapter PUT
+source GET
+   ↓
+exact encrypted bytes
+   ↓
+destination PUT
 ```
 
-If the logical path and filename stay unchanged, the current `mcma-v2` reference envelope can be moved without decrypting it.
+Because physical location is not permanent object identity, changing provider or locator should not by itself require re-encryption.
 
-If migration changes the logical path or filename, the current identity-bound cryptography requires controlled decrypt/re-encrypt under the new identity.
-
-## Provider examples
-
-Planned adapters include:
-
-- Local filesystem
-- Git-backed storage
-- Amazon S3 or S3-compatible APIs
-- MinIO
-- Google Cloud Storage
-- Azure Blob Storage
-- WebDAV
-- NAS-mounted filesystems
-
-These are examples, not normative dependencies.
+Historical prototype objects may have path-bound cryptographic identity and must follow their compatibility/migration rules.
 
 ## Credentials
 
-Each adapter should obtain credentials from a deployment-specific secret source rather than embedding them in code or `.mcma` objects.
+Adapters obtain credentials from deployment-specific secret sources, not from portable object payloads.
 
-Credential sources may include:
+Possible sources:
 
 - environment variables;
 - workload identity;
 - instance roles;
 - secret managers;
-- local protected configuration;
+- protected local configuration;
 - short-lived OAuth/access tokens.
 
-## Adapter capability discovery
+## Capability discovery
 
-Future versions may allow adapters to report capabilities such as:
+Adapters may report capabilities such as:
 
 ```json
 {
@@ -138,20 +101,20 @@ Future versions may allow adapters to report capabilities such as:
 }
 ```
 
-The MCMA Core can then choose safe migration and update strategies without assuming all backends behave like filesystems.
+## Separation of responsibilities
 
-## Important distinction
+Storage Adapter:
 
-A provider adapter answers:
+> Where are encrypted bytes stored?
 
-> Where are the encrypted bytes stored?
+Crypto Engine:
 
-The Crypto Engine answers:
+> How are they protected and authenticated?
 
-> How are the bytes protected and authenticated?
+Index Engine:
 
-The Memory Engine answers:
+> How do logical references resolve to stable objects?
 
-> What does this memory represent and when should it be retrieved?
+Memory Engine:
 
-Keeping those questions separate is the central architectural goal.
+> What does the memory mean and when is it relevant?

@@ -1,147 +1,97 @@
 # Encrypted Memory Index
 
-MCMA-OpenMemory treats the memory index as sensitive data.
+MCMA 1.0 treats the memory index as sensitive infrastructure.
 
-The encrypted `.mcma` objects protect memory content, but an unprotected catalog can still reveal what a user remembers, what projects exist, which topics are active, and how memories relate to each other. For that reason, privacy-oriented MCMA deployments SHOULD encrypt the memory catalog/index as well as the memory objects themselves.
+Encrypted objects protect memory content, but an unprotected catalog can reveal topics, people, projects, activity and relationships.
 
 ## Goal
 
-The Index Engine should be able to answer:
+Resolve the smallest required set of objects without scanning a complete multi-year library.
 
 ```text
-What memory should I retrieve?
+request / logical reference
         ↓
-logical memory reference
+encrypted root catalog
         ↓
-fetch exactly that encrypted object
+minimum required encrypted shard
+        ↓
+stable object_id + locator
+        ↓
+fetch selected .mcma object
         ↓
 authenticate + decrypt
 ```
 
-without scanning or decrypting the complete memory store.
-
 ## Root catalog
 
-A deployment SHOULD have a deterministic bootstrap location for the encrypted root catalog. The physical location is adapter-specific, but the logical identity remains provider-independent.
-
-Conceptually:
+A deployment needs a deterministic bootstrap reference, conceptually:
 
 ```text
-mcma://system/index/root
+memory://system/index/root
 ```
 
-The root catalog does not need to contain every memory entry. It can point to encrypted index shards.
+The root may point to encrypted shards instead of containing every memory entry.
+
+## Sharding
+
+Indexes may be partitioned by:
 
 ```text
-Encrypted root catalog
-        │
-        ├── hot catalog
-        ├── warm catalog
-        ├── cold catalog
-        ├── frozen catalog
-        ├── cognitive-layer catalogs
-        └── semantic/vector index manifests
-```
-
-This avoids a single ever-growing index file.
-
-## Index shards
-
-A large memory store MAY shard its encrypted indexes by one or more dimensions:
-
-```text
-temperature
-cognitive layer
-scope
-project
-topic
-time range
 hash prefix
+topic
+person
+project
+date/time range
+scope
+cognitive layer
+temperature
+privacy policy
 ```
 
-Example conceptual hierarchy:
+Temperature shards represent views, not permanent object identity.
 
-```text
-index/root
-index/hot/90-projects
-index/hot/40-semantic
-index/warm/50-procedural
-index/cold/40-semantic
-index/frozen/30-episodic
-```
+## Authorized index plaintext
 
-The exact physical filenames SHOULD be opaque when privacy is a priority.
-
-## What the encrypted catalog may contain
-
-Authorized index plaintext may contain entries such as:
+Conceptually an index entry may contain:
 
 ```json
 {
-  "memory_id": "mem_01K...",
-  "logical_uri": "mcma://hot/40-semantic/project/mcma/storage/mem_01K...",
+  "object_id": "mem_01...",
+  "logical_refs": ["memory://projects/mcma"],
+  "locator": "objects/7a/21/7a21....mcma",
   "temperature": "hot",
-  "cognitive_layer": "40-semantic",
+  "cognitive_layer": "90-projects",
   "scope": "project",
-  "topics": ["mcma", "storage"],
-  "relations": ["mem_01J..."],
-  "created_at": "<timestamp>",
-  "updated_at": "<timestamp>",
-  "retrieval_hints": ["portable memory", "storage adapter"]
+  "topics": ["mcma"],
+  "relations": []
 }
 ```
 
-This example describes index plaintext after authorized decryption. A storage provider should normally see only encrypted catalog bytes.
+A private storage provider should normally see encrypted catalog bytes and opaque locators, not this semantic plaintext.
 
-## Retrieval
+## Authoritative vs rebuildable
 
-A typical retrieval flow is:
+Implementations should distinguish:
 
-```text
-User / agent query
-        ↓
-intent + scope detection
-        ↓
-decrypt minimum required index shard
-        ↓
-resolve memory_id / logical URI
-        ↓
-Storage Adapter GET
-        ↓
-Crypto Engine authenticates + decrypts one or more selected memories
-        ↓
-return authorized memory to the caller
-```
-
-The design goal is minimum necessary disclosure and minimum necessary decryption.
-
-## Rebuildability
-
-Some indexes can be regenerated from authorized memory objects, for example lexical indexes, semantic embeddings, topic maps and activity scores. Implementations SHOULD distinguish:
-
-- **authoritative memory objects** — the durable source of truth;
-- **rebuildable indexes** — derived accelerators;
-- **authoritative catalog metadata** — identifiers, versions or routing data that may require durable backup.
-
-## Provider compromise
-
-Encrypting both memory objects and indexes reduces the information exposed if a storage location is copied or disclosed. It does not make indefinite security guarantees: cryptographic strength, implementations and key-management practices can change over time. MCMA therefore treats key rotation, algorithm versioning and migration as part of long-lived memory maintenance.
+- authoritative encrypted memory objects;
+- authoritative identity/routing metadata;
+- rebuildable lexical/semantic/topic indexes;
+- caches.
 
 ## Key separation
 
-A deployment SHOULD be able to use separate derivation contexts or keys for:
+MCMA should support independent derivation contexts or key domains for:
 
 ```text
 memory objects
-index/catalog objects
+catalog/index objects
 semantic/vector indexes
 snapshots/backups
+vault/security material
 ```
-
-Compromise of one derived object key should not expose unrelated memory objects.
 
 ## Storage independence
 
-The encrypted index MUST NOT depend on GitHub, S3, GCS, Azure or any other provider-specific identity. Storage adapters translate logical index objects to physical locations.
+Indexes must not require a GitHub, S3, WebDAV or other provider-specific identity.
 
-A user should be able to copy the encrypted memory store and its encrypted indexes to another compatible provider and continue resolving the same logical memories after configuring the new adapter and presenting the authorized keys.
+The storage adapter maps portable object references/locators to the configured backend.
