@@ -1,151 +1,172 @@
-# MCMA 1.0 Container and Identity Design
+# MCMA 1.0 Container Format
 
-Status: **Working design — exact envelope not yet frozen**
+Status: **Normative baseline for first implementation**
 
-The working prototype proved authenticated encrypted `.mcma` objects, but its object identity depended on logical path + filename.
+## Envelope
 
-MCMA 1.0 changes that boundary.
+The MCMA 1.0 encrypted envelope is JSON:
 
-## Required identity model
-
-An object has a stable ID independent of:
-
-- filename;
-- physical path;
-- storage provider;
-- HOT/WARM/COLD/FROZEN;
-- human-readable category.
-
-Conceptually:
-
-```text
-memory://identity/profile
-        ↓
-authorized index/catalog
-        ↓
-stable object_id
-        ↓
-object hash / locator
-        ↓
-storage adapter
-        ↓
-.mcma bytes
+```json
+{
+  "protected": {
+    "format": "mcma-1.0",
+    "container": "object",
+    "library_id": "lib_...",
+    "object_id": "obj_...",
+    "crypto": {
+      "cipher": "AES-256-GCM",
+      "kdf": "HKDF-SHA256",
+      "key_version": "key-1",
+      "key_context": "memory",
+      "iv_b64u": "..."
+    }
+  },
+  "ciphertext_b64u": "...",
+  "tag_b64u": "...",
+  "storage_hash": "sha256:..."
+}
 ```
 
-## Container concept
+The envelope MUST conform to `schema/envelope.schema.json`.
+
+## Public vs encrypted metadata
+
+The public `protected` header contains only information needed to:
+
+- identify the MCMA format;
+- identify the library/object cryptographic domain;
+- select the cryptographic profile/key generation;
+- authenticate/decrypt the object.
+
+Semantic metadata belongs inside encrypted payloads/indexes.
+
+Examples of metadata that normally remain encrypted:
+
+- temperature;
+- cognitive category;
+- scope;
+- logical aliases;
+- people/project/topic names;
+- provenance;
+- confidence;
+- permissions;
+- timestamps when not needed for bootstrap;
+- profile content.
+
+This minimizes metadata leakage in private libraries.
+
+## Storage hash
+
+`storage_hash` identifies one exact encrypted envelope revision.
+
+Algorithm:
+
+1. remove the top-level `storage_hash` member;
+2. canonicalize the remaining envelope using RFC 8785 JCS;
+3. UTF-8 encode the canonical JSON;
+4. calculate SHA-256;
+5. encode as lowercase hexadecimal;
+6. prefix with `sha256:`.
+
+Formally:
 
 ```text
-MCMA envelope/header
-    │
-    ├── minimum processable metadata
-    └── authenticated encrypted payload
+hash_input = UTF8(
+  JCS(
+    envelope_without_storage_hash
+  )
+)
+
+storage_hash =
+  "sha256:" + lowercase_hex(SHA-256(hash_input))
 ```
 
-The exact field names are not frozen.
+The hash is intentionally not part of its own hash input.
 
-A future envelope will need at least concepts equivalent to:
+## Physical hash mapping
+
+A default content-addressed adapter mapping is:
 
 ```text
-format/profile identifier
-library identity
-stable object identity
-object/content type
-content format
-cryptographic profile
-creation/update metadata
-ciphertext
-authentication tag
+sha256:abcdef...
+
+objects/ab/cd/abcdef....mcma
 ```
 
-## Content formats
+Rules:
 
-Initial recommended structured format:
+```text
+digest = 64 lowercase hexadecimal characters
+level1 = digest[0:2]
+level2 = digest[2:4]
+
+objects/{level1}/{level2}/{digest}.mcma
+```
+
+The bootstrap manifest is the exception: it remains reachable at `manifest.mcma`.
+
+Adapters MAY use another physical representation if they can deterministically resolve the same `storage_hash`.
+
+## Stable object vs encrypted revision
+
+```text
+object_id
+   │
+   └── current storage_hash
+          ↓
+       exact encrypted revision
+```
+
+Updating content does not require changing `object_id`.
+
+## Encrypted payload frame
+
+A normal memory object decrypts to a payload frame conforming to `schema/payload.schema.json`.
+
+Example:
+
+```json
+{
+  "content_format": "json",
+  "metadata": {
+    "created_at": "2026-08-29T00:00:00Z",
+    "temperature": "hot",
+    "cognitive_layer": "40-semantic",
+    "scope": "global",
+    "maturity": "confirmed",
+    "logical_refs": [
+      "memory://topics/mcma"
+    ]
+  },
+  "content": {
+    "message": "example"
+  }
+}
+```
+
+Supported initial `content_format` values:
 
 ```text
 json
-```
-
-The container must be extensible enough to declare:
-
-```text
 xml
 text
 markdown
 binary
 ```
 
-## Hash-based storage
+## Verification order
 
-Physical storage may use a content/object hash hierarchy such as:
+A reader SHOULD:
 
-```text
-objects/
-└── 7a/
-    └── 21/
-        └── 7a21....mcma
-```
+1. parse the envelope as JSON;
+2. validate the MCMA 1.0 envelope structure;
+3. recompute and compare `storage_hash`;
+4. validate canonical identifiers and crypto profile;
+5. derive the object key;
+6. reconstruct AAD from `protected`;
+7. authenticate/decrypt AES-GCM;
+8. parse/validate the decrypted payload according to container role/content format.
 
-The canonical hash input must be defined before implementation. The design must avoid self-referential hashing if a hash value is itself stored in the envelope.
+A storage-hash mismatch MUST fail verification before plaintext is trusted.
 
-## Authenticated metadata
-
-Any metadata used for security, identity or routing decisions must have a defined integrity boundary.
-
-The working prototype did not authenticate every exposed metadata field. MCMA 1.0 must explicitly define which header fields are:
-
-- public and authenticated;
-- public but informational;
-- encrypted;
-- derived/rebuildable.
-
-## KDF and AAD
-
-The MCMA 1.0 derivation context must bind keys to stable identity rather than mutable paths.
-
-AAD must protect the metadata required to prevent substitution or semantic tampering.
-
-Exact canonical serialization is still an open item.
-
-## Temperature
-
-Temperature is not permanent identity.
-
-Changing HOT to WARM should update authorized index/catalog state without requiring the memory object to become a different identity.
-
-## Compatibility
-
-Historical encrypted objects must be read with their original rules.
-
-Migration flow:
-
-```text
-historical object
-    ↓
-validate/authenticate using compatibility reader
-    ↓
-decrypt in authorized runtime
-    ↓
-create stable MCMA 1.0 object identity
-    ↓
-encrypt using MCMA 1.0 rules
-    ↓
-index + provenance link
-```
-
-Do not edit historical envelopes in place and call them MCMA 1.0.
-
-## Open items before freeze
-
-- manifest format;
-- library ID;
-- object ID syntax;
-- canonical hash input;
-- exact envelope fields;
-- metadata privacy levels;
-- KDF context;
-- canonical AAD serialization;
-- index object format;
-- key rotation;
-- migration metadata;
-- signing/integrity beyond AEAD where required;
-- conformance vectors.
+An AES-GCM authentication failure MUST fail the read.

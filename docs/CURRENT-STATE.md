@@ -2,83 +2,71 @@
 
 Date: 2026-08-29
 
-Status: **MCMA 1.0 architecture consolidation.**
+Status: **MCMA 1.0 identity/container contract defined; implementation next.**
 
-## Active project identity
+## Active project
 
 **MCMA — Modular Cognitive Memory Archive**
 
 > **Intelligence can change. Memory belongs to the person.**
 
-The repository now presents one active public development line: **MCMA 1.0**.
+## Completed architecture baseline
 
-## Working implementation inherited from the prototype
+The repository now defines one active MCMA 1.0 line with:
 
-The strongest existing implementation already proves:
-
-- AES-256-GCM encryption/decryption;
-- HKDF-SHA256 per-object derivation;
-- protected server-side key handling;
-- encrypted `.mcma` envelopes;
-- HOT / WARM / COLD / FROZEN metadata;
-- external persistence;
-- manual PHP retrieval/decryption;
-- real encrypted memories stored outside the MCMA source repository.
-
-That code is preserved unchanged where possible under `reference/compatibility/`.
-
-## What MCMA 1.0 changes
-
-The historical prototype tied cryptographic identity to logical path + filename.
-
-MCMA 1.0 requires:
-
-- stable object IDs;
+- file-first/database-free core;
+- stable library identity;
+- stable object identity;
+- deterministic encrypted manifest bootstrap;
 - physical-path independence;
 - provider independence;
-- hash-based physical storage;
-- `memory://` logical references;
-- virtual temperature views;
-- hierarchical indexes;
-- living profile documents;
-- independent permissions and vault isolation.
+- `memory://` logical aliases;
+- SHA-256 storage revision hashes;
+- AES-256-GCM + HKDF-SHA256;
+- authenticated protected headers;
+- hierarchical encrypted index bootstrap;
+- virtual HOT/WARM/COLD/FROZEN views;
+- explicit historical migration;
+- JSON Schemas;
+- synthetic conformance vector.
 
-Existing ciphertext is not silently relabeled. Migration must be explicit.
+## Working historical implementation
 
-## Current repository organization
-
-Active specification work:
-
-```text
-spec/1.0/
-```
-
-Historical working code/specification:
+The strongest previous PHP prototype remains unchanged under:
 
 ```text
 reference/compatibility/
 ```
 
-Conceptual and design documentation remains under:
+It proves encrypted memory creation/decryption and real external persistence, but it is not the MCMA 1.0 writer.
+
+## Active specification
 
 ```text
-docs/
+spec/1.0/
 ```
 
-Implementation directories are not created until actual implementation begins.
+The identity/container contract is now stable enough to implement against.
 
 ## Next exact block
 
-Freeze the MCMA 1.0 identity/container contract:
+Implement the first local, non-AI MCMA 1.0 core:
 
-1. manifest/library identity;
-2. stable object ID;
-3. canonical hash;
-4. envelope/header;
-5. KDF + AAD;
-6. `memory://` resolution;
-7. index bootstrap;
-8. migration from historical objects;
-9. conformance vectors.
+```text
+mcma init
+mcma open
+mcma info
+mcma write
+mcma read
+mcma verify
+mcma list
+mcma tree
+```
 
-After that, implement the manual local CLI core before AI.
+First storage adapter:
+
+```text
+local filesystem
+```
+
+The implementation must pass the published conformance vector before additional storage adapters or AI are added.

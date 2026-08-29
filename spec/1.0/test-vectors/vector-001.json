@@ -1,0 +1,50 @@
+{
+  "vector_id": "mcma-1.0-vector-001",
+  "note": "Synthetic public test material. Never use these values as production secrets.",
+  "master_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "master_key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "library_id": "lib_11111111-2222-4333-8444-555555555555",
+  "object_id": "obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "iv_hex": "000102030405060708090a0b",
+  "iv_b64u": "AAECAwQFBgcICQoL",
+  "protected": {
+    "format": "mcma-1.0",
+    "container": "object",
+    "library_id": "lib_11111111-2222-4333-8444-555555555555",
+    "object_id": "obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "crypto": {
+      "cipher": "AES-256-GCM",
+      "kdf": "HKDF-SHA256",
+      "key_version": "key-1",
+      "key_context": "memory",
+      "iv_b64u": "AAECAwQFBgcICQoL"
+    }
+  },
+  "salt_hex": "49f5ab1e34ec3cb43b2a7bc96ffa5f0bfda7361ec278aac2d86e428ec2433599",
+  "hkdf_info_utf8": "MCMA1|memory|obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee|key-1",
+  "derived_key_hex": "10a09014eda451a5ff4d91bac6a96f6c389a6dc004bdb17899ff79b17b3cdbad",
+  "aad_jcs": "{\"container\":\"object\",\"crypto\":{\"cipher\":\"AES-256-GCM\",\"iv_b64u\":\"AAECAwQFBgcICQoL\",\"kdf\":\"HKDF-SHA256\",\"key_context\":\"memory\",\"key_version\":\"key-1\"},\"format\":\"mcma-1.0\",\"library_id\":\"lib_11111111-2222-4333-8444-555555555555\",\"object_id\":\"obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee\"}",
+  "plaintext_jcs": "{\"content\":{\"message\":\"MCMA 1.0 conformance vector\"},\"content_format\":\"json\",\"metadata\":{\"cognitive_layer\":\"40-semantic\",\"created_at\":\"2026-08-29T00:00:00Z\",\"logical_refs\":[\"memory://topics/mcma\"],\"maturity\":\"confirmed\",\"scope\":\"global\",\"temperature\":\"hot\"}}",
+  "ciphertext_b64u": "hgTsXI453HNhWqXfYcDoTB5cjwlOV_WB0UddrhPn_3LR0xi7HbHsfUzdIIkpxkMjVxxEKxGq8orgEAkn-oPM6tY088aECIXAp588tbUX4gMiLmNlczM2VCt1rWtSV_n61L1We2nl3kJsiSWHlIaeFPOw_IUPA2u9NC5ksNJG-WA_ewEQIL_JXv_NIUxXm55vnWSvi4gdRLSN46HDXaYjcAtqn_QF_Sjx9kwpxyjEbQYd73lQn8RLk6VZay14bKNgOJJT5T7pKIGegVcIsWv7DopdsGMp0I_-MVhIp-LjGTamxtuPLs2ugPEfbe-Ej72pfYVhX61wsJvNmYXrs7R4fu3A",
+  "tag_b64u": "Ji4fi47-o4o93BwXjHKVAQ",
+  "storage_hash": "sha256:0f24267b10f8a8f5a535ad10702be419fdeb85fc4185c3668b1832ac1866c7d0",
+  "default_storage_path": "objects/0f/24/0f24267b10f8a8f5a535ad10702be419fdeb85fc4185c3668b1832ac1866c7d0.mcma",
+  "expected_envelope": {
+    "protected": {
+      "format": "mcma-1.0",
+      "container": "object",
+      "library_id": "lib_11111111-2222-4333-8444-555555555555",
+      "object_id": "obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      "crypto": {
+        "cipher": "AES-256-GCM",
+        "kdf": "HKDF-SHA256",
+        "key_version": "key-1",
+        "key_context": "memory",
+        "iv_b64u": "AAECAwQFBgcICQoL"
+      }
+    },
+    "ciphertext_b64u": "hgTsXI453HNhWqXfYcDoTB5cjwlOV_WB0UddrhPn_3LR0xi7HbHsfUzdIIkpxkMjVxxEKxGq8orgEAkn-oPM6tY088aECIXAp588tbUX4gMiLmNlczM2VCt1rWtSV_n61L1We2nl3kJsiSWHlIaeFPOw_IUPA2u9NC5ksNJG-WA_ewEQIL_JXv_NIUxXm55vnWSvi4gdRLSN46HDXaYjcAtqn_QF_Sjx9kwpxyjEbQYd73lQn8RLk6VZay14bKNgOJJT5T7pKIGegVcIsWv7DopdsGMp0I_-MVhIp-LjGTamxtuPLs2ugPEfbe-Ej72pfYVhX61wsJvNmYXrs7R4fu3A",
+    "tag_b64u": "Ji4fi47-o4o93BwXjHKVAQ",
+    "storage_hash": "sha256:0f24267b10f8a8f5a535ad10702be419fdeb85fc4185c3668b1832ac1866c7d0"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcma-openmemory.example/spec/1.0/schema/envelope.schema.json",
+  "title": "MCMA 1.0 Encrypted Envelope",
+  "type": "object",
+  "required": ["protected", "ciphertext_b64u", "tag_b64u", "storage_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "protected": {
+      "type": "object",
+      "required": ["format", "container", "library_id", "object_id", "crypto"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "mcma-1.0" },
+        "container": { "enum": ["manifest", "object", "index", "vault"] },
+        "library_id": {
+          "type": "string",
+          "pattern": "^lib_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "object_id": {
+          "type": "string",
+          "pattern": "^obj_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "crypto": {
+          "type": "object",
+          "required": ["cipher", "kdf", "key_version", "key_context", "iv_b64u"],
+          "additionalProperties": false,
+          "properties": {
+            "cipher": { "const": "AES-256-GCM" },
+            "kdf": { "const": "HKDF-SHA256" },
+            "key_version": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+            },
+            "key_context": { "enum": ["manifest", "memory", "index", "vault"] },
+            "iv_b64u": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16}$"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "container": { "const": "manifest" } } },
+          "then": { "properties": { "crypto": { "properties": { "key_context": { "const": "manifest" } } } } }
+        },
+        {
+          "if": { "properties": { "container": { "const": "object" } } },
+          "then": { "properties": { "crypto": { "properties": { "key_context": { "const": "memory" } } } } }
+        },
+        {
+          "if": { "properties": { "container": { "const": "index" } } },
+          "then": { "properties": { "crypto": { "properties": { "key_context": { "const": "index" } } } } }
+        },
+        {
+          "if": { "properties": { "container": { "const": "vault" } } },
+          "then": { "properties": { "crypto": { "properties": { "key_context": { "const": "vault" } } } } }
+        }
+      ]
+    },
+    "ciphertext_b64u": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "tag_b64u": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22}$"
+    },
+    "storage_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

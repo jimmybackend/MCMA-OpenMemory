@@ -1,31 +1,57 @@
 # MCMA 1.0 Specification
 
-This directory contains the active specification work for **MCMA 1.0 — Modular Cognitive Memory Archive**.
+This directory contains the active interoperability contract for **MCMA 1.0 — Modular Cognitive Memory Archive**.
 
-Status: **working design; interoperability format not yet frozen**
+Status: **experimental specification; identity/container baseline frozen for the first implementation**
 
-MCMA 1.0 is the only active public development line.
+Historical prototype formats remain under `reference/compatibility/` only for reading and migration.
 
-Historical prototype envelope formats remain under `reference/compatibility/` solely so existing encrypted memories can continue to be read and later migrated safely.
+## Normative files
 
-## Current files
+- `PRINCIPLES.md` — architectural invariants.
+- `IDENTITY.md` — library/object stable identifiers.
+- `MANIFEST.md` — deterministic library bootstrap.
+- `CONTAINER.md` — envelope and storage-hash rules.
+- `CRYPTOGRAPHY.md` — AES-GCM, HKDF and AAD.
+- `ADDRESSING.md` — `memory://` logical aliases.
+- `INDEX.md` — root/sharded index bootstrap.
+- `MIGRATION.md` — historical compatibility migration.
+- `CONFORMANCE.md` — required interoperability tests.
+- `schema/` — machine-readable JSON Schemas.
+- `test-vectors/` — synthetic cryptographic vectors.
 
-- `PRINCIPLES.md` — invariants that the implementation must preserve.
-- `CONTAINER.md` — stable identity, container, hashing and authenticated-metadata design work.
+## First profile
 
-## Freeze order
+```text
+format          mcma-1.0
+cipher          AES-256-GCM
+kdf             HKDF-SHA256
+canonical JSON  RFC 8785 JCS
+library ID      lib_<UUIDv4>
+object ID       obj_<UUIDv4>
+logical alias   memory://...
+physical object hash  SHA-256
+```
 
-Before implementing the new writer, MCMA 1.0 must define:
+## Important compatibility rule
 
-1. library/manifest identity;
-2. stable object IDs;
-3. canonical hashing;
-4. public/encrypted header boundary;
-5. KDF context;
-6. AES-GCM AAD;
-7. logical `memory://` resolution;
-8. index bootstrap;
-9. compatibility migration;
-10. conformance vectors.
+Existing historical encrypted memories are not renamed or edited in place.
 
-The working prototype is evidence and a compatibility source, not a reason to keep path-bound identity in the new format.
+A migration reader authenticates/decrypts them with their original rules and writes a new MCMA 1.0 object with a stable identity.
+
+## Next implementation milestone
+
+With this contract defined, the next block is the manual local core:
+
+```text
+mcma init
+mcma open
+mcma info
+mcma write
+mcma read
+mcma verify
+mcma list
+mcma tree
+```
+
+No AI or database is required for that milestone.

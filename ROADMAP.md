@@ -1,52 +1,54 @@
 # MCMA 1.0 Roadmap
 
-MCMA-OpenMemory now follows one active development line: **MCMA 1.0**.
+MCMA-OpenMemory follows one active development line: **MCMA 1.0**.
 
-Historical prototype envelope identifiers are preserved only for compatibility.
+Historical prototype formats are preserved only for compatibility/migration.
 
 ## Foundation — complete
 
-- [x] Define MCMA as Modular Cognitive Memory Archive
-- [x] Adopt user-owned memory principle
-- [x] Adopt file-first/database-free core
-- [x] Adopt provider-independent storage
-- [x] Adopt AI-optional operation
-- [x] Adopt living `profile.mcma`
-- [x] Adopt knowledge maturity states
-- [x] Adopt independent permissions
-- [x] Adopt `vault.mcma` security boundary
-- [x] Adopt normal/private metadata modes
-- [x] Adopt stable-object direction
-- [x] Adopt hierarchical indexes
-- [x] Adopt virtual HOT/WARM/COLD/FROZEN views
-- [x] Preserve working prototype compatibility code separately
+- [x] Define Modular Cognitive Memory Archive
+- [x] User-owned memory principle
+- [x] File-first/database-free core
+- [x] Provider-independent storage
+- [x] AI-optional operation
+- [x] Living `profile.mcma`
+- [x] Knowledge maturity states
+- [x] Independent permissions
+- [x] `vault.mcma` boundary
+- [x] Normal/private metadata modes
+- [x] Hierarchical indexes
+- [x] Virtual HOT/WARM/COLD/FROZEN views
+- [x] Historical compatibility boundary
 
-## Next block — MCMA 1.0 identity and container contract
+## MCMA 1.0 identity/container contract — complete
 
-- [ ] Define `manifest.mcma`
-- [ ] Define library ID
-- [ ] Define stable object ID
-- [ ] Define canonical object hash
-- [ ] Freeze MCMA 1.0 envelope/header
-- [ ] Define KDF identity and AES-GCM AAD
-- [ ] Define authenticated metadata
-- [ ] Define `memory://` URI resolution
-- [ ] Define migration from historical prototype envelopes
-- [ ] Add machine-readable schemas
-- [ ] Add synthetic conformance test vectors
+- [x] Define `manifest.mcma`
+- [x] Define stable library ID
+- [x] Define stable object ID
+- [x] Define canonical SHA-256 storage hash
+- [x] Freeze first MCMA 1.0 envelope/header baseline
+- [x] Define HKDF identity
+- [x] Define AES-GCM AAD
+- [x] Define authenticated metadata boundary
+- [x] Define `memory://` resolution
+- [x] Define root/sharded index bootstrap
+- [x] Define historical migration
+- [x] Add machine-readable schemas
+- [x] Add synthetic conformance vector
 
-## Manual portable core
+## Next — manual portable core
 
 - [ ] `mcma init`
 - [ ] `mcma open`
-- [ ] `mcma tree`
-- [ ] `mcma list`
 - [ ] `mcma info`
-- [ ] `mcma read`
 - [ ] `mcma write`
+- [ ] `mcma read`
 - [ ] `mcma verify`
+- [ ] `mcma list`
+- [ ] `mcma tree`
 - [ ] Local filesystem adapter
-- [ ] Tests without AI or database
+- [ ] Pass conformance vector
+- [ ] Tests without AI/database
 
 ## Storage abstraction
 
@@ -57,42 +59,30 @@ Historical prototype envelope identifiers are preserved only for compatibility.
 - [ ] Import/export
 - [ ] Provider migration tests
 
-## Index and lifecycle
-
-- [ ] Encrypted root catalog
-- [ ] Encrypted index shards
-- [ ] Opaque physical object names
-- [ ] Lexical index
-- [ ] Semantic/vector interface
-- [ ] HOT/WARM/COLD/FROZEN transition policy
-- [ ] Reactivation policy
-- [ ] Rebuildable-index rules
-
 ## Identity, permissions and security
 
-- [ ] Profile schema
-- [ ] History schema
-- [ ] Permission schema
-- [ ] Vault schema
+- [ ] Profile/history schemas beyond the base payload
+- [ ] Permission enforcement implementation
+- [ ] Vault implementation
 - [ ] Recovery design
-- [ ] Key rotation design
+- [ ] Key rotation workflow
 - [ ] Device authorization model
 
 ## Knowledge and AI
 
-- [ ] Knowledge provenance
-- [ ] Confidence and validation metadata
+- [ ] Knowledge provenance engine
+- [ ] Confidence/validation policies
 - [ ] Reuse/freshness policy
 - [ ] Direct memory answer path
-- [ ] Librarian/security agent boundaries
+- [ ] Librarian/security agents
 - [ ] Optional `mcma ask`
 
 ## Long-term
 
-- additional storage adapters;
+- additional adapters;
 - KMS/HSM integrations;
 - desktop/mobile clients;
-- snapshots and recovery;
+- snapshots/recovery;
 - algorithm migration;
 - signed manifests/objects where required;
 - cross-model continuity tests.
