@@ -67,9 +67,21 @@
 - [x] deterministic local reranking
 - [x] reusable candidates prioritized over revalidate/reject candidates
 
+## Ask orchestration — first implementation complete
+- [x] provider-neutral GenerationProvider
+- [x] exact reusable memory before any model call
+- [x] semantic reusable memory after exact miss
+- [x] optional generation fallback
+- [x] generated answer capture through Librarian
+- [x] generated knowledge defaults to unverified / 0.5 confidence
+- [x] existing non-reusable exact records are preserved, not overwritten
+- [x] Amazon Bedrock Converse generation connector
+- [x] Bedrock bearer and SigV4 generation authentication
+- [x] mcma ask CLI
+
 ## Next
+- [ ] real EC2 + Bedrock end-to-end smoke test
 - [ ] optional local embedding provider
-- [ ] optional mcma ask orchestration
-- [ ] provider AI connectors outside core
+- [ ] additional provider AI connectors outside core
 - [ ] relation graph
 - [ ] automatic maturity and temperature policies

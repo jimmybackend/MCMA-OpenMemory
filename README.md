@@ -62,7 +62,7 @@ Exact intent remains the first route. When it misses, MCMA can optionally use an
 
 Librarian and SecurityAgent work without a model provider.
 
-A future AI layer can call these boundaries but does not own memory, permissions or secrets.
+An optional AI layer can call these boundaries but does not own memory, permissions or secrets.
 
 ## Knowledge CLI
 
@@ -73,6 +73,8 @@ mcma knowledge-show
 mcma knowledge-validate
 mcma semantic-index
 mcma semantic-check
+mcma semantic-topk
+mcma ask
 ~~~
 
 ## License
@@ -83,3 +85,10 @@ MIT License.
 ## Optional semantic connector
 
 The first real embedding connector is Amazon Titan Text Embeddings V2 on Bedrock. It is optional; MCMA core remains model/provider independent. Semantic indexes are derived encrypted caches and can be rebuilt without changing knowledge object identity.
+
+
+## Optional ask orchestration
+
+`mcma ask` can reuse exact or semantic memory before calling any generation model. Generation is provider-neutral through `GenerationProvider`.
+
+The first optional generation connector uses Amazon Bedrock Converse. Fresh generated answers are returned to the caller but, when captured, default to unverified knowledge until an explicit validation workflow promotes them for reuse.

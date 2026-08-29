@@ -2,88 +2,71 @@
 
 Date: 2026-08-29
 
-Status: **Portable storage + Permissions/Vault + Knowledge Reuse + incremental semantic Top-K/reranking.**
+Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic Top-K + optional ask orchestration.**
 
-## JCS numbers
+## Semantic retrieval
 
-The PHP canonical writer supports finite IEEE-754 floating-point JSON values using ECMAScript/JCS number notation. NaN and Infinity remain rejected.
+MCMA performs exact lookup first. Semantic retrieval is attempted only after an exact miss and only when an EmbeddingProvider is configured.
 
-Knowledge confidence is stored as a real JSON number, and embedding vectors are persisted as floats.
+The semantic index is encrypted, derived and provider-specific. Incremental updates regenerate only the affected KnowledgeRecord vector when its storage_hash changes.
 
-## Incremental semantic index
+Top-K candidate visibility is reconstructed through actor-aware APIs. Permissions, validation, confidence and freshness remain mandatory after similarity ranking.
 
-The semantic index remains encrypted, derived and provider-specific.
+## mcma ask
 
-A single KnowledgeRecord can now be refreshed with `SemanticIndexService::indexOne()`. Only that record's embedding is regenerated when its current `storage_hash` changes. If the indexed `object_id` and `storage_hash` already match, no embedding call is made.
-
-The Librarian can be configured with a `SemanticIndexService` and `EmbeddingProvider`; then `remember()` and `validate()` refresh only the affected semantic entry.
-
-`SemanticIndexService::remove()` removes one derived semantic entry without changing the knowledge object's identity. This is the hook for future ordinary-memory deletion workflows.
-
-The full `indexAll()` rebuild remains available.
-
-## Top-K retrieval and deterministic reranking
-
-MCMA still performs exact lookup first. Semantic retrieval runs only after exact miss.
+The ask orchestrator is provider-neutral.
 
 ~~~text
 question
   ↓
-exact lookup
-  ↓ miss
-EmbeddingProvider
+exact knowledge
+  ├── reusable → memory answer
+  ↓ exact miss
+optional semantic Top-K
+  ├── reusable → memory answer
+  ↓ no reusable memory
+optional GenerationProvider
   ↓
-encrypted derived semantic index
+fresh generated answer
   ↓
-actor-visible + current-storage_hash filter
+optional Librarian capture
   ↓
-cosine candidates
+KnowledgeRecord + provenance
   ↓
-KnowledgeRecord::assess() on every candidate
-  ↓
-deterministic local reranker
-  ↓
-reuse | revalidate | reject | miss
+incremental semantic refresh when embeddings are configured
 ~~~
 
-Top-K candidates expose retrieval metadata only:
+The core can use exact memory without any AI or embedding provider.
 
-- similarity
-- object_id
-- logical_ref
-- validation
-- confidence
-- freshness
-- permission_eligible
-- maturity
-- evidence_count
-- recency
+A generation provider is called only when no reusable memory answer exists.
 
-Top-K does not return remembered answers or provenance payloads.
-
-The deterministic reranker combines similarity, confidence, validation, freshness, recency, maturity and evidence count. Decision class is authoritative: a reusable candidate ranks ahead of a candidate requiring revalidation or rejection. Similarity never authorizes reuse by itself.
-
-Permissions are applied before a candidate can enter Top-K. A memory unreadable by the requesting actor is not returned as a semantic candidate.
-
-## Revision safety
-
-Each vector is bound to the concrete knowledge revision `storage_hash`.
-
-`object_id` remains stable across knowledge revisions. If a KnowledgeRecord changes outside the incremental Librarian path, its old vector remains stale and cannot be used until refreshed or rebuilt.
-
-## Bedrock connector
-
-The first real embedding connector uses Amazon Titan Text Embeddings V2.
-
-Defaults:
+Fresh model output can be returned immediately, but when it is captured it defaults to:
 
 ~~~text
-amazon.titan-embed-text-v2:0
-256 dimensions
-normalize=true
+validation_state = unverified
+confidence = 0.5
 ~~~
 
-Authentication supports Bedrock bearer API keys or AWS SigV4 credentials.
+This prevents a model-generated answer from automatically becoming reusable truth.
+
+If an exact KnowledgeRecord already exists but requires revalidation or is otherwise non-reusable, mcma ask does not overwrite it merely because a model generated new text. Its history is preserved for an explicit Librarian/validation workflow.
+
+## Bedrock generation connector
+
+MCMA now has an optional Amazon Bedrock Converse GenerationProvider.
+
+Configuration:
+
+~~~text
+MCMA_BEDROCK_CHAT_MODEL
+MCMA_BEDROCK_MAX_TOKENS
+MCMA_BEDROCK_CHAT_TEMPERATURE
+MCMA_BEDROCK_SYSTEM_PROMPT
+~~~
+
+Authentication uses the same Bedrock bearer API key or explicit SigV4 environment credentials as the embedding connector.
+
+Credentials remain outside MCMA storage.
 
 ## CLI
 
@@ -91,10 +74,18 @@ Authentication supports Bedrock bearer API keys or AWS SigV4 credentials.
 mcma semantic-index
 mcma semantic-check
 mcma semantic-topk
+mcma ask
 ~~~
 
-`semantic-check` and `semantic-topk` accept `--top-k=1..100`.
+For ask, both providers are optional. Example provider flags:
 
-## Next
+~~~text
+--embedding-provider=bedrock-titan-v2
+--generation-provider=bedrock-converse
+~~~
 
-Build optional `mcma ask` orchestration on top of the same exact-first, permission and epistemic gates.
+## Verification status
+
+CI tests use simulated providers and make no real Bedrock network calls.
+
+The next operational milestone is a real EC2 + Amazon Bedrock end-to-end smoke test with actual credentials and a chosen Converse-compatible model.

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
+use MCMA\Core\Agent\Librarian;
+use MCMA\Core\Ask\AskService;
 use MCMA\Core\Crypto;
 use MCMA\Core\HistoricalCrypto;
 use MCMA\Core\KeyStore;
@@ -11,6 +13,7 @@ use MCMA\Core\Library;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Semantic\SemanticIndexService;
 use MCMA\Connectors\Aws\BedrockTitanEmbeddingProvider;
+use MCMA\Connectors\Aws\BedrockConverseGenerationProvider;
 use MCMA\Core\Storage\StorageFactory;
 use MCMA\Core\Storage\StorageMigrator;
 
@@ -53,6 +56,7 @@ Usage:
   mcma semantic-index LOCATION [--actor=librarian] [--dimensions=256]
   mcma semantic-check LOCATION QUESTION_FILE [options]
   mcma semantic-topk LOCATION QUESTION_FILE [options]
+  mcma ask LOCATION QUESTION_FILE [options]
 
   mcma key-export LOCATION OUTPUT [--passphrase-env=ENV_NAME]
   mcma key-import RECOVERY_FILE [--passphrase-env=ENV_NAME] [--replace=yes]
@@ -89,7 +93,20 @@ knowledge / semantic options:
   --dimensions=256|512|1024
   --embedding-provider=bedrock-titan-v2
 
-Semantic Bedrock credentials are read from AWS_BEARER_TOKEN_BEDROCK or standard AWS credentials.
+ask options:
+  --actor=ai
+  --embedding-provider=none|bedrock-titan-v2
+  --generation-provider=none|bedrock-converse
+  --remember=yes|no
+  --capture-confidence=0.0..1.0
+  --capture-validation=unverified|plausible|supported|verified|disputed|retracted
+  --capture-freshness=immutable|stable|dynamic|volatile
+  --capture-max-age=SECONDS
+  --capture-reuse=always|reuse-unless-stale|revalidate-if-stale|never-direct
+  --capture-provenance=FILE.json
+
+Bedrock credentials are read from AWS_BEARER_TOKEN_BEDROCK or standard AWS credentials.
+Bedrock generation also requires MCMA_BEDROCK_CHAT_MODEL.
 INPUT may be '-' to read from STDIN.
 TXT
     );
@@ -169,6 +186,19 @@ function embeddingProvider(array $opts): BedrockTitanEmbeddingProvider
     if($provider!=='bedrock-titan-v2') fail('Unsupported embedding provider: '.$provider);
     $dimensions=isset($opts['dimensions'])?(int)$opts['dimensions']:null;
     return BedrockTitanEmbeddingProvider::fromEnvironment($dimensions);
+}
+function optionalEmbeddingProvider(array $opts): ?BedrockTitanEmbeddingProvider
+{
+    $provider=$opts['embedding-provider']??'none';
+    if($provider==='none') return null;
+    return embeddingProvider($opts);
+}
+function generationProvider(array $opts): ?BedrockConverseGenerationProvider
+{
+    $provider=$opts['generation-provider']??'none';
+    if($provider==='none') return null;
+    if($provider!=='bedrock-converse') fail('Unsupported generation provider: '.$provider);
+    return BedrockConverseGenerationProvider::fromEnvironment();
 }
 function recoveryPassphrase(array $opts): string
 {
@@ -332,6 +362,37 @@ try {
                 (float)($opts['min-confidence']??0.75),
                 (float)($opts['min-similarity']??0.78),
                 (int)($opts['top-k']??5)
+            )).PHP_EOL;
+            break;
+        }
+        case 'ask': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $lib=library($loc);
+            $knowledge=new KnowledgeService($lib);
+            $embedding=optionalEmbeddingProvider($opts);
+            $semantic=$embedding!==null?new SemanticIndexService($lib):null;
+            $librarian=$embedding!==null?new Librarian($knowledge,$semantic,$embedding):new Librarian($knowledge);
+            $generator=generationProvider($opts);
+            $service=new AskService($knowledge,$semantic,$embedding,$generator,$librarian);
+            $captureFreshness=$opts['capture-freshness']??'stable';
+            $captureMaxAge=$captureFreshness==='immutable'?null:(isset($opts['capture-max-age'])?(int)$opts['capture-max-age']:2592000);
+            $captureProvenance=isset($opts['capture-provenance'])?readJsonArray($opts['capture-provenance']):[];
+            echo pretty($service->ask(
+                $opts['actor']??'ai',
+                readTextFile($questionFile),
+                yesNo($opts,'current',false),
+                (float)($opts['min-confidence']??0.75),
+                (float)($opts['min-similarity']??0.78),
+                (int)($opts['top-k']??5),
+                yesNo($opts,'remember',true),
+                [
+                    'confidence'=>(float)($opts['capture-confidence']??0.5),
+                    'validation_state'=>$opts['capture-validation']??'unverified',
+                    'freshness_class'=>$captureFreshness,
+                    'max_age_seconds'=>$captureMaxAge,
+                    'reuse_policy'=>$opts['capture-reuse']??'reuse-unless-stale',
+                    'provenance'=>$captureProvenance,
+                ]
             )).PHP_EOL;
             break;
         }

@@ -55,3 +55,8 @@ jobs:
           php tests/integration/semantic-retrieval.php
           php tests/integration/semantic-incremental-topk.php
           php tests/integration/bedrock-embedding-provider.php
+
+      - name: Ask orchestration
+        run: |
+          php tests/integration/ask-orchestration.php
+          php tests/integration/bedrock-converse-provider.php
