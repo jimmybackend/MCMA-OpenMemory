@@ -7,50 +7,39 @@
 - [x] file-first/database-free core
 - [x] provider-independent architecture
 - [x] AI-optional operation
-- [x] profile, knowledge maturity, permissions and vault direction
 - [x] encrypted indexes and virtual temperature views
 
 ## Identity/container contract — complete
 
 - [x] manifest.mcma
-- [x] stable library_id
-- [x] stable object_id
+- [x] stable library_id and object_id
 - [x] SHA-256 storage_hash
 - [x] AES-256-GCM + HKDF-SHA256
 - [x] RFC 8785 canonical AAD
 - [x] memory:// addressing
-- [x] root index bootstrap
 - [x] schemas and conformance vector
 
-## Manual local core — complete
+## Manual core and hardening — complete
 
 - [x] init/open/info/write/read/verify/list/tree
-- [x] content-addressed local storage
-- [x] tests without AI/database
+- [x] update preserving object_id
+- [x] temperature transitions preserving object_id
+- [x] encrypted revisions
+- [x] recovery export/import
+- [x] historical V1/V2 migration
+- [x] local concurrency protection
 
-## Local hardening and compatibility — complete
+## Storage abstraction — Local + GitHub complete
 
-- [x] exclusive write locking
-- [x] manifest reload under lock
-- [x] mcma update preserving object_id
-- [x] encrypted revision chain
-- [x] mcma temperature preserving object_id
-- [x] encrypted key export/import recovery bundle
-- [x] historical mcma-v1 reader
-- [x] historical mcma-v2 reader
-- [x] mcma migrate
-- [x] duplicate historical migration detection
-- [x] non-destructive migration tests
-
-## Next — storage abstraction
-
-- [ ] stable Storage Adapter interface
-- [ ] refactor local filesystem behind adapter
-- [ ] Git-backed adapter
+- [x] stable StorageAdapter interface
+- [x] refactor core away from direct filesystem access
+- [x] LocalFilesystemAdapter
+- [x] GitHubStorageAdapter
+- [x] GitHub optimistic manifest CAS
+- [x] storage-copy command
+- [x] provider migration byte-preservation tests
 - [ ] S3-compatible adapter
 - [ ] WebDAV adapter
-- [ ] library export/import
-- [ ] provider migration tests preserving exact MCMA bytes
 
 ## Identity, permissions and security
 

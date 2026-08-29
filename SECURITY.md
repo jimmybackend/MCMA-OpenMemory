@@ -4,63 +4,46 @@ MCMA-OpenMemory is experimental R&D.
 
 ## Storage/key separation
 
-A storage provider should be able to store encrypted MCMA bytes without receiving plaintext memory or master keys.
+Storage providers receive encrypted MCMA bytes, not plaintext master keys.
 
 Current object crypto:
 
-~~~text
+```text
 AES-256-GCM
 HKDF-SHA256
-12-byte random IV
-16-byte tag
 RFC 8785 canonical protected header/AAD
-~~~
+```
 
 ## Never commit
 
-Do not commit master keys, bearer tokens, provider secrets, plaintext private memories, production environment files, decrypted vault content, recovery passphrases or *.mcma-key recovery bundles.
+Do not commit master keys, bearer tokens, provider secrets, plaintext private memories, production environment files, recovery passphrases or `*.mcma-key` recovery bundles.
 
-## Local key boundary
+## Storage credentials
 
-The default local key store is outside the portable library:
+GitHub uses `MCMA_GITHUB_TOKEN` from process configuration. It is not written to `manifest.mcma`, memory objects or indexes.
 
-~~~text
-~/.config/mcma/keys/<library_id>.key
-~~~
+Use the narrowest repository permissions compatible with the configured library path.
+
+## Concurrency
+
+Local storage uses an exclusive filesystem lock plus compare-and-swap versions.
+
+GitHub does not use a fake distributed lock. It uses the current Git blob SHA of `manifest.mcma` as an optimistic compare-and-swap version. If another writer publishes first, a stale writer fails rather than silently overwriting the newer manifest.
+
+Immutable content-addressed objects written before a failed manifest CAS may remain as unreferenced encrypted objects; this is preferable to corrupting authoritative library routing state.
 
 ## Recovery
 
-The first recovery profile uses a separate mcma-key-backup-1 bundle protected with:
-
-~~~text
-PBKDF2-HMAC-SHA256
-600000 iterations
-16-byte random salt
-AES-256-GCM
-12-byte random IV
-16-byte tag
-~~~
-
-The passphrase is supplied through an environment variable, not a command-line value. Recovery files and passphrases should not be stored together.
-
-## Concurrent writers
-
-Mutating local operations use .mcma.lock with flock(). After lock acquisition the current manifest is reloaded before index modification.
-
-This is local filesystem coordination, not a distributed lock. Remote adapters must define their own concurrency semantics.
-
-## Stable revisions
-
-Content and temperature changes preserve object_id and create a new encrypted storage_hash. Previous content-addressed revisions remain until an explicit future cleanup policy removes them.
+The separate `mcma-key-backup-1` bundle uses PBKDF2-HMAC-SHA256 and AES-256-GCM. Recovery material should be stored separately from ordinary library copies.
 
 ## Historical migration
 
-Historical V1/V2 objects are authenticated with their original crypto rules before plaintext is accepted. Historical keys are supplied by protected file/environment variable and never as CLI values. Migration is non-destructive.
+Historical V1/V2 objects are authenticated under their original cryptographic rules before plaintext is accepted. Migration is non-destructive.
 
 ## Vault and biometrics
 
-Raw vault contents must never become normal model context. Raw biometric templates should not be ordinary MCMA memory; platform secure hardware/passkeys should unlock keys without exposing biometrics to MCMA or AI.
+Raw vault contents must never become ordinary model context. Raw biometric templates should not be ordinary MCMA memory; secure platform mechanisms/passkeys should unlock keys without exposing biometrics to MCMA or AI.
 
 ## Production hardening
 
-Production deployments should consider KMS/HSM, key rotation, recovery testing, least privilege, network segmentation, secret-free audit logs, intrusion detection, formal cryptographic review, signed releases and protected branches.
+Production deployments should consider KMS/HSM, key rotation, least privilege, token rotation, protected branches/repositories, recovery testing, secret-free audit logs, intrusion detection and formal cryptographic review.

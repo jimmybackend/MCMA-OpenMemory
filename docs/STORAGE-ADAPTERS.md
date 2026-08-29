@@ -1,120 +1,93 @@
 # Storage Adapters
 
-MCMA 1.0 treats physical storage as a replaceable implementation detail.
+MCMA 1.0 now has an implemented provider-neutral storage boundary.
 
-## Design rule
-
-The core operates on stable object identities and provider-neutral locators.
-
-A storage adapter should store/retrieve encrypted bytes without understanding plaintext memory.
-
-## Conceptual interface
+## Interface
 
 ```text
-put(locator, bytes)
-get(locator) -> bytes
-exists(locator) -> bool
-delete(locator)
-list(prefix) -> locators
+id()
+get(locator) -> bytes + provider version
+exists(locator)
+put(locator, bytes, expectedVersion?, createOnly?)
+delete(locator, expectedVersion?)
+list(prefix)
+withWriteLock(callback)
+capabilities()
 ```
 
-Optional capabilities may include:
+The core uses portable locators such as:
 
 ```text
-copy
-version
-metadata
-health
-atomic_put
-etag
+manifest.mcma
+objects/ab/cd/<sha256>.mcma
 ```
 
-## Logical vs physical
+It does not use bucket names, repository paths or local filesystem paths as memory identity.
 
-Logical reference:
+## Local filesystem adapter
+
+Implemented in:
 
 ```text
-memory://projects/mcma
+packages/core/src/Storage/LocalFilesystemAdapter.php
 ```
 
-Authorized catalog resolution:
+It provides atomic file replacement, SHA-256 compare-and-swap versions, prefix listing and exclusive `.mcma.lock` writes.
+
+## GitHub adapter
+
+Implemented in:
 
 ```text
-memory://projects/mcma
-        ↓
-object_id
-        ↓
-objects/7a/21/7a21....mcma
+packages/core/src/Storage/GitHubStorageAdapter.php
 ```
 
-Possible backend mappings:
+Location syntax:
 
 ```text
-Local:  /var/lib/mcma/objects/7a/21/7a21....mcma
-Git:    objects/7a/21/7a21....mcma
-S3:     objects/7a/21/7a21....mcma
-WebDAV: objects/7a/21/7a21....mcma
+github://OWNER/REPO/optional/prefix?branch=main
 ```
 
-The identical relative mapping is convenient but not required.
-
-## Migration
-
-Provider migration should support byte-preserving copy for MCMA 1.0 objects:
+Authentication is supplied through:
 
 ```text
-source GET
-   ↓
-exact encrypted bytes
-   ↓
-destination PUT
+MCMA_GITHUB_TOKEN
 ```
 
-Because physical location is not permanent object identity, changing provider or locator should not by itself require re-encryption.
+The branch must already exist.
 
-Historical prototype objects may have path-bound cryptographic identity and must follow their compatibility/migration rules.
+GitHub object versions use Git blob SHA values. The adapter does not pretend to have a distributed lock; instead the core publishes mutable library state by updating `manifest.mcma` with compare-and-swap semantics. A stale manifest SHA causes the write to fail instead of silently overwriting another writer.
 
-## Credentials
+## Byte-preserving provider migration
 
-Adapters obtain credentials from deployment-specific secret sources, not from portable object payloads.
+`mcma storage-copy SOURCE DESTINATION` copies all content-addressed objects first and publishes `manifest.mcma` last.
 
-Possible sources:
+Each copied object's exact bytes are read back and compared.
 
-- environment variables;
-- workload identity;
-- instance roles;
-- secret managers;
-- protected local configuration;
-- short-lived OAuth/access tokens.
+Moving storage therefore does not change:
 
-## Capability discovery
+- encrypted envelope bytes;
+- `object_id`;
+- `storage_hash`;
+- cryptographic identity.
 
-Adapters may report capabilities such as:
+The encryption key remains outside the storage provider and is not copied by `storage-copy`.
+
+## Capabilities
+
+Adapters expose capabilities such as:
 
 ```json
 {
-  "versioning": true,
-  "atomic_put": true,
+  "compare_and_swap": true,
+  "exclusive_lock": false,
   "list_prefix": true,
-  "server_side_copy": false,
-  "etag": true
+  "byte_preserving": true
 }
 ```
 
-## Separation of responsibilities
+Remote adapters must define their concurrency behavior explicitly.
 
-Storage Adapter:
+## Next adapters
 
-> Where are encrypted bytes stored?
-
-Crypto Engine:
-
-> How are they protected and authenticated?
-
-Index Engine:
-
-> How do logical references resolve to stable objects?
-
-Memory Engine:
-
-> What does the memory mean and when is it relevant?
+S3-compatible and WebDAV remain future implementations.

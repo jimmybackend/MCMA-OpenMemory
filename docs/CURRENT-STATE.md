@@ -2,67 +2,66 @@
 
 Date: 2026-08-29
 
-Status: **MCMA 1.0 local core hardened with revisions, locking, recovery and historical migration.**
+Status: **Provider-neutral MCMA 1.0 core with Local and GitHub storage adapters implemented.**
 
-## Implemented commands
+## Core/storage separation
 
-~~~text
-mcma init
-mcma open
-mcma info
-mcma write
-mcma update
-mcma temperature
-mcma read
-mcma verify
-mcma list
-mcma tree
-mcma key-export
-mcma key-import
-mcma migrate
-~~~
+The active core is now:
 
-## Stable revision behavior
+```text
+Library
+  ↓
+StorageAdapter
+  ├── LocalFilesystemAdapter
+  └── GitHubStorageAdapter
+```
 
-~~~text
-object_id stays stable
-storage_hash changes
-revision increments
-previous_storage_hash is retained inside encrypted metadata
-~~~
+`Library` operates only on portable locators such as `manifest.mcma` and `objects/...mcma`.
 
-Changing HOT/WARM/COLD/FROZEN follows the same stable-identity rule.
+The compatibility class `LocalLibrary` remains as a thin wrapper for existing local callers.
 
-Old content-addressed revisions are retained; the encrypted root index points to the current revision.
+## Implemented storage behavior
 
-## Concurrent writes
+Local:
 
-Mutating operations use an exclusive .mcma.lock with flock(). After acquiring the lock, the library reloads the current manifest before updating indexes.
+- atomic file writes;
+- exclusive write lock;
+- compare-and-swap versions;
+- prefix listing.
 
-## Recovery
+GitHub:
 
-The master key remains outside the portable library. The CLI can export/import a passphrase-encrypted mcma-key-backup-1 recovery bundle using AES-256-GCM and PBKDF2-HMAC-SHA256.
+- GitHub Contents API byte storage;
+- Git blob SHA versions;
+- optimistic compare-and-swap for mutable manifest publication;
+- recursive prefix listing;
+- optional repository prefix and branch.
 
-## Historical migration
+## Provider migration
 
-The first migrator can authenticate/decrypt historical mcma-v1 and mcma-v2 files when the authorized historical master key is supplied.
+```text
+mcma storage-copy SOURCE_LOCATION DESTINATION_LOCATION
+```
 
-Migration creates a new MCMA 1.0 object_id, preserves encrypted provenance, defaults to COLD + observed unless explicitly classified, detects repeated import of the same encrypted source, and never deletes the source.
+copies all encrypted content-addressed objects byte-for-byte and writes the manifest last.
+
+Tests verify exact byte preservation.
 
 ## Tests
 
-~~~text
-tests/conformance/run.php
-tests/integration/local-core.php
-tests/integration/historical-migration.php
-~~~
+Added:
 
-The hardening tests cover update identity, temperature identity, recovery export/import and synthetic historical V2 migration.
+```text
+tests/integration/storage-adapters.php
+tests/integration/github-storage-adapter.php
+```
 
-## Real historical user memory
+The GitHub adapter test uses a simulated API transport; it does not require or expose a real token.
 
-jimmybackend/jimmybackend/memories contains real historical encrypted objects. This development environment does not expose the private historical master key, so no real user memory was decrypted or copied during this block.
+## Existing functionality retained
+
+Stable revisions, temperature transitions, recovery, historical V1/V2 migration, encrypted index routing and conformance behavior remain in the core.
 
 ## Next block
 
-Define the reusable Storage Adapter interface, move local filesystem access behind it, then implement Git-backed storage while preserving the same MCMA 1.0 bytes and identities.
+Implement the S3-compatible adapter and provider migration tests Local ↔ S3-compatible. After that, implement WebDAV or begin the permissions/vault layer.

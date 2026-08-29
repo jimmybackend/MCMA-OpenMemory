@@ -7,28 +7,38 @@ require_once __DIR__ . '/../../packages/core/bootstrap.php';
 use MCMA\Core\Crypto;
 use MCMA\Core\HistoricalCrypto;
 use MCMA\Core\KeyStore;
-use MCMA\Core\LocalLibrary;
+use MCMA\Core\Library;
+use MCMA\Core\Storage\StorageFactory;
+use MCMA\Core\Storage\StorageMigrator;
 
 function fail(string $message, int $code = 1): never { fwrite(STDERR, 'Error: ' . $message . PHP_EOL); exit($code); }
 function usage(): never
 {
     fwrite(STDERR, <<<'TXT'
-MCMA 1.0 local CLI
+MCMA 1.0 CLI
+
+LOCATION:
+  /local/path
+  github://OWNER/REPO/optional/prefix?branch=main
 
 Usage:
-  mcma init LIBRARY [--mode=private|normal]
-  mcma open LIBRARY
-  mcma info LIBRARY
-  mcma write LIBRARY MEMORY_URI INPUT [options]
-  mcma update LIBRARY MEMORY_URI INPUT [options]
-  mcma temperature LIBRARY MEMORY_URI hot|warm|cold|frozen
-  mcma read LIBRARY MEMORY_URI
-  mcma verify LIBRARY
-  mcma list LIBRARY
-  mcma tree LIBRARY
-  mcma key-export LIBRARY OUTPUT [--passphrase-env=ENV_NAME]
+  mcma init LOCATION [--mode=private|normal]
+  mcma open LOCATION
+  mcma info LOCATION
+  mcma write LOCATION MEMORY_URI INPUT [options]
+  mcma update LOCATION MEMORY_URI INPUT [options]
+  mcma temperature LOCATION MEMORY_URI hot|warm|cold|frozen
+  mcma read LOCATION MEMORY_URI
+  mcma verify LOCATION
+  mcma list LOCATION
+  mcma tree LOCATION
+  mcma key-export LOCATION OUTPUT [--passphrase-env=ENV_NAME]
   mcma key-import RECOVERY_FILE [--passphrase-env=ENV_NAME] [--replace=yes]
-  mcma migrate LIBRARY HISTORICAL.mcma MEMORY_URI [options]
+  mcma migrate LOCATION HISTORICAL.mcma MEMORY_URI [options]
+  mcma storage-copy SOURCE_LOCATION DESTINATION_LOCATION
+
+GitHub:
+  MCMA_GITHUB_TOKEN provides the GitHub API token. The branch must already exist.
 
 write/update options:
   --format=text|markdown|xml|json|binary
@@ -41,142 +51,42 @@ migrate options:
   --legacy-key-file=PATH
   --legacy-key-env=ENV_NAME
   --source-ref=TEXT
-  plus the write metadata options above
+  plus write metadata options
 
 INPUT may be '-' to read from STDIN.
-
-Key handling:
-  MCMA_MASTER_KEY_B64
-  MCMA_KEY_DIR
-  MCMA_RECOVERY_PASSPHRASE
-  MCMA_LEGACY_MASTER_KEY_B64
-
-Passphrases and keys are intentionally not accepted as command-line values.
+Keys and passphrases are intentionally not accepted as literal CLI values.
 TXT
     );
-    fwrite(STDERR, PHP_EOL);
-    exit(2);
+    fwrite(STDERR, PHP_EOL); exit(2);
 }
-function parseOptions(array $args): array
-{
-    $options=[];
-    foreach($args as $arg){
-        if(!str_starts_with($arg,'--') || !str_contains($arg,'=')) fail('Invalid option: '.$arg,2);
-        [$name,$value]=explode('=',substr($arg,2),2);
-        $options[$name]=$value;
-    }
-    return $options;
-}
-function pretty(mixed $value): string { return json_encode($value, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
-function renderTree(array $tree,string $prefix=''): string
-{
-    $lines=[];
-    $keys=array_values(array_filter(array_keys($tree),static fn(string $k): bool=>$k!=='@object_id'));
-    sort($keys,SORT_STRING);
-    foreach($keys as $i=>$key){
-        $last=$i===count($keys)-1;
-        $lines[]=$prefix.($last?'└── ':'├── ').$key;
-        $child=$tree[$key];
-        if(is_array($child)){
-            $childPrefix=$prefix.($last?'    ':'│   ');
-            if(isset($child['@object_id'])) $lines[]=$childPrefix.'└── '.$child['@object_id'];
-            $nested=renderTree($child,$childPrefix);
-            if($nested!=='') $lines[]=$nested;
-        }
-    }
-    return implode(PHP_EOL,$lines);
-}
-function readInput(string $input,string $format): mixed
-{
-    $bytes=$input==='-'?stream_get_contents(STDIN):@file_get_contents($input);
-    if($bytes===false) fail('Unable to read input: '.$input);
-    if($format==='json'){
-        try { return json_decode($bytes,true,512,JSON_THROW_ON_ERROR); }
-        catch(Throwable $e){ fail('Input is not valid JSON: '.$e->getMessage()); }
-    }
-    return $bytes;
-}
-function recoveryPassphrase(array $opts): string
-{
-    $name=$opts['passphrase-env']??'MCMA_RECOVERY_PASSPHRASE';
-    if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$name)) fail('Invalid passphrase environment variable name');
-    $value=getenv($name);
-    if(!is_string($value)||$value==='') fail("Recovery passphrase not found in environment variable {$name}");
-    return $value;
-}
+function parseOptions(array $args): array { $o=[]; foreach($args as $arg){ if(!str_starts_with($arg,'--')||!str_contains($arg,'=')) fail('Invalid option: '.$arg,2); [$n,$v]=explode('=',substr($arg,2),2); $o[$n]=$v; } return $o; }
+function pretty(mixed $v): string { return json_encode($v,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
+function storage(string $location) { return StorageFactory::fromLocation($location); }
+function library(string $location): Library { return Library::open(storage($location)); }
+function readInput(string $input,string $format): mixed { $bytes=$input==='-'?stream_get_contents(STDIN):@file_get_contents($input); if($bytes===false) fail('Unable to read input: '.$input); if($format==='json'){ try{return json_decode($bytes,true,512,JSON_THROW_ON_ERROR);}catch(Throwable $e){fail('Input is not valid JSON: '.$e->getMessage());} } return $bytes; }
+function recoveryPassphrase(array $opts): string { $name=$opts['passphrase-env']??'MCMA_RECOVERY_PASSPHRASE'; if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$name)) fail('Invalid passphrase environment variable name'); $v=getenv($name); if(!is_string($v)||$v==='') fail("Recovery passphrase not found in environment variable {$name}"); return $v; }
+function renderTree(array $tree,string $prefix=''): string { $lines=[]; $keys=array_values(array_filter(array_keys($tree),static fn(string $k):bool=>$k!=='@object_id')); sort($keys,SORT_STRING); foreach($keys as $i=>$key){$last=$i===count($keys)-1;$lines[]=$prefix.($last?'└── ':'├── ').$key;$child=$tree[$key];if(is_array($child)){$cp=$prefix.($last?'    ':'│   ');if(isset($child['@object_id']))$lines[]=$cp.'└── '.$child['@object_id'];$nested=renderTree($child,$cp);if($nested!=='')$lines[]=$nested;}} return implode(PHP_EOL,$lines); }
 
-try{
-    $args=$argv; array_shift($args);
-    $command=array_shift($args)??null;
-    if($command===null||in_array($command,['-h','--help','help'],true)) usage();
-
+try {
+    $args=$argv; array_shift($args); $command=array_shift($args)??null; if($command===null||in_array($command,['help','-h','--help'],true)) usage();
     switch($command){
-        case 'init':
-            $library=array_shift($args)??usage(); $opts=parseOptions($args);
-            $lib=LocalLibrary::init($library,$opts['mode']??'private'); $info=$lib->info();
-            echo "Initialized MCMA 1.0 library\n".pretty($info).PHP_EOL;
-            if(getenv('MCMA_MASTER_KEY_B64')===false||trim((string)getenv('MCMA_MASTER_KEY_B64'))==='') echo 'Local key: '.KeyStore::keyPath($info['library_id']).PHP_EOL;
-            else echo "Key source: MCMA_MASTER_KEY_B64\n";
-            break;
-        case 'open':
-            $library=array_shift($args)??usage(); if($args!==[]) usage();
-            $v=LocalLibrary::open($library)->verify();
-            echo 'Opened MCMA 1.0 library '.$v['library_id'].PHP_EOL.'Verified indexed objects: '.$v['objects_verified'].PHP_EOL;
-            break;
-        case 'info':
-            $library=array_shift($args)??usage(); if($args!==[]) usage();
-            echo pretty(LocalLibrary::open($library)->info()).PHP_EOL; break;
-        case 'write':
-            $library=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $input=array_shift($args)??usage(); $opts=parseOptions($args);
-            $format=$opts['format']??'text'; $content=readInput($input,$format);
-            echo pretty(LocalLibrary::open($library)->write($uri,$content,$format,$opts['temperature']??'hot',$opts['layer']??'40-semantic',$opts['scope']??'user',$opts['maturity']??'raw')).PHP_EOL;
-            break;
-        case 'update':
-            $library=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $input=array_shift($args)??usage(); $opts=parseOptions($args);
-            $lib=LocalLibrary::open($library); $current=$lib->read($uri);
-            $format=$opts['format']??(string)($current['payload']['content_format']??'text'); $content=readInput($input,$format);
-            echo pretty($lib->update($uri,$content,$opts['format']??null,$opts['temperature']??null,$opts['layer']??null,$opts['scope']??null,$opts['maturity']??null)).PHP_EOL;
-            break;
-        case 'temperature':
-            $library=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $temperature=array_shift($args)??usage(); if($args!==[]) usage();
-            echo pretty(LocalLibrary::open($library)->setTemperature($uri,strtolower($temperature))).PHP_EOL; break;
-        case 'read':
-            $library=array_shift($args)??usage(); $uri=array_shift($args)??usage(); if($args!==[]) usage();
-            $payload=LocalLibrary::open($library)->read($uri)['payload']; $format=$payload['content_format']??'json'; $content=$payload['content']??null;
-            if($format==='binary'&&is_string($content)) fwrite(STDOUT,Crypto::b64uDecode($content));
-            elseif($format==='json') echo pretty($content).PHP_EOL;
-            elseif(is_string($content)){ echo $content; if(!str_ends_with($content,"\n")) echo PHP_EOL; }
-            else echo pretty($content).PHP_EOL;
-            break;
-        case 'verify':
-            $library=array_shift($args)??usage(); if($args!==[]) usage();
-            echo pretty(LocalLibrary::open($library)->verify()).PHP_EOL; break;
-        case 'list':
-            $library=array_shift($args)??usage(); if($args!==[]) usage();
-            foreach(LocalLibrary::open($library)->list() as $entry) echo ($entry['logical_refs'][0]??'(no-ref)')."\t".$entry['object_id']."\t".($entry['temperature']??'').PHP_EOL;
-            break;
-        case 'tree':
-            $library=array_shift($args)??usage(); if($args!==[]) usage();
-            echo "memory://\n"; $rendered=renderTree(LocalLibrary::open($library)->tree()); if($rendered!=='') echo $rendered.PHP_EOL; break;
-        case 'key-export':
-            $library=array_shift($args)??usage(); $output=array_shift($args)??usage(); $opts=parseOptions($args);
-            $lib=LocalLibrary::open($library); echo pretty(KeyStore::exportRecovery($lib->libraryId(),$output,recoveryPassphrase($opts))).PHP_EOL; break;
-        case 'key-import':
-            $input=array_shift($args)??usage(); $opts=parseOptions($args); $replace=($opts['replace']??'no')==='yes';
-            echo pretty(KeyStore::importRecovery($input,recoveryPassphrase($opts),$replace)).PHP_EOL; break;
-        case 'migrate':
-            $library=array_shift($args)??usage(); $source=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $opts=parseOptions($args);
-            $legacyEnv=$opts['legacy-key-env']??'MCMA_LEGACY_MASTER_KEY_B64';
-            if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$legacyEnv)) fail('Invalid legacy-key environment variable name');
-            $legacyKey=HistoricalCrypto::loadLegacyMasterKey($opts['legacy-key-file']??null,$legacyEnv);
-            $historical=HistoricalCrypto::readAndDecrypt($source,$legacyKey);
-            $format=$opts['format']??'text'; $content=$historical['plaintext'];
-            if($format==='json'){
-                try{$content=json_decode($content,true,512,JSON_THROW_ON_ERROR);}
-                catch(Throwable $e){fail('Historical plaintext is not valid JSON: '.$e->getMessage());}
-            }
-            echo pretty(LocalLibrary::open($library)->importHistorical($uri,$content,$historical['envelope'],$format,$opts['temperature']??'cold',$opts['layer']??'40-semantic',$opts['scope']??'user',$opts['maturity']??'observed',$opts['source-ref']??basename($source))).PHP_EOL;
-            break;
+        case 'init': { $loc=array_shift($args)??usage(); $opts=parseOptions($args); $lib=Library::init(storage($loc),$opts['mode']??'private'); $info=$lib->info(); echo "Initialized MCMA 1.0 library
+".pretty($info).PHP_EOL; if(getenv('MCMA_MASTER_KEY_B64')===false||trim((string)getenv('MCMA_MASTER_KEY_B64'))==='') echo 'Local key: '.KeyStore::keyPath($info['library_id']).PHP_EOL; break; }
+        case 'open': { $loc=array_shift($args)??usage(); if($args!==[])usage(); $v=library($loc)->verify(); echo 'Opened '.$v['library_id'].' on '.$v['storage'].PHP_EOL.'Verified indexed objects: '.$v['objects_verified'].PHP_EOL; break; }
+        case 'info': { $loc=array_shift($args)??usage(); if($args!==[])usage(); echo pretty(library($loc)->info()).PHP_EOL; break; }
+        case 'write': { $loc=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $input=array_shift($args)??usage(); $opts=parseOptions($args); $format=$opts['format']??'text'; echo pretty(library($loc)->write($uri,readInput($input,$format),$format,$opts['temperature']??'hot',$opts['layer']??'40-semantic',$opts['scope']??'user',$opts['maturity']??'raw')).PHP_EOL; break; }
+        case 'update': { $loc=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $input=array_shift($args)??usage(); $opts=parseOptions($args); $lib=library($loc); $current=$lib->read($uri); $format=$opts['format']??(string)($current['payload']['content_format']??'text'); echo pretty($lib->update($uri,readInput($input,$format),$opts['format']??null,$opts['temperature']??null,$opts['layer']??null,$opts['scope']??null,$opts['maturity']??null)).PHP_EOL; break; }
+        case 'temperature': { $loc=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $temp=array_shift($args)??usage(); if($args!==[])usage(); echo pretty(library($loc)->setTemperature($uri,strtolower($temp))).PHP_EOL; break; }
+        case 'read': { $loc=array_shift($args)??usage(); $uri=array_shift($args)??usage(); if($args!==[])usage(); $p=library($loc)->read($uri)['payload']; $f=$p['content_format']??'json';$c=$p['content']??null;if($f==='binary'&&is_string($c))fwrite(STDOUT,Crypto::b64uDecode($c));elseif($f==='json')echo pretty($c).PHP_EOL;elseif(is_string($c)){echo $c;if(!str_ends_with($c,"
+"))echo PHP_EOL;}else echo pretty($c).PHP_EOL; break; }
+        case 'verify': { $loc=array_shift($args)??usage(); if($args!==[])usage(); echo pretty(library($loc)->verify()).PHP_EOL; break; }
+        case 'list': { $loc=array_shift($args)??usage(); if($args!==[])usage(); foreach(library($loc)->list() as $e) echo ($e['logical_refs'][0]??'(no-ref)')."	".$e['object_id']."	".($e['temperature']??'').PHP_EOL; break; }
+        case 'tree': { $loc=array_shift($args)??usage(); if($args!==[])usage(); echo "memory://
+"; $r=renderTree(library($loc)->tree()); if($r!=='')echo $r.PHP_EOL; break; }
+        case 'key-export': { $loc=array_shift($args)??usage(); $out=array_shift($args)??usage(); $opts=parseOptions($args); $lib=library($loc); echo pretty(KeyStore::exportRecovery($lib->libraryId(),$out,recoveryPassphrase($opts))).PHP_EOL; break; }
+        case 'key-import': { $in=array_shift($args)??usage(); $opts=parseOptions($args); echo pretty(KeyStore::importRecovery($in,recoveryPassphrase($opts),($opts['replace']??'no')==='yes')).PHP_EOL; break; }
+        case 'migrate': { $loc=array_shift($args)??usage(); $source=array_shift($args)??usage(); $uri=array_shift($args)??usage(); $opts=parseOptions($args); $legacyEnv=$opts['legacy-key-env']??'MCMA_LEGACY_MASTER_KEY_B64'; if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',$legacyEnv))fail('Invalid legacy-key environment variable name'); $h=HistoricalCrypto::readAndDecrypt($source,HistoricalCrypto::loadLegacyMasterKey($opts['legacy-key-file']??null,$legacyEnv)); $format=$opts['format']??'text'; $content=$h['plaintext']; if($format==='json')$content=json_decode($content,true,512,JSON_THROW_ON_ERROR); echo pretty(library($loc)->importHistorical($uri,$content,$h['envelope'],$format,$opts['temperature']??'cold',$opts['layer']??'40-semantic',$opts['scope']??'user',$opts['maturity']??'observed',$opts['source-ref']??basename($source))).PHP_EOL; break; }
+        case 'storage-copy': { $source=array_shift($args)??usage(); $dest=array_shift($args)??usage(); if($args!==[])usage(); echo pretty(StorageMigrator::copy(storage($source),storage($dest))).PHP_EOL; break; }
         default: usage();
     }
-}catch(Throwable $e){ fail($e->getMessage()); }
+} catch(Throwable $e){ fail($e->getMessage()); }

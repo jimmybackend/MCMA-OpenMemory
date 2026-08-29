@@ -7,39 +7,53 @@
 > **Intelligence can change. Memory belongs to the person.**  
 > **La inteligencia puede cambiar. La memoria pertenece a la persona.**
 
-MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is an optional authorized consumer of memory.
+MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is optional.
 
 ## Active version
 
-This repository has one active public development line:
+The repository has one active public line: **MCMA 1.0**.
 
-~~~text
-MCMA 1.0
-~~~
-
-Historical prototype envelope identifiers are preserved only for compatibility with real encrypted memories.
+Historical prototype formats remain only for compatibility and migration.
 
 ## Identity model
 
-~~~text
+```text
 memory:// logical reference
         ↓
 stable object_id
         ↓
 current storage_hash
         ↓
-storage adapter
+StorageAdapter
         ↓
 encrypted .mcma bytes
-~~~
+```
 
-Temperature, physical path and storage provider do not define permanent memory identity.
+Temperature, physical path and provider do not define permanent memory identity.
 
-## Implemented local core
+## Implemented storage adapters
 
-The PHP implementation currently supports:
+```text
+MCMA Core
+   ↓
+StorageAdapter
+   ├── Local filesystem
+   └── GitHub
+```
 
-~~~text
+Local paths work directly.
+
+GitHub locations use:
+
+```text
+github://OWNER/REPO/optional/prefix?branch=main
+```
+
+with `MCMA_GITHUB_TOKEN` supplied outside the library.
+
+## Implemented CLI
+
+```text
 mcma init
 mcma open
 mcma info
@@ -53,42 +67,25 @@ mcma tree
 mcma key-export
 mcma key-import
 mcma migrate
-~~~
+mcma storage-copy
+```
 
-It works without AI and without a database.
+`storage-copy` performs byte-preserving provider migration and publishes the manifest only after encrypted objects have been copied and checked.
 
-Updates and temperature transitions preserve object_id while creating new encrypted revisions/storage hashes. Mutating local operations use an exclusive write lock. The master key remains outside the portable library and can be backed up in a separate passphrase-encrypted recovery bundle.
+The master key remains outside storage and is never copied into GitHub.
 
-The migrator can authenticate/decrypt historical mcma-v1 and mcma-v2 objects when the authorized historical key is supplied. Migration never deletes the historical source.
+## Repository
 
-## Repository layout
+```text
+spec/1.0/
+packages/core/
+apps/cli/
+tests/
+docs/
+reference/compatibility/
+```
 
-~~~text
-MCMA-OpenMemory/
-├── spec/1.0/
-├── packages/core/
-├── apps/cli/
-├── tests/
-├── docs/
-├── config/
-└── reference/compatibility/
-~~~
-
-## Compatibility rule
-
-Existing encrypted prototype memories are not relabeled as MCMA 1.0. Migration means authenticated historical decrypt followed by a real MCMA 1.0 encrypted write with a new stable identity.
-
-## Next block
-
-The next implementation block is the Storage Adapter abstraction:
-
-1. define the adapter interface;
-2. move local filesystem access behind it;
-3. preserve exact MCMA 1.0 bytes;
-4. implement Git-backed storage;
-5. then implement S3-compatible storage.
-
-See SPECIFICATION.md, ARCHITECTURE.md, SECURITY.md, ROADMAP.md, spec/1.0/ and apps/cli/README.md.
+See `docs/STORAGE-ADAPTERS.md`, `SECURITY.md`, `ROADMAP.md` and `apps/cli/README.md`.
 
 ## License
 

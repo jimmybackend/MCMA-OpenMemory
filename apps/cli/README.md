@@ -1,10 +1,28 @@
-# MCMA 1.0 Local CLI
+# MCMA 1.0 CLI
 
-The local CLI requires PHP 8.2+ with OpenSSL and has no AI or database dependency.
+The CLI requires PHP 8.2+ with OpenSSL. GitHub storage also requires PHP cURL.
+
+It has no AI or database dependency.
+
+## Storage locations
+
+Local:
+
+```text
+/var/lib/mcma/my-library
+```
+
+GitHub:
+
+```text
+github://OWNER/REPO/optional/prefix?branch=main
+```
+
+For GitHub set `MCMA_GITHUB_TOKEN`. The target branch must already exist.
 
 ## Commands
 
-~~~text
+```text
 mcma init
 mcma open
 mcma info
@@ -18,37 +36,24 @@ mcma tree
 mcma key-export
 mcma key-import
 mcma migrate
-~~~
+mcma storage-copy
+```
 
-## Stable revisions
+Example provider migration:
 
-mcma update and mcma temperature preserve object_id. Each change creates a new encrypted revision and storage_hash, while the previous storage hash is retained inside encrypted metadata.
+```bash
+export MCMA_GITHUB_TOKEN='...'
+./apps/cli/mcma storage-copy ~/memory.mcma-library 'github://owner/repo/memory?branch=main'
+```
 
-## Recovery
-
-~~~bash
-export MCMA_RECOVERY_PASSPHRASE='a-long-unique-passphrase'
-./apps/cli/mcma key-export ~/memory.mcma-library /secure/library.mcma-key
-./apps/cli/mcma key-import /secure/library.mcma-key
-~~~
-
-Passphrases are read from environment variables, not CLI values.
-
-## Historical migration
-
-~~~bash
-export MCMA_LEGACY_MASTER_KEY_B64='...'
-./apps/cli/mcma migrate ~/memory.mcma-library /path/historical.mcma memory://topics/imported
-~~~
-
-Historical mcma-v1 and mcma-v2 are supported. Migration is non-destructive.
+The copy is byte-preserving. Keys are not moved into GitHub.
 
 ## Concurrency
 
-All library-changing operations acquire an exclusive .mcma.lock filesystem lock and reload the latest manifest while holding that lock.
+Local storage uses an exclusive filesystem lock.
 
-MCMA_LOCK_TIMEOUT_SECONDS controls the local wait timeout; default is 10 seconds.
+GitHub uses optimistic compare-and-swap on the manifest's Git blob SHA. If another writer changes the manifest first, the stale update fails rather than overwriting it.
 
-## Current JCS limitation
+## Recovery and historical migration
 
-The first PHP canonical JSON writer accepts integers but rejects floating-point JSON values rather than silently emit non-conformant RFC 8785 number serialization.
+Recovery and historical V1/V2 migration remain available exactly as before. Secrets and passphrases are read from protected files/environment variables, not literal command-line values.
