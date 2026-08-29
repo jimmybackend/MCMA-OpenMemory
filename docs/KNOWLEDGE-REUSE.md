@@ -1,111 +1,67 @@
 # Remembered Knowledge Reuse
 
-MCMA now has an executable first implementation of remembered knowledge reuse.
+MCMA implements exact remembered-knowledge reuse plus optional semantic candidate retrieval.
 
-## Why
-
-If a question has already been answered, preserved, supported by evidence and remains fresh enough, MCMA can return that remembered answer without paying a model to rediscover it.
-
-The core never assumes remembered knowledge is permanently true.
-
-## First implemented route
+## Exact route
 
 ~~~text
 question
     ↓
 normalize exact intent
     ↓
-SHA-256 key
+SHA-256 logical reference
     ↓
-memory://knowledge/q-...
-    ↓
-Permission Engine
-    ↓
-validation + confidence + freshness
+permission + validation + confidence + freshness
     ↓
 reuse | revalidate | reject | miss
 ~~~
 
-This first route is exact/deterministic, not semantic.
+Only reuse returns the remembered answer.
 
-That distinction matters: MCMA currently does not claim that differently worded questions are the same intent.
+## Semantic route
 
-## Stored evidence
-
-Knowledge records preserve:
-
-- original question;
-- normalized intent and hash;
-- answer;
-- structured provenance;
-- confidence;
-- validation state;
-- evidence count;
-- capture/validation timestamps;
-- validation history;
-- freshness class;
-- maximum age;
-- reuse policy;
-- logical relations.
-
-## Validation states
+Semantic retrieval runs only after an exact miss.
 
 ~~~text
-unverified
-plausible
-supported
-verified
-disputed
-retracted
+exact miss
+   ↓
+EmbeddingProvider
+   ↓
+encrypted semantic index
+   ↓
+cosine-ranked candidate
+   ↓
+requesting actor visibility
+   ↓
+KnowledgeRecord::assess()
+   ↓
+reuse | revalidate | reject | miss
 ~~~
 
-Only supported/verified records are directly reusable by the default assessment.
+Similarity does not override permissions or epistemic policy.
 
-disputed/retracted records are rejected.
+## Revision safety
 
-## Freshness
+Each semantic vector is stored with the knowledge object's current storage_hash.
 
-~~~text
-immutable
-stable
-dynamic
-volatile
-~~~
+When a knowledge record is corrected or revalidated and receives a new storage_hash, its previous semantic vector is stale and cannot authorize a direct answer until reindexing.
 
-Non-immutable records carry max_age_seconds.
+object_id remains stable.
 
-A caller can explicitly mark a request as requiring current data. That forces revalidation for non-immutable knowledge even when it has not reached max age.
+## Provenance and confidence
 
-## No blind answer on failure
+Knowledge preserves provenance, floating-point confidence, validation state/history, freshness, reuse policy and relations.
 
-A revalidate/reject decision deliberately does not include the remembered answer in the direct-answer result.
+Confidence is metadata, not proof.
 
-This helps prevent stale or disputed content from silently becoming the answer simply because it was found.
+## Current/latest requests
 
-## Object identity
+A caller can set currentRequired=true. Non-immutable remembered knowledge then requires revalidation even when semantic similarity is high.
 
-Correcting or revalidating stored knowledge updates the encrypted revision while preserving the same stable object_id.
+## Provider independence
 
-The normal MCMA previous_storage_hash linkage preserves revision lineage.
+Semantic retrieval depends on EmbeddingProvider, not on a specific AI company.
 
-## Provenance is not truth
+The first optional connector is Amazon Titan Text Embeddings V2 through Bedrock.
 
-A source reference and a confidence number are metadata about why a result is believed.
-
-They are not proof.
-
-The caller/Librarian is responsible for providing real evidence rather than invented citations.
-
-## Model-independent agents
-
-The deterministic Librarian wraps capture/validation/recall.
-
-The deterministic SecurityAgent wraps permission decisions, vault metadata and trusted secret use.
-
-Neither requires an AI provider.
-
-## Next retrieval layer
-
-The next optional step is semantic retrieval/indexing so paraphrased questions can find candidate knowledge records.
-
-Candidate retrieval must still pass the same permission, validation, confidence and freshness gates before direct reuse.
+The semantic index is derived encrypted data and can be rebuilt with another embedding provider without changing knowledge identity.

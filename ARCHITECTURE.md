@@ -4,15 +4,14 @@
 Optional AI / UI / Tools
           ↓
    Agent Boundaries
-   ├── Librarian
-   └── SecurityAgent
           ↓
- Permission + Knowledge Gates
+ Exact Knowledge Lookup
+          ↓ miss
+  Semantic Retriever
+          ↓
+ Permission + Epistemic Gates
           ↓
        MCMA Core
-   ┌──────┼────────┐
- Memory  Crypto   Index
-   └──────┼────────┘
           ↓
     StorageAdapter
    ├── Local
@@ -21,40 +20,46 @@ Optional AI / UI / Tools
    └── WebDAV
 ~~~
 
-## Knowledge route
+## Semantic index
+
+Embedding vectors are derived data, not knowledge identity.
 
 ~~~text
-question
-  ↓
-exact intent normalization
-  ↓
-knowledge logical ref
-  ↓
-Permission Engine
-  ↓
-KnowledgeRecord assessment
-  ├── validation
-  ├── confidence
-  ├── freshness
-  └── reuse policy
-  ↓
-reuse | revalidate | reject | miss
+knowledge object
+  object_id stable
+  storage_hash revision
+        ↓
+EmbeddingProvider
+        ↓
+memory://system/semantic-index/p-<provider hash>
 ~~~
 
-The current route requires exact normalized intent. Semantic candidate retrieval is intentionally a later layer.
+The index stores the knowledge storage_hash with each vector. A revision mismatch makes that vector stale.
 
-## Agent boundaries
+## Security order
 
-Librarian is a deterministic wrapper for capture, validation and recall.
+Candidate discovery and answer authorization are separate:
 
-SecurityAgent is a deterministic wrapper for authorization and trusted vault usage.
+~~~text
+semantic similarity
+      ↓
+candidate
+      ↓
+actor visibility
+      ↓
+validation
+      ↓
+confidence
+      ↓
+freshness/current-data
+      ↓
+answer only if reusable
+~~~
 
-Neither requires a model provider.
+The derived semantic index is internally readable by the semantic service, but ordinary actors are denied direct index access by the default policy.
 
-## Security invariants
+## Provider independence
 
-A model-facing client must not bypass Permission Engine, freshness/revalidation decisions, disputed/retracted rejection or the vault secret-use boundary.
+The core depends only on EmbeddingProvider.
 
-## Storage
-
-Physical provider paths do not define identity. Provider migration copies exact encrypted bytes and preserves object_id/storage_hash.
+Amazon Bedrock Titan is the first optional connector; other embedding providers can implement the same interface without changing MCMA knowledge/storage identity.

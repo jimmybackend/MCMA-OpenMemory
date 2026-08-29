@@ -43,6 +43,21 @@ final class PermissionEngine
                     'allow' => ['vault_metadata','use_secret'],
                 ],
                 [
+                    'resource' => 'memory://system/semantic-index/*',
+                    'subject' => '*',
+                    'deny' => ['read','write','update','delete','share','decrypt'],
+                ],
+                [
+                    'resource' => 'memory://system/semantic-index/*',
+                    'subject' => 'librarian',
+                    'allow' => ['read','write','update'],
+                ],
+                [
+                    'resource' => 'memory://system/semantic-index/*',
+                    'subject' => 'owner',
+                    'allow' => ['read','write','update','delete'],
+                ],
+                [
                     'resource' => 'memory://access/permissions',
                     'subject' => '*',
                     'deny' => ['read','write','update','delete','share','decrypt'],

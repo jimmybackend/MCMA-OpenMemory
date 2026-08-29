@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mcma:spec:1.0:schema:semantic-index",
+  "title": "MCMA 1.0 Semantic Index",
+  "type": "object",
+  "required": ["semantic_index_version", "provider_id", "dimensions", "indexed_at", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "semantic_index_version": { "const": "1.0" },
+    "provider_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "dimensions": { "type": "integer", "minimum": 0, "maximum": 8192 },
+    "indexed_at": { "type": "string", "format": "date-time" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["logical_ref", "object_id", "storage_hash", "vector"],
+        "additionalProperties": false,
+        "properties": {
+          "logical_ref": { "type": "string", "pattern": "^memory://knowledge/q-[0-9a-f]{64}$" },
+          "object_id": { "type": "string", "pattern": "^obj_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+          "storage_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "vector": {
+            "type": "array",
+            "items": { "type": "number" }
+          }
+        }
+      }
+    }
+  }
+}

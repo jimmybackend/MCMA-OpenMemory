@@ -49,3 +49,8 @@ jobs:
 
       - name: Knowledge reuse and agents
         run: php tests/integration/knowledge-core.php
+
+      - name: Semantic retrieval
+        run: |
+          php tests/integration/semantic-retrieval.php
+          php tests/integration/bedrock-embedding-provider.php

@@ -16,6 +16,7 @@ Status: **experimental specification with executable PHP reference implementatio
 - PERMISSIONS.md
 - VAULT.md
 - KNOWLEDGE.md
+- SEMANTIC.md
 - AGENTS.md
 - CONFORMANCE.md
 - schema/
@@ -23,6 +24,6 @@ Status: **experimental specification with executable PHP reference implementatio
 
 ## Implemented boundaries
 
-MCMA 1.0 currently has stable identity, encrypted revisions, Local/GitHub/S3/WebDAV storage, encrypted permissions, a dedicated vault, deterministic exact-intent knowledge reuse, provenance/confidence/validation/freshness metadata and deterministic Librarian/SecurityAgent boundaries.
+MCMA 1.0 currently includes stable encrypted identity/revisions, Local/GitHub/S3/WebDAV storage, permissions/vault, exact remembered-knowledge reuse, RFC 8785 floating-point canonicalization, provider-neutral semantic retrieval and an optional Amazon Bedrock Titan embedding connector.
 
-Semantic retrieval and model-provider orchestration are intentionally outside the current core baseline.
+Semantic similarity is candidate discovery only; permission and epistemic gates remain authoritative.

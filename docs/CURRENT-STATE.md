@@ -2,64 +2,61 @@
 
 Date: 2026-08-29
 
-Status: **Portable storage + Permissions/Vault + deterministic Knowledge Reuse core.**
+Status: **Portable storage + Permissions/Vault + Knowledge Reuse + semantic retrieval.**
 
-## Storage
+## JCS numbers
 
-Local, GitHub, S3-compatible and WebDAV are implemented.
+The PHP canonical writer now supports finite IEEE-754 floating-point JSON values using ECMAScript/JCS number notation. NaN and Infinity remain rejected.
 
-## Security
+Knowledge confidence is stored as a real JSON number again, and embedding vectors can be persisted as floats.
 
-~~~text
-memory://access/permissions
-memory://access/vault
-~~~
+## Semantic retrieval
 
-Permissions are deny-by-default. Vault uses container=vault and key_context=vault.
-
-## Knowledge reuse
+MCMA uses exact lookup first. Semantic retrieval is attempted only after an exact miss.
 
 ~~~text
 question
   ↓
-normalize
+exact lookup
+  ↓ miss
+EmbeddingProvider
   ↓
-sha256
+encrypted derived semantic index
   ↓
-memory://knowledge/q-...
+actor-visible candidate filter
   ↓
-authorized lookup
+cosine ranking
   ↓
-validation + confidence + freshness
+KnowledgeRecord::assess()
   ↓
 reuse | revalidate | reject | miss
 ~~~
 
-Only reuse returns the remembered answer.
+Semantic similarity never bypasses permissions, validation, confidence or freshness.
 
-The current implementation is exact-intent, not semantic search.
+Each vector is bound to the knowledge revision storage_hash, so updating knowledge invalidates the old vector until reindexing.
 
-## Epistemic metadata
+## Bedrock connector
 
-Records preserve provenance, confidence, validation state/history, evidence count, freshness, max age, reuse policy and relations.
+The first real embedding connector uses Amazon Titan Text Embeddings V2.
 
-## Deterministic agents
-
-Librarian wraps remember/validate/recall.
-
-SecurityAgent wraps permission decisions, vault metadata and trusted secret use.
-
-Neither requires an AI provider.
-
-## New CLI
+Defaults:
 
 ~~~text
-mcma knowledge-put
-mcma knowledge-check
-mcma knowledge-show
-mcma knowledge-validate
+amazon.titan-embed-text-v2:0
+256 dimensions
+normalize=true
+~~~
+
+Authentication supports Bedrock bearer API keys or AWS SigV4 credentials.
+
+## CLI
+
+~~~text
+mcma semantic-index
+mcma semantic-check
 ~~~
 
 ## Next
 
-Add optional semantic candidate retrieval while keeping the same permission, validation, confidence and freshness gates.
+Optimize semantic indexing incrementally and add optional ask/orchestration on top of the same security/epistemic gates.

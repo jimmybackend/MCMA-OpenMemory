@@ -9,6 +9,8 @@ use MCMA\Core\HistoricalCrypto;
 use MCMA\Core\KeyStore;
 use MCMA\Core\Library;
 use MCMA\Core\Knowledge\KnowledgeService;
+use MCMA\Core\Semantic\SemanticIndexService;
+use MCMA\Connectors\Aws\BedrockTitanEmbeddingProvider;
 use MCMA\Core\Storage\StorageFactory;
 use MCMA\Core\Storage\StorageMigrator;
 
@@ -48,6 +50,8 @@ Usage:
   mcma knowledge-check LOCATION QUESTION_FILE [options]
   mcma knowledge-show LOCATION QUESTION_FILE [--actor=owner]
   mcma knowledge-validate LOCATION QUESTION_FILE STATE CONFIDENCE REASON_FILE [options]
+  mcma semantic-index LOCATION [--actor=librarian] [--dimensions=256]
+  mcma semantic-check LOCATION QUESTION_FILE [options]
 
   mcma key-export LOCATION OUTPUT [--passphrase-env=ENV_NAME]
   mcma key-import RECOVERY_FILE [--passphrase-env=ENV_NAME] [--replace=yes]
@@ -68,7 +72,7 @@ write/update options:
   --scope=user
   --maturity=raw|observed|classified|knowledge|confirmed
 
-knowledge options:
+knowledge / semantic options:
   --actor=owner|ai|librarian
   --answer-format=text|markdown|json
   --confidence=0.0..1.0
@@ -79,7 +83,11 @@ knowledge options:
   --provenance=FILE.json
   --current=yes|no
   --min-confidence=0.0..1.0
+  --min-similarity=-1.0..1.0
+  --dimensions=256|512|1024
+  --embedding-provider=bedrock-titan-v2
 
+Semantic Bedrock credentials are read from AWS_BEARER_TOKEN_BEDROCK or standard AWS credentials.
 INPUT may be '-' to read from STDIN.
 TXT
     );
@@ -152,6 +160,13 @@ function envSecret(string $name): string
     $value=getenv($name);
     if(!is_string($value)) fail('Secret environment variable is not set: '.$name);
     return $value;
+}
+function embeddingProvider(array $opts): BedrockTitanEmbeddingProvider
+{
+    $provider=$opts['embedding-provider']??'bedrock-titan-v2';
+    if($provider!=='bedrock-titan-v2') fail('Unsupported embedding provider: '.$provider);
+    $dimensions=isset($opts['dimensions'])?(int)$opts['dimensions']:null;
+    return BedrockTitanEmbeddingProvider::fromEnvironment($dimensions);
 }
 function recoveryPassphrase(array $opts): string
 {
@@ -281,6 +296,26 @@ try {
             $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$state=array_shift($args)??usage();$confidence=array_shift($args)??usage();$reasonFile=array_shift($args)??usage();$opts=parseOptions($args);
             $provenance=isset($opts['provenance'])?readJsonArray($opts['provenance']):[];
             echo pretty((new KnowledgeService(library($loc)))->validateKnowledge(actor($opts),readTextFile($questionFile),$state,(float)$confidence,readTextFile($reasonFile),$provenance)).PHP_EOL;
+            break;
+        }
+
+        case 'semantic-index': {
+            $loc=array_shift($args)??usage();$opts=parseOptions($args);
+            $service=new SemanticIndexService(library($loc));
+            echo pretty($service->indexAll(embeddingProvider($opts),actor($opts))).PHP_EOL;
+            break;
+        }
+        case 'semantic-check': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $service=new SemanticIndexService(library($loc));
+            echo pretty($service->answer(
+                actor($opts),
+                readTextFile($questionFile),
+                embeddingProvider($opts),
+                yesNo($opts,'current',false),
+                (float)($opts['min-confidence']??0.75),
+                (float)($opts['min-similarity']??0.78)
+            )).PHP_EOL;
             break;
         }
 

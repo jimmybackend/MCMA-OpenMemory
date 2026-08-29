@@ -56,7 +56,7 @@ reuse / revalidate / reject / miss
 
 Only reuse returns the remembered answer.
 
-This first implementation is exact-intent, not semantic search.
+Exact intent remains the first route. When it misses, MCMA can optionally use an encrypted semantic index and an EmbeddingProvider to discover a paraphrased candidate. The candidate still has to pass permissions, validation, confidence and freshness before its answer is returned.
 
 ## Deterministic agents
 
@@ -71,8 +71,15 @@ mcma knowledge-put
 mcma knowledge-check
 mcma knowledge-show
 mcma knowledge-validate
+mcma semantic-index
+mcma semantic-check
 ~~~
 
 ## License
 
 MIT License.
+
+
+## Optional semantic connector
+
+The first real embedding connector is Amazon Titan Text Embeddings V2 on Bedrock. It is optional; MCMA core remains model/provider independent. Semantic indexes are derived encrypted caches and can be rebuilt without changing knowledge object identity.

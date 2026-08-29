@@ -2,50 +2,44 @@
 
 MCMA-OpenMemory is experimental R&D.
 
-## Core separation
+## Permissions and Vault
 
-Storage providers receive encrypted bytes, not MCMA master keys.
+The Permission Engine remains deny-by-default.
 
-Provider credentials are deployment configuration and are never embedded in portable MCMA objects.
+Vault secret bytes remain isolated behind useVaultSecret and cannot be retrieved through ordinary memory reads.
 
-## Permissions
+## Semantic retrieval
 
-The Permission Engine is deny-by-default and evaluates actor/action/resource.
+Semantic similarity is never an authorization decision.
 
-Policies are encrypted at memory://access/permissions.
+The retrieval order requires:
 
-Actor-aware KnowledgeService reads and writes pass through the same Permission Engine.
+- exact route first;
+- semantic route only on exact miss;
+- actor-visible candidate filtering;
+- current knowledge storage_hash matching the indexed vector revision;
+- supported/verified validation under default reuse rules;
+- confidence threshold;
+- freshness/current-data policy.
 
-## Vault
+A stale, disputed, retracted, low-confidence or permission-denied candidate cannot return its remembered answer.
 
-The vault is encrypted with container=vault and key_context=vault.
+## Semantic index privacy
 
-Ordinary memory reads reject memory://access/vault.
+memory://system/semantic-index/* is denied to ordinary actors by the default policy. owner/librarian can manage it.
 
-Secret bytes are available only inside the trusted useVaultSecret callback after authorization.
+The trusted SemanticIndexService may read the derived cache internally, then reconstruct candidate visibility using actor-aware Library calls.
 
-## Knowledge safety
+## Bedrock credentials
 
-A remembered answer is not returned directly unless KnowledgeRecord assessment permits reuse.
+Bedrock API keys/AWS credentials are deployment secrets and are never persisted in semantic indexes or knowledge objects.
 
-The default gate requires:
+Supported environment inputs include AWS_BEARER_TOKEN_BEDROCK and standard AWS access-key variables.
 
-- supported or verified validation state;
-- confidence at or above the caller threshold;
-- freshness within policy;
-- no explicit current-data revalidation requirement;
-- authorized read access.
+## Floating-point canonicalization
 
-disputed/retracted knowledge is rejected.
-
-revalidate/reject results do not include the remembered answer as a direct answer.
-
-Provenance and confidence are metadata, not proof.
-
-## Agent boundaries
-
-Librarian and SecurityAgent are deterministic wrappers. They do not grant extra permissions beyond their configured MCMA roles.
+Finite IEEE-754 doubles are canonicalized using ECMAScript-compatible JCS notation. NaN and Infinity are rejected.
 
 ## Production hardening
 
-Future work should include independent vault unlock/hardware key release, key rotation, device authorization, audit-event design, semantic retrieval review and external cryptographic/security review.
+Future work should include independent vault unlock/hardware key release, key rotation, device authorization, audit-event design, incremental semantic indexing and external cryptographic/security review.

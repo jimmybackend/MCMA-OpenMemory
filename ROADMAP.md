@@ -9,6 +9,7 @@
 - [x] manifest, stable library_id/object_id
 - [x] storage_hash
 - [x] AES-256-GCM + HKDF-SHA256
+- [x] RFC 8785 JCS including IEEE-754 floating-point numbers
 - [x] memory:// addressing
 - [x] schemas/conformance
 
@@ -41,21 +42,28 @@
 
 ## Knowledge reuse — first implementation complete
 - [x] deterministic exact-intent key
-- [x] memory://knowledge namespace
 - [x] provenance
-- [x] confidence
+- [x] floating-point confidence
 - [x] validation states/history
 - [x] freshness + max age
-- [x] reuse policies
-- [x] current-data revalidation gate
 - [x] direct memory answer path
-- [x] correction preserving object_id
-- [x] Librarian deterministic boundary
-- [x] SecurityAgent deterministic boundary
+- [x] Librarian and SecurityAgent boundaries
+
+## Semantic retrieval — first implementation complete
+- [x] provider-neutral EmbeddingProvider
+- [x] encrypted derived semantic index
+- [x] float embedding vectors
+- [x] cosine ranking
+- [x] exact-first / semantic-on-miss routing
+- [x] permission-filtered candidates
+- [x] validation/confidence/freshness gates after ranking
+- [x] storage_hash stale-vector detection
+- [x] Amazon Titan Text Embeddings V2 connector
+- [x] Bedrock bearer and SigV4 authentication
 
 ## Next
-- [ ] semantic candidate retrieval for paraphrases
-- [ ] optional local/vector index
-- [ ] candidate ranking without weakening epistemic gates
+- [ ] incremental semantic index updates
+- [ ] multiple semantic candidate inspection/reranking
+- [ ] optional local embedding provider
 - [ ] optional mcma ask orchestration
 - [ ] provider AI connectors outside core
