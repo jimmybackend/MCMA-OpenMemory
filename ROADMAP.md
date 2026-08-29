@@ -17,7 +17,7 @@
 - [x] AES-256-GCM + HKDF-SHA256
 - [x] RFC 8785 canonical AAD
 - [x] memory:// addressing
-- [x] schemas and conformance vector
+- [x] schemas and conformance vectors
 
 ## Manual core and hardening — complete
 
@@ -27,7 +27,6 @@
 - [x] encrypted revisions
 - [x] recovery export/import
 - [x] historical V1/V2 migration
-- [x] local concurrency protection
 
 ## Storage abstraction — complete
 
@@ -36,23 +35,28 @@
 - [x] GitHubStorageAdapter
 - [x] S3StorageAdapter
 - [x] WebDavStorageAdapter
-- [x] Local/GitHub/S3/WebDAV compare-and-swap strategy
+- [x] provider-specific CAS/write coordination
 - [x] provider-neutral storage-copy
-- [x] byte-preserving provider migration tests
+- [x] byte-preserving migration tests
 
-## Identity, permissions and security — next/active
+## Permissions and Vault — first implementation complete
 
-- [ ] permission policy engine
-- [ ] actor/action/resource enforcement
-- [ ] encrypted permissions object
-- [ ] vault container implementation
-- [ ] vault metadata-only listing
-- [ ] internal use_secret boundary
+- [x] actor/action/resource Permission Engine
+- [x] deny-by-default policy
+- [x] encrypted memory://access/permissions
+- [x] owner anti-lockout invariant
+- [x] actor-aware read/write/update/temperature/list/tree
+- [x] encrypted vault container
+- [x] vault-specific HKDF context
+- [x] metadata-only vault listing
+- [x] internal useVaultSecret boundary
+- [x] CLI without raw-secret retrieval
 - [x] first encrypted recovery bundle
+- [ ] independent vault unlock factor / hardware-backed release
 - [ ] key rotation
 - [ ] device authorization
 
-## Knowledge and AI
+## Knowledge and AI — next
 
 - [ ] provenance engine
 - [ ] confidence/validation policies

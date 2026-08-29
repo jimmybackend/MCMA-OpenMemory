@@ -1,113 +1,121 @@
-# Permissions and vault.mcma
+# Permissions and Vault
 
-## Independent permission model
+MCMA 1.0 now implements its first authorization and secret-use boundary.
 
-Memory temperature does not determine access.
-
-Examples:
+## Canonical resources
 
 ~~~text
-HOT + PRIVATE
-WARM + SECRET
-FROZEN + PUBLIC
+memory://access/permissions
+memory://access/vault
 ~~~
 
-## Resource policies
+Both are encrypted MCMA resources and are referenced by the library manifest.
 
-A policy may conceptually describe:
+## Permission Engine
 
-~~~json
-{
-  "resource": "memory://identity/profile",
-  "permissions": {
-    "owner": {
-      "read": true,
-      "write": true,
-      "delete": true,
-      "decrypt": true
-    },
-    "ai": {
-      "read": true,
-      "write": false,
-      "decrypt": false,
-      "summarize": true
-    },
-    "librarian": {
-      "read": true,
-      "write": true,
-      "classify": true
-    },
-    "external_tools": {
-      "read_metadata": true,
-      "decrypt": false
-    }
-  }
-}
-~~~
-
-The exact schema remains to be finalized.
-
-## vault.mcma
-
-MCMA adopts the concept:
+Decisions use:
 
 ~~~text
-access/vault.mcma
+actor + action + memory:// resource
 ~~~
 
-The vault is a special security boundary for highly sensitive material.
+Initial actor roles:
 
-Possible contents or references include cloud credentials, API tokens, encryption keys, device authorizations, recovery material and secret references.
+~~~text
+owner
+ai
+librarian
+security-agent
+application
+tool
+device
+~~~
+
+The default policy is deny-by-default.
+
+Resource rules can override role defaults. More-specific resource/actor rules win; deny wins ties.
+
+The owner cannot install a policy that removes the owner's own permission-management or vault-management recovery authority.
+
+## Actor-aware operations
+
+User/tool/AI-facing clients should use:
+
+~~~text
+readAs
+writeAs
+updateAs
+setTemperatureAs
+listAs
+treeAs
+~~~
+
+The CLI uses these actor-aware methods and defaults to --actor=owner.
+
+Mutating permission checks run inside the storage write-lock/CAS window after the current manifest is reloaded.
+
+## Vault
+
+The vault object uses the dedicated MCMA cryptographic role:
+
+~~~text
+container = vault
+key_context = vault
+~~~
+
+This domain-separates its derived key from ordinary memory objects.
+
+Raw vault content is blocked from the ordinary read API.
+
+There is deliberately no CLI command that returns a secret.
+
+## Vault commands
+
+~~~text
+mcma vault-put LOCATION NAME ENV_VAR [--type=secret] [--actor=owner]
+mcma vault-list LOCATION [--actor=owner]
+mcma vault-delete LOCATION NAME [--actor=owner]
+~~~
+
+vault-put reads secret bytes from the named environment variable.
+
+vault-list returns only entry name/type/timestamps.
+
+Trusted code can call:
+
+~~~text
+useVaultSecret(name, actor, callback)
+~~~
+
+The callback receives the secret internally. The caller should return only the result of the authorized operation, not the secret.
 
 ## AI boundary
 
-A model must not receive the raw contents of vault.mcma.
-
 ~~~text
-AI requests operation
-        │
-        ▼
-MCMA Security Agent / Client
-        │
-        ▼
-evaluate permission
-        │
-        ▼
-use vault material internally
-        │
-        ▼
-perform authorized operation
-        │
-        ▼
-return only allowed result
+AI request
+   ↓
+Permission Engine
+   ↓
+Security Agent / trusted MCMA client
+   ↓
+useVaultSecret
+   ↓
+external operation
+   ↓
+safe result
 ~~~
 
-The model can know that a capability or credential reference exists without learning the credential itself.
+Raw vault secrets are never normal AI context.
 
-## Portable/offline vault
+## Current cryptographic limitation
 
-For a portable USB/local-first deployment, MCMA may support an encrypted vault carried with the library.
+The vault has a separate HKDF key context but currently derives from the same MCMA library master-key hierarchy.
 
-That vault must still require an independent unlock factor or authorized key.
+Future clients may add an independent unlock factor, secure enclave/TPM/Android Keystore, KMS/HSM or passkey-backed key release.
 
-Plaintext cloud credentials must never be stored in normal MCMA documents.
+## Schemas
 
-## Device-secure vault
-
-Where available, clients should prefer Secure Enclave, TPM, Android Keystore, Windows Hello, passkeys or managed KMS/HSM for server deployments.
-
-## Metadata privacy modes
-
-### Normal mode
-
-Human-readable names and directory structure are allowed.
-
-### Private mode
-
-Semantic names are hidden behind opaque IDs and encrypted indexes.
-
-## Recovery
-
-Vault design must eventually define backup, recovery keys, loss scenarios, device replacement, key rotation and compromise response.
-
-Recovery must not require a model provider.
+~~~text
+spec/1.0/schema/permissions.schema.json
+spec/1.0/schema/vault-payload.schema.json
+~~~

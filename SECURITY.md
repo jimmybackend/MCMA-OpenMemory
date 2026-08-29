@@ -2,34 +2,51 @@
 
 MCMA-OpenMemory is experimental R&D.
 
-## Storage/key separation
+## Core separation
 
-Storage providers receive encrypted MCMA bytes, not plaintext master keys.
+Storage providers receive encrypted bytes, not MCMA master keys.
+
+Provider credentials are deployment configuration and are never embedded in portable MCMA objects.
 
 ## Never commit
 
-Do not commit master keys, bearer tokens, GitHub tokens, AWS/S3 credentials, WebDAV credentials, plaintext private memories, recovery passphrases or `*.mcma-key` bundles.
+Do not commit master keys, provider tokens/passwords, AWS/S3 credentials, WebDAV credentials, plaintext private memories, recovery passphrases, recovery bundles or vault secrets.
 
-## Provider credentials
+## Permissions
 
-Credentials are process/deployment configuration only.
+The first Permission Engine is deny-by-default and evaluates actor/action/resource.
 
-- GitHub: `MCMA_GITHUB_TOKEN`
-- S3: MCMA/AWS credential environment variables
-- WebDAV: `MCMA_WEBDAV_AUTH`, username/password or bearer token
+Policies are encrypted at memory://access/permissions.
 
-WebDAV URLs containing credentials are rejected.
+Policy updates cannot remove the owner's own manage_permissions and manage_vault recovery authority.
 
-## Conditional writes
+Low-level no-actor Library calls are trusted owner/runtime primitives; actor-facing clients should use actor-aware APIs.
 
-Remote providers use standard conditional requests to prevent silent lost updates.
+## Vault
 
-WebDAV uses ETag-based `If-Match` and `If-None-Match`; a WebDAV server without ETags is considered unsafe for mutable MCMA state.
+The vault is encrypted with:
+
+~~~text
+container=vault
+key_context=vault
+~~~
+
+The ordinary memory read path explicitly rejects memory://access/vault.
+
+Vault metadata can be listed only with vault_metadata permission. Secret bytes are available only inside the trusted useVaultSecret callback after use_secret authorization.
+
+There is no CLI raw-secret retrieval command.
+
+The current vault key is domain-separated via HKDF but still descends from the library master key. Hardware/KMS/independent unlock remains future hardening.
+
+## Remote concurrency
+
+GitHub, S3 and WebDAV use conditional version checks when publishing mutable library state. Stale writers fail instead of silently overwriting newer routing/policy/vault revisions.
 
 ## Recovery
 
-The separate `mcma-key-backup-1` bundle remains outside the portable library.
+The separate encrypted recovery bundle remains outside the portable library.
 
-## Next boundary
+## Production hardening
 
-Permissions and `vault.mcma` must prevent ordinary AI/model context from receiving raw vault contents.
+Future production work should include hardware/KMS key release, key rotation, device authorization, audit-event design, secure-agent isolation and external cryptographic/security review.

@@ -1,9 +1,9 @@
 # MCMA 1.0 Architecture
 
-MCMA separates memory semantics, cryptography, indexing and physical storage.
-
-```text
+~~~text
 Optional AI / Agents
+        ↓
+ Permission Engine
         ↓
      MCMA Core
    ┌────┼─────┐
@@ -13,56 +13,64 @@ Optional AI / Agents
   StorageAdapter
    ├── Local
    ├── GitHub
-   ├── S3 / S3-compatible
+   ├── S3-compatible
    └── WebDAV
-```
+~~~
 
 ## Portable identity
 
-```text
-memory://identity/profile
-        ↓
+~~~text
+memory://...
+   ↓
 encrypted index
-        ↓
-stable object_id
-        ↓
+   ↓
+object_id
+   ↓
 storage_hash
-        ↓
+   ↓
 provider-neutral locator
-        ↓
+   ↓
 StorageAdapter
-```
+~~~
 
-No storage provider participates in permanent memory identity.
+## Authorization
 
-## Concurrency boundary
+Actor-facing operations evaluate:
 
-Local uses an exclusive filesystem lock.
+~~~text
+actor + action + resource
+~~~
 
-Remote adapters use optimistic compare-and-swap when publishing mutable `manifest.mcma` state:
+The encrypted policy object is memory://access/permissions.
 
-- GitHub: Git blob SHA;
-- S3: ETag + `If-Match`;
-- WebDAV: ETag + `If-Match`.
+Mutating actor checks occur within the write coordination window after the library reloads current mutable state.
 
-Immutable content-addressed objects use create-only semantics.
+## Vault boundary
 
-## Provider migration
-
-Storage migration copies exact encrypted bytes without decrypt/re-encrypt, preserving `object_id`, `storage_hash` and cryptographic identity.
-
-## Next architectural layer
-
-With provider abstraction complete, the next layer is authorization:
-
-```text
-actor
-  ↓
+~~~text
+AI/tool request
+      ↓
 Permission Engine
-  ↓
-resource/action decision
-  ↓
-Memory/Vault operation
-```
+      ↓
+Security Agent / trusted client
+      ↓
+vault container (key_context=vault)
+      ↓
+useVaultSecret callback
+      ↓
+external action
+      ↓
+allowed result
+~~~
 
-The vault remains a special cryptographic/security boundary.
+Ordinary memory reads cannot return the vault payload.
+
+## Storage
+
+Local uses an exclusive filesystem lock. GitHub, S3 and WebDAV use provider versions/ETags with optimistic compare-and-swap for mutable manifest publication.
+
+Provider migration copies exact encrypted bytes.
+
+## Compatibility
+
+Historical V1/V2 objects remain under their original cryptographic rules until explicit authenticated migration.

@@ -1,90 +1,77 @@
 # MCMA 1.0 CLI
 
-The CLI requires PHP 8.2+ with OpenSSL. GitHub and S3 storage require PHP cURL.
+PHP 8.2+ with OpenSSL is required. Network adapters require PHP cURL.
 
-It has no AI or database dependency.
+## Locations
 
-## Storage locations
+~~~text
+/local/path
+github://OWNER/REPO/prefix?branch=main
+s3://BUCKET/prefix?region=us-east-1
+webdav+https://HOST/existing/library/root
+~~~
 
-Local:
+Provider credentials are supplied through environment variables, never storage URLs.
 
-```text
-/var/lib/mcma/my-library
-```
+## Actor-aware memory commands
 
-GitHub:
+~~~text
+mcma write LOCATION URI INPUT [--actor=owner]
+mcma update LOCATION URI INPUT [--actor=owner]
+mcma temperature LOCATION URI hot|warm|cold|frozen [--actor=owner]
+mcma read LOCATION URI [--actor=owner]
+mcma list LOCATION [--actor=owner]
+mcma tree LOCATION [--actor=owner]
+~~~
 
-```text
-github://OWNER/REPO/optional/prefix?branch=main
-```
+Before access control is initialized, actor-aware operations are owner-only.
 
-S3 / S3-compatible:
+## Initialize security
 
-```text
-s3://BUCKET/optional/prefix?region=us-east-1
-```
+~~~bash
+./apps/cli/mcma access-init /path/to/library
+./apps/cli/mcma access-check /path/to/library ai read memory://topics/example
+~~~
 
-For GitHub set `MCMA_GITHUB_TOKEN`.
+A custom policy can be supplied with --policy=FILE.json.
 
-For S3 use either MCMA-specific variables or standard AWS variables:
+## Permissions
 
-```text
-MCMA_S3_REGION
-MCMA_S3_ACCESS_KEY_ID
-MCMA_S3_SECRET_ACCESS_KEY
-MCMA_S3_SESSION_TOKEN
+~~~text
+mcma permissions-show LOCATION [--actor=owner]
+mcma permissions-set LOCATION FILE.json [--actor=owner]
+~~~
 
-AWS_REGION
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-AWS_SESSION_TOKEN
-```
+## Vault
 
-Optional compatible endpoint:
+Store a secret from an environment variable:
 
-```text
-MCMA_S3_ENDPOINT=https://s3.example.invalid
-MCMA_S3_PATH_STYLE=true
-```
+~~~bash
+export MY_API_TOKEN='...'
+./apps/cli/mcma vault-put /path/to/library provider-token MY_API_TOKEN --type=api-token
+unset MY_API_TOKEN
+~~~
 
-## Commands
+Metadata only:
 
-```text
-mcma init
-mcma open
-mcma info
-mcma write
-mcma update
-mcma temperature
-mcma read
-mcma verify
-mcma list
-mcma tree
-mcma key-export
-mcma key-import
-mcma migrate
-mcma storage-copy
-```
+~~~text
+mcma vault-list LOCATION [--actor=owner]
+~~~
 
-Examples:
+Delete:
 
-```bash
-./apps/cli/mcma storage-copy ~/memory.mcma-library 's3://my-bucket/mcma?region=us-east-1'
+~~~text
+mcma vault-delete LOCATION NAME [--actor=owner]
+~~~
 
-export MCMA_GITHUB_TOKEN='...'
-./apps/cli/mcma storage-copy 's3://my-bucket/mcma?region=us-east-1' 'github://owner/repo/memory?branch=main'
-```
+There is intentionally no vault-get or vault-read command.
 
-The copy is byte-preserving. Keys are not moved into GitHub or S3.
+Trusted application/security-agent code uses the Library useVaultSecret callback and should return only the result of the authorized external operation.
 
-## Concurrency
+## Storage migration
 
-Local storage uses an exclusive filesystem lock.
+~~~text
+mcma storage-copy SOURCE DESTINATION
+~~~
 
-GitHub uses optimistic compare-and-swap on the manifest Git blob SHA.
-
-S3 uses conditional writes with ETag compare-and-swap for mutable manifest publication and create-only semantics for immutable content-addressed objects.
-
-## Recovery and historical migration
-
-Recovery and historical V1/V2 migration remain available. Secrets and passphrases are read from protected files/environment variables, not literal command-line values.
+Copies exact encrypted bytes; keys are not copied into the provider.

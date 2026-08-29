@@ -5,6 +5,8 @@ namespace MCMA\Core;
 
 use JsonException;
 use MCMA\Core\Storage\StorageAdapter;
+use MCMA\Core\Security\PermissionEngine;
+use MCMA\Core\Security\VaultPayload;
 use RuntimeException;
 
 final class Library
@@ -95,10 +97,12 @@ final class Library
         ];
     }
 
-    public function write(string $logicalRef, mixed $content, string $contentFormat = 'text', string $temperature = 'hot', string $cognitiveLayer = '40-semantic', string $scope = 'user', string $maturity = 'raw'): array
+    public function write(string $logicalRef, mixed $content, string $contentFormat = 'text', string $temperature = 'hot', string $cognitiveLayer = '40-semantic', string $scope = 'user', string $maturity = 'raw', ?string $actor = null): array
     {
-        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity): array {
+        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $actor): array {
             self::validateLogicalRef($logicalRef);
+            if ($actor !== null) $this->assertPermission($actor, 'write', $logicalRef);
+            self::assertOrdinaryRef($logicalRef);
             self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
             $index = $this->loadRootIndex();
             $this->assertLogicalRefAvailable($index['payload'], $logicalRef);
@@ -120,10 +124,12 @@ final class Library
         });
     }
 
-    public function update(string $logicalRef, mixed $content, ?string $contentFormat = null, ?string $temperature = null, ?string $cognitiveLayer = null, ?string $scope = null, ?string $maturity = null): array
+    public function update(string $logicalRef, mixed $content, ?string $contentFormat = null, ?string $temperature = null, ?string $cognitiveLayer = null, ?string $scope = null, ?string $maturity = null, ?string $actor = null): array
     {
-        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity): array {
+        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $actor): array {
             self::validateLogicalRef($logicalRef);
+            if ($actor !== null) $this->assertPermission($actor, 'update', $logicalRef);
+            self::assertOrdinaryRef($logicalRef);
             $index = $this->loadRootIndex();
             [$entryPosition, $entry] = $this->findEntryWithPosition($index['payload'], $logicalRef);
             $oldPayload = Crypto::decryptPayload($this->masterKey, $this->readObjectByHash($entry['storage_hash']));
@@ -143,11 +149,13 @@ final class Library
         });
     }
 
-    public function setTemperature(string $logicalRef, string $temperature): array
+    public function setTemperature(string $logicalRef, string $temperature, ?string $actor = null): array
     {
         if (!in_array($temperature, ['hot', 'warm', 'cold', 'frozen'], true)) throw new RuntimeException('Invalid temperature');
-        return $this->withWriteLock(function () use ($logicalRef, $temperature): array {
+        return $this->withWriteLock(function () use ($logicalRef, $temperature, $actor): array {
             self::validateLogicalRef($logicalRef);
+            if ($actor !== null) $this->assertPermission($actor, 'temperature', $logicalRef);
+            self::assertOrdinaryRef($logicalRef);
             $index = $this->loadRootIndex();
             [$entryPosition, $entry] = $this->findEntryWithPosition($index['payload'], $logicalRef);
             $payload = Crypto::decryptPayload($this->masterKey, $this->readObjectByHash($entry['storage_hash']));
@@ -164,7 +172,7 @@ final class Library
     public function importHistorical(string $logicalRef, mixed $content, array $sourceEnvelope, string $contentFormat = 'text', string $temperature = 'cold', string $cognitiveLayer = '40-semantic', string $scope = 'user', string $maturity = 'observed', ?string $sourceRef = null): array
     {
         return $this->withWriteLock(function () use ($logicalRef, $content, $sourceEnvelope, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $sourceRef): array {
-            self::validateLogicalRef($logicalRef); self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
+            self::validateLogicalRef($logicalRef); self::assertOrdinaryRef($logicalRef); self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
             $sourceFormat = (string)($sourceEnvelope['format'] ?? '');
             if (!in_array($sourceFormat, ['mcma-v1', 'mcma-v2'], true)) throw new RuntimeException('Unsupported historical source format');
             $index = $this->loadRootIndex(); $this->assertLogicalRefAvailable($index['payload'], $logicalRef);
@@ -191,9 +199,183 @@ final class Library
         });
     }
 
+    public function initializeAccessControl(?array $policy = null, string $actor = 'owner'): array
+    {
+        return $this->withWriteLock(function () use ($policy, $actor): array {
+            $existingPolicy = $this->permissionPolicyRaw();
+            if ($existingPolicy === null) {
+                if ($actor !== 'owner') throw new RuntimeException('Only owner can bootstrap MCMA access control');
+            } else {
+                PermissionEngine::assertAllowed($existingPolicy, $actor, 'manage_permissions', 'memory://access/permissions');
+                PermissionEngine::assertAllowed($existingPolicy, $actor, 'manage_vault', 'memory://access/vault');
+            }
+
+            $policy ??= PermissionEngine::defaultPolicy();
+            PermissionEngine::validate($policy);
+            self::assertOwnerRecoveryControl($policy);
+            $index = $this->loadRootIndex();
+            $created = [];
+
+            if ($this->findEntryOptional($index['payload'], 'memory://access/permissions') === null) {
+                $objectId = Crypto::uuidV4('obj');
+                $payload = self::systemPayload('memory://access/permissions', $policy);
+                $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload);
+                self::putEnvelope($this->storage, $envelope);
+                $index['payload']['entries'][] = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
+                $created['permissions'] = ['object_id'=>$objectId,'storage_hash'=>$envelope['storage_hash']];
+            }
+
+            if ($this->findEntryOptional($index['payload'], 'memory://access/vault') === null) {
+                $objectId = Crypto::uuidV4('obj');
+                $payload = self::systemPayload('memory://access/vault', VaultPayload::empty());
+                $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'vault', $payload);
+                self::putEnvelope($this->storage, $envelope);
+                $index['payload']['entries'][] = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
+                $created['vault'] = ['object_id'=>$objectId,'storage_hash'=>$envelope['storage_hash']];
+            }
+
+            if ($created !== []) {
+                self::sortEntries($index['payload']['entries']);
+                $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
+            }
+
+            return ['initialized'=>true,'created'=>$created,'policy_version'=>$policy['policy_version']];
+        });
+    }
+
+    public function permissionDecision(string $actor, string $action, string $resource): array
+    {
+        PermissionEngine::validateRequest($actor, $action, $resource);
+        $policy = $this->permissionPolicyRaw();
+        if ($policy === null) {
+            return ['allowed'=>$actor==='owner','subject'=>$actor,'action'=>$action,'resource'=>$resource,'source'=>'bootstrap-owner-only'];
+        }
+        return PermissionEngine::decision($policy, $actor, $action, $resource);
+    }
+
+    public function permissions(string $actor = 'owner'): array
+    {
+        $policy = $this->permissionPolicyRaw();
+        if ($policy === null) throw new RuntimeException('MCMA access control is not initialized');
+        PermissionEngine::assertAllowed($policy, $actor, 'read', 'memory://access/permissions');
+        return $policy;
+    }
+
+    public function setPermissions(array $policy, string $actor = 'owner'): array
+    {
+        PermissionEngine::validate($policy);
+        self::assertOwnerRecoveryControl($policy);
+        return $this->withWriteLock(function () use ($policy, $actor): array {
+            $current = $this->permissionPolicyRaw();
+            if ($current === null) throw new RuntimeException('MCMA access control is not initialized');
+            PermissionEngine::assertAllowed($current, $actor, 'manage_permissions', 'memory://access/permissions');
+
+            $index = $this->loadRootIndex();
+            [$position, $entry] = $this->findEntryWithPosition($index['payload'], 'memory://access/permissions');
+            $payload = Crypto::decryptPayload($this->masterKey, $this->readObjectByHash($entry['storage_hash']));
+            $payload['content'] = $policy;
+            $payload['metadata']['updated_at'] = self::now();
+            $payload['metadata']['revision'] = max(1, (int)($payload['metadata']['revision'] ?? 1)) + 1;
+            $payload['metadata']['previous_storage_hash'] = $entry['storage_hash'];
+            return $this->commitRevision($index, $position, $entry['object_id'], $payload, 'memory://access/permissions', 'object');
+        });
+    }
+
+    public function readAs(string $actor, string $logicalRef): array
+    {
+        $this->assertPermission($actor, 'read', $logicalRef);
+        return $this->read($logicalRef);
+    }
+
+    public function writeAs(string $actor, string $logicalRef, mixed $content, string $contentFormat = 'text', string $temperature = 'hot', string $cognitiveLayer = '40-semantic', string $scope = 'user', string $maturity = 'raw'): array
+    {
+        return $this->write($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $actor);
+    }
+
+    public function updateAs(string $actor, string $logicalRef, mixed $content, ?string $contentFormat = null, ?string $temperature = null, ?string $cognitiveLayer = null, ?string $scope = null, ?string $maturity = null): array
+    {
+        return $this->update($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $actor);
+    }
+
+    public function setTemperatureAs(string $actor, string $logicalRef, string $temperature): array
+    {
+        return $this->setTemperature($logicalRef, $temperature, $actor);
+    }
+
+    public function listAs(string $actor): array
+    {
+        $entries = [];
+        foreach ($this->list() as $entry) {
+            $allowedRefs = [];
+            foreach ($entry['logical_refs'] as $ref) if (($this->permissionDecision($actor, 'read', $ref)['allowed'] ?? false) === true) $allowedRefs[] = $ref;
+            if ($allowedRefs !== []) { $copy = $entry; $copy['logical_refs'] = $allowedRefs; $entries[] = $copy; }
+        }
+        return $entries;
+    }
+
+    public function treeAs(string $actor): array
+    {
+        $root = [];
+        foreach ($this->listAs($actor) as $entry) foreach ($entry['logical_refs'] as $ref) {
+            $segments = explode('/', substr($ref, strlen('memory://'))); $node =& $root;
+            foreach ($segments as $segment) { if (!isset($node[$segment])) $node[$segment] = []; $node =& $node[$segment]; }
+            $node['@object_id'] = $entry['object_id']; unset($node);
+        }
+        return $root;
+    }
+
+    public function vaultPut(string $name, string $secret, string $type = 'secret', string $actor = 'owner'): array
+    {
+        return $this->withWriteLock(function () use ($name, $secret, $type, $actor): array {
+            $this->assertPermission($actor, 'manage_vault', 'memory://access/vault');
+            [$index, $position, $entry, $payload] = $this->loadVaultForUpdate();
+            $payload['content'] = VaultPayload::put($payload['content'], $name, $secret, $type);
+            $payload['metadata']['updated_at'] = self::now();
+            $payload['metadata']['revision'] = max(1, (int)($payload['metadata']['revision'] ?? 1)) + 1;
+            $payload['metadata']['previous_storage_hash'] = $entry['storage_hash'];
+            $result = $this->commitRevision($index, $position, $entry['object_id'], $payload, 'memory://access/vault', 'vault');
+            return ['name'=>$name,'type'=>$type,'object_id'=>$result['object_id'],'storage_hash'=>$result['storage_hash'],'revision'=>$result['revision']];
+        });
+    }
+
+    public function vaultList(string $actor = 'owner'): array
+    {
+        $this->assertPermission($actor, 'vault_metadata', 'memory://access/vault');
+        [, , , $payload] = $this->loadVaultForUpdate();
+        return VaultPayload::metadata($payload['content']);
+    }
+
+    public function vaultDelete(string $name, string $actor = 'owner'): array
+    {
+        return $this->withWriteLock(function () use ($name, $actor): array {
+            $this->assertPermission($actor, 'manage_vault', 'memory://access/vault');
+            [$index, $position, $entry, $payload] = $this->loadVaultForUpdate();
+            $payload['content'] = VaultPayload::delete($payload['content'], $name);
+            $payload['metadata']['updated_at'] = self::now();
+            $payload['metadata']['revision'] = max(1, (int)($payload['metadata']['revision'] ?? 1)) + 1;
+            $payload['metadata']['previous_storage_hash'] = $entry['storage_hash'];
+            $result = $this->commitRevision($index, $position, $entry['object_id'], $payload, 'memory://access/vault', 'vault');
+            return ['deleted'=>$name,'object_id'=>$result['object_id'],'storage_hash'=>$result['storage_hash'],'revision'=>$result['revision']];
+        });
+    }
+
+    public function useVaultSecret(string $name, string $actor, callable $operation): mixed
+    {
+        $this->assertPermission($actor, 'use_secret', 'memory://access/vault');
+        [, , , $payload] = $this->loadVaultForUpdate();
+        $secret = VaultPayload::secret($payload['content'], $name);
+        try {
+            return $operation($secret);
+        } finally {
+            $secret = str_repeat("\0", strlen($secret));
+        }
+    }
+
     public function read(string $logicalRef): array
     {
-        self::validateLogicalRef($logicalRef); $entry = $this->findEntry($logicalRef); $envelope = $this->readObjectByHash($entry['storage_hash']);
+        self::validateLogicalRef($logicalRef);
+        if ($logicalRef === 'memory://access/vault') throw new RuntimeException('Vault contents cannot be read through the ordinary memory API');
+        $entry = $this->findEntry($logicalRef); $envelope = $this->readObjectByHash($entry['storage_hash']);
         if (($envelope['protected']['object_id'] ?? null) !== $entry['object_id']) throw new RuntimeException('Index/object identity mismatch');
         return ['object_id' => $entry['object_id'], 'storage_hash' => $entry['storage_hash'], 'payload' => Crypto::decryptPayload($this->masterKey, $envelope)];
     }
@@ -237,14 +419,83 @@ final class Library
         $this->manifestEnvelope = $manifestEnvelope; $this->manifestPayload = $manifestPayload; $this->manifestVersion = $manifestObject['version'];
     }
 
-    private function commitRevision(array $index, int $entryPosition, string $objectId, array $payload, string $logicalRef): array
+    private function commitRevision(array $index, int $entryPosition, string $objectId, array $payload, string $logicalRef, string $container = 'object'): array
     {
         $oldHash = $index['payload']['entries'][$entryPosition]['storage_hash'];
-        $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload); self::putEnvelope($this->storage, $envelope);
+        $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, $container, $payload); self::putEnvelope($this->storage, $envelope);
         $newEntry = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
         if (isset($index['payload']['entries'][$entryPosition]['migration_fingerprint'])) $newEntry['migration_fingerprint'] = $index['payload']['entries'][$entryPosition]['migration_fingerprint'];
         $index['payload']['entries'][$entryPosition] = $newEntry; self::sortEntries($index['payload']['entries']); $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
         return ['object_id' => $objectId, 'storage_hash' => $envelope['storage_hash'], 'previous_storage_hash' => $oldHash, 'logical_ref' => $logicalRef, 'revision' => (int)($payload['metadata']['revision'] ?? 1)];
+    }
+
+    private static function assertOwnerRecoveryControl(array $policy): void
+    {
+        PermissionEngine::assertAllowed($policy, 'owner', 'manage_permissions', 'memory://access/permissions');
+        PermissionEngine::assertAllowed($policy, 'owner', 'manage_vault', 'memory://access/vault');
+    }
+
+    private function permissionPolicyRaw(): ?array
+    {
+        $index = $this->loadRootIndex();
+        $found = $this->findEntryOptional($index['payload'], 'memory://access/permissions');
+        if ($found === null) return null;
+        [, $entry] = $found;
+        $envelope = $this->readObjectByHash($entry['storage_hash']);
+        if (($envelope['protected']['container'] ?? null) !== 'object') throw new RuntimeException('Permissions entry has invalid container role');
+        $payload = Crypto::decryptPayload($this->masterKey, $envelope);
+        $policy = $payload['content'] ?? null;
+        if (!is_array($policy)) throw new RuntimeException('Invalid encrypted permissions payload');
+        PermissionEngine::validate($policy);
+        return $policy;
+    }
+
+    private function assertPermission(string $actor, string $action, string $resource): void
+    {
+        $decision = $this->permissionDecision($actor, $action, $resource);
+        if (($decision['allowed'] ?? false) !== true) throw new RuntimeException('MCMA permission denied: ' . $actor . ' cannot ' . $action . ' ' . $resource);
+    }
+
+    private function loadVaultForUpdate(): array
+    {
+        $index = $this->loadRootIndex();
+        [$position, $entry] = $this->findEntryWithPosition($index['payload'], 'memory://access/vault');
+        $envelope = $this->readObjectByHash($entry['storage_hash']);
+        if (($envelope['protected']['container'] ?? null) !== 'vault') throw new RuntimeException('Vault entry has invalid container role');
+        $payload = Crypto::decryptPayload($this->masterKey, $envelope);
+        if (!isset($payload['content']) || !is_array($payload['content'])) throw new RuntimeException('Invalid encrypted vault payload');
+        VaultPayload::validate($payload['content']);
+        return [$index, $position, $entry, $payload];
+    }
+
+    private function findEntryOptional(array $indexPayload, string $logicalRef): ?array
+    {
+        foreach ($indexPayload['entries'] as $position => $entry) if (in_array($logicalRef, $entry['logical_refs'] ?? [], true)) return [$position, $entry];
+        return null;
+    }
+
+    private static function systemPayload(string $logicalRef, array $content): array
+    {
+        return [
+            'content_format' => 'json',
+            'metadata' => [
+                'created_at' => self::now(),
+                'temperature' => 'hot',
+                'cognitive_layer' => '00-system',
+                'scope' => 'system',
+                'maturity' => 'confirmed',
+                'logical_refs' => [$logicalRef],
+                'revision' => 1,
+            ],
+            'content' => $content,
+        ];
+    }
+
+    private static function assertOrdinaryRef(string $logicalRef): void
+    {
+        if (in_array($logicalRef, ['memory://access/permissions','memory://access/vault'], true)) {
+            throw new RuntimeException('Reserved access resource must be managed through the MCMA security API');
+        }
     }
 
     private function findEntry(string $logicalRef): array { [, $entry] = $this->findEntryWithPosition($this->loadRootIndex()['payload'], $logicalRef); return $entry; }

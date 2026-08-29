@@ -1,0 +1,47 @@
+name: PHP Core Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP version
+        run: |
+          php -v
+          php -r 'if (PHP_VERSION_ID < 80200) { fwrite(STDERR, "PHP 8.2+ required\n"); exit(1); }'
+
+      - name: PHP lint
+        run: |
+          find packages tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l apps/cli/mcma
+
+      - name: MCMA conformance
+        run: |
+          php tests/conformance/run.php
+          php tests/conformance/aws-sigv4-s3.php
+
+      - name: Core integrations
+        run: |
+          php tests/integration/local-core.php
+          php tests/integration/historical-migration.php
+
+      - name: Storage integrations
+        run: |
+          php tests/integration/storage-adapters.php
+          php tests/integration/github-storage-adapter.php
+          php tests/integration/s3-storage-adapter.php
+          php tests/integration/provider-migration-s3.php
+          php tests/integration/webdav-storage-adapter.php
+          php tests/integration/provider-migration-webdav.php
+
+      - name: Permissions and vault
+        run: php tests/integration/permissions-vault.php

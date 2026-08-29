@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mcma:spec:1.0:schema:permissions",
+  "title": "MCMA 1.0 Permission Policy",
+  "type": "object",
+  "required": ["policy_version", "default", "roles", "resources"],
+  "additionalProperties": false,
+  "properties": {
+    "policy_version": { "const": "1.0" },
+    "default": { "enum": ["allow", "deny"] },
+    "roles": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/actionSet" }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["resource", "subject"],
+        "additionalProperties": false,
+        "properties": {
+          "resource": {
+            "type": "string",
+            "pattern": "^(\\*|memory://[a-z][a-z0-9-]{0,31}(?:/[a-z0-9][a-z0-9._-]{0,127})+(?:/\\*)?)$"
+          },
+          "subject": {
+            "type": "string",
+            "pattern": "^(\\*|[a-z][a-z0-9-]{0,63})$"
+          },
+          "allow": { "$ref": "#/$defs/actions" },
+          "deny": { "$ref": "#/$defs/actions" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "action": {
+      "enum": ["*", "read", "write", "update", "delete", "temperature", "classify", "summarize", "share", "decrypt", "manage_permissions", "manage_vault", "vault_metadata", "use_secret"]
+    },
+    "actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/action" }
+    },
+    "actionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow": { "$ref": "#/$defs/actions" },
+        "deny": { "$ref": "#/$defs/actions" }
+      }
+    }
+  }
+}

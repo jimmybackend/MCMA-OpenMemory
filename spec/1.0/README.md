@@ -1,24 +1,34 @@
 # MCMA 1.0 Specification
 
-Status: **experimental specification; identity/container baseline implemented locally**
+Status: **experimental specification with executable PHP reference implementation**
 
-Normative files include PRINCIPLES.md, IDENTITY.md, MANIFEST.md, CONTAINER.md, CRYPTOGRAPHY.md, ADDRESSING.md, INDEX.md, MIGRATION.md, RECOVERY.md and CONFORMANCE.md.
+## Normative / active documents
 
-## Stable revisions
+- PRINCIPLES.md
+- IDENTITY.md
+- MANIFEST.md
+- CONTAINER.md
+- CRYPTOGRAPHY.md
+- ADDRESSING.md
+- INDEX.md
+- MIGRATION.md
+- RECOVERY.md
+- PERMISSIONS.md
+- VAULT.md
+- CONFORMANCE.md
+- schema/
+- test-vectors/
 
-~~~text
-object_id stays stable
-storage_hash changes per revision
-~~~
+## Implemented boundaries
 
-The local implementation preserves the previous revision hash inside encrypted object metadata.
+MCMA 1.0 currently has:
 
-## Compatibility
+- stable identity and encrypted revisions;
+- Local/GitHub/S3/WebDAV storage;
+- byte-preserving provider migration;
+- encrypted deny-by-default permissions;
+- dedicated vault container/key context;
+- metadata-only vault listing;
+- trusted internal secret-use callback.
 
-Existing historical encrypted memories are never edited or relabeled in place. Migration authenticates/decrypts them with their original rules and writes a new MCMA 1.0 object.
-
-## Implementation status
-
-The PHP local core implements update/revision handling, temperature transitions, locking, recovery backup and historical V1/V2 migration.
-
-The next boundary is the provider-neutral Storage Adapter interface.
+Historical prototype objects remain compatibility inputs and are never relabeled in place.

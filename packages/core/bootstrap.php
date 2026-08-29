@@ -13,5 +13,7 @@ require_once __DIR__ . '/src/Storage/S3StorageAdapter.php';
 require_once __DIR__ . '/src/Storage/WebDavStorageAdapter.php';
 require_once __DIR__ . '/src/Storage/StorageFactory.php';
 require_once __DIR__ . '/src/Storage/StorageMigrator.php';
+require_once __DIR__ . '/src/Security/PermissionEngine.php';
+require_once __DIR__ . '/src/Security/VaultPayload.php';
 require_once __DIR__ . '/src/Library.php';
 require_once __DIR__ . '/src/LocalLibrary.php';
