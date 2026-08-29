@@ -1,11 +1,18 @@
 # MCMA Design Documentation Index
 
+## Active MCMA 1.0 specification
+
+- ../SPECIFICATION.md — active working specification entry point.
+- ../spec/1.0/README.md — scope and status of MCMA 1.0.
+- ../spec/1.0/PRINCIPLES.md — architectural invariants.
+- ../spec/1.0/CONTAINER.md — active container/identity design work.
+- ../SECURITY.md — security model.
+
 ## Foundational design
 
 - FOUNDATIONAL-VISION.md — project purpose, name and ownership model.
-- PRINCIPLES.md — architectural principles.
-- CURRENT-STATE.md — current decisions, compatibility gap and next work.
-- REPOSITORY-STRUCTURE.md — target monorepo layout.
+- CURRENT-STATE.md — current implementation/design boundary.
+- REPOSITORY-STRUCTURE.md — real and incremental repository layout.
 
 ## User and application flow
 
@@ -13,26 +20,23 @@
 - IDENTITY-PROFILE.md — living user profile and historical evolution.
 - PERMISSIONS-VAULT.md — independent permissions and vault security boundary.
 
-## Container and retrieval
+## Retrieval and memory model
 
-- MCMA-CONTAINER-FORMAT-DRAFT.md — next-revision direction and compatibility notes.
 - MEMORY-TAXONOMY.md — cognitive memory classification.
 - ENCRYPTED-INDEX.md — encrypted catalogs and scalable retrieval.
 - KNOWLEDGE-REUSE.md — memory-first answer reuse.
 - STORAGE-ADAPTERS.md — provider-independent storage.
-- IMPLEMENTATION-LINEAGE.md — prototype lineage.
 
-## Deployment/security
+## Compatibility and history
 
-- ../SECURITY.md — security model.
-- DEPLOYMENT-EC2-PHP-FPM.md — current PHP-FPM deployment pattern.
+Historical prototype specification, deployment notes and exact reference PHP code live under:
 
-## Normative documents
+```text
+../reference/compatibility/
+```
 
-The current primary drafts remain at repository root:
+They remain available to read existing encrypted memories but are not the active MCMA 1.0 specification.
 
-- ../SPECIFICATION.md
-- ../ARCHITECTURE.md
-- ../ROADMAP.md
+## Planning
 
-The new documents above record the next architectural baseline. Items that conflict with the current mcma-v2 envelope are proposals until a versioned specification revision is completed.
+- ../ROADMAP.md — implementation order and milestones. It is planning, not a normative interoperability document.

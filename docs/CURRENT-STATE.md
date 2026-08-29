@@ -1,126 +1,84 @@
-# MCMA — Current Design State
+# MCMA — Current State
 
 Date: 2026-08-29
 
-Status: **Architecture definition and prototype consolidation.**
+Status: **MCMA 1.0 architecture consolidation.**
 
-## Name
+## Active project identity
 
 **MCMA — Modular Cognitive Memory Archive**
 
-## Existing implementation baseline
-
-The repository already contains:
-
-- an experimental mcma-v2 encrypted envelope;
-- AES-256-GCM reference encryption;
-- HKDF-SHA256 key derivation;
-- PHP reference implementation;
-- Hot / Warm / Cold / Frozen lifecycle concepts;
-- cognitive memory taxonomy;
-- encrypted-index design;
-- remembered-knowledge reuse design;
-- storage-adapter design;
-- EC2/PHP-FPM deployment documentation;
-- a manual PHP memory reader prototype.
-
-## Newly adopted architectural direction
-
-### User-owned portable library
-
-MCMA is intended to be copied and used from local storage, removable media, mobile devices, servers or cloud storage without requiring a database server.
-
-### With AI or without AI
-
-Opening MCMA should lead to a first-run choice between AI-assisted operation, manual/non-AI reading and management, or configuration.
-
-### Living identity documents
-
-profile.mcma becomes the current consolidated living profile.
-
-Related domains can grow as separate documents.
-
-History remains separate so the current profile does not become an unlimited event log.
-
-### Knowledge maturity
-
-~~~text
-raw
-observed
-classified
-knowledge
-confirmed
-~~~
-
-### Independent permissions
-
-Temperature and access are separate dimensions.
-
-### vault.mcma
-
-Adopted as the protected boundary for highly sensitive secrets or secret references.
-
-Raw vault content is never normal LLM context.
-
-### Normal/private library modes
-
-Normal mode may expose meaningful names.
-
-Private mode may use opaque IDs and encrypted indexes to reduce metadata leakage.
-
-### Stable IDs and hashes
-
-Long-lived objects should use stable identity independent of the current display tree.
-
-Hash-based storage and hierarchical indexes are preferred for scale.
-
-### Virtual views
-
-HOT / WARM / COLD / FROZEN should evolve toward index-generated views rather than forcing physical moves of encrypted objects.
-
-## Compatibility issue to solve
-
-Current mcma-v2 binds logical_path + filename into key derivation and AES-GCM AAD.
-
-The future stable-object/view model should not be retrofitted invisibly.
-
-A next format revision must define stable object ID, canonical addressing, object hash, index mapping, new AAD identity rules and migration from mcma-v2.
-
-## Next specification work
-
-1. Define manifest.mcma.
-2. Define next object envelope.
-3. Define stable object IDs.
-4. Define canonical hash rules.
-5. Define hierarchical index format.
-6. Define memory:// URI resolution.
-7. Define profile.mcma.
-8. Define permission schema.
-9. Define vault.mcma.
-10. Define history objects.
-11. Define knowledge maturity metadata.
-12. Define temperature transition policy.
-13. Define recovery/key rotation.
-14. Define portable storage discovery.
-15. Define first CLI conformance behavior.
-
-## First implementation milestone
-
-A minimal implementation should work without AI:
-
-~~~text
-mcma init
-mcma open
-mcma tree
-mcma list
-mcma info
-mcma read
-mcma write
-mcma verify
-~~~
-
-AI support should be added after the portable manual core is dependable.
-
-## Foundational principle
-
 > **Intelligence can change. Memory belongs to the person.**
+
+The repository now presents one active public development line: **MCMA 1.0**.
+
+## Working implementation inherited from the prototype
+
+The strongest existing implementation already proves:
+
+- AES-256-GCM encryption/decryption;
+- HKDF-SHA256 per-object derivation;
+- protected server-side key handling;
+- encrypted `.mcma` envelopes;
+- HOT / WARM / COLD / FROZEN metadata;
+- external persistence;
+- manual PHP retrieval/decryption;
+- real encrypted memories stored outside the MCMA source repository.
+
+That code is preserved unchanged where possible under `reference/compatibility/`.
+
+## What MCMA 1.0 changes
+
+The historical prototype tied cryptographic identity to logical path + filename.
+
+MCMA 1.0 requires:
+
+- stable object IDs;
+- physical-path independence;
+- provider independence;
+- hash-based physical storage;
+- `memory://` logical references;
+- virtual temperature views;
+- hierarchical indexes;
+- living profile documents;
+- independent permissions and vault isolation.
+
+Existing ciphertext is not silently relabeled. Migration must be explicit.
+
+## Current repository organization
+
+Active specification work:
+
+```text
+spec/1.0/
+```
+
+Historical working code/specification:
+
+```text
+reference/compatibility/
+```
+
+Conceptual and design documentation remains under:
+
+```text
+docs/
+```
+
+Implementation directories are not created until actual implementation begins.
+
+## Next exact block
+
+Freeze the MCMA 1.0 identity/container contract:
+
+1. manifest/library identity;
+2. stable object ID;
+3. canonical hash;
+4. envelope/header;
+5. KDF + AAD;
+6. `memory://` resolution;
+7. index bootstrap;
+8. migration from historical objects;
+9. conformance vectors.
+
+After that, implement the manual local CLI core before AI.

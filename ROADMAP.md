@@ -1,128 +1,100 @@
-# Roadmap
+# MCMA 1.0 Roadmap
 
-MCMA-OpenMemory is being developed from a working encrypted-memory prototype toward an open-source, provider-independent memory architecture.
+MCMA-OpenMemory now follows one active development line: **MCMA 1.0**.
 
-## v0.1 — Public foundation
+Historical prototype envelope identifiers are preserved only for compatibility.
 
-- [x] Define project philosophy and provider independence
-- [x] State open-source, user-owned memory goals
-- [x] Preserve existing `mcma-v2` envelope compatibility
-- [x] Document AES-256-GCM + HKDF-SHA256 reference format
-- [x] Define Hot / Warm / Cold / Frozen lifecycle
-- [x] Define initial cognitive memory taxonomy
-- [x] Document secure Linux/PHP-FPM secret handling
-- [x] Publish PHP crypto reference implementation
-- [x] Document encrypted root catalog / sharded index design
-- [x] Document remembered-knowledge reuse with confidence and validation metadata
-- [x] Document portable continuity across compatible model/storage providers
-- [ ] Define machine-readable JSON Schema for `.mcma`
-- [ ] Add conformance test vectors using synthetic keys/data
+## Foundation — complete
 
+- [x] Define MCMA as Modular Cognitive Memory Archive
+- [x] Adopt user-owned memory principle
+- [x] Adopt file-first/database-free core
+- [x] Adopt provider-independent storage
+- [x] Adopt AI-optional operation
+- [x] Adopt living `profile.mcma`
+- [x] Adopt knowledge maturity states
+- [x] Adopt independent permissions
+- [x] Adopt `vault.mcma` security boundary
+- [x] Adopt normal/private metadata modes
+- [x] Adopt stable-object direction
+- [x] Adopt hierarchical indexes
+- [x] Adopt virtual HOT/WARM/COLD/FROZEN views
+- [x] Preserve working prototype compatibility code separately
 
-## Design baseline — portable personal archive
+## Next block — MCMA 1.0 identity and container contract
 
-- [x] Define MCMA as **Modular Cognitive Memory Archive**
-- [x] Adopt file-first/database-free core as an interoperability goal
-- [x] Define first-run modes: with AI / without AI / configuration
-- [x] Adopt living profile.mcma concept
-- [x] Adopt knowledge maturity: raw / observed / classified / knowledge / confirmed
-- [x] Adopt independent permission model
-- [x] Adopt vault.mcma security boundary
-- [x] Define normal/private metadata modes
-- [x] Adopt stable-object/hash-based storage direction
-- [x] Adopt hierarchical index and virtual temperature-view direction
-- [ ] Define manifest.mcma
-- [ ] Define stable object ID and hash rules
-- [ ] Define next envelope/AAD rules without breaking mcma-v2
-- [ ] Define memory:// URI resolution independent of temperature
-- [ ] Define machine-readable profile, permissions, knowledge and history schemas
-- [ ] Implement non-AI CLI core before optional mcma ask
+- [ ] Define `manifest.mcma`
+- [ ] Define library ID
+- [ ] Define stable object ID
+- [ ] Define canonical object hash
+- [ ] Freeze MCMA 1.0 envelope/header
+- [ ] Define KDF identity and AES-GCM AAD
+- [ ] Define authenticated metadata
+- [ ] Define `memory://` URI resolution
+- [ ] Define migration from historical prototype envelopes
+- [ ] Add machine-readable schemas
+- [ ] Add synthetic conformance test vectors
 
-## v0.2 — Storage abstraction
+## Manual portable core
 
-- [ ] Define stable storage adapter interface
+- [ ] `mcma init`
+- [ ] `mcma open`
+- [ ] `mcma tree`
+- [ ] `mcma list`
+- [ ] `mcma info`
+- [ ] `mcma read`
+- [ ] `mcma write`
+- [ ] `mcma verify`
 - [ ] Local filesystem adapter
+- [ ] Tests without AI or database
+
+## Storage abstraction
+
+- [ ] Stable adapter interface
 - [ ] Git-backed adapter
 - [ ] S3-compatible adapter
-- [ ] MinIO adapter
 - [ ] WebDAV adapter
-- [ ] Import/export command
-- [ ] Export/import encrypted catalogs together with memory objects
-- [ ] Provider migration tests preserving envelope bytes
+- [ ] Import/export
+- [ ] Provider migration tests
 
-## v0.3 — Addressing and encrypted indexes
+## Index and lifecycle
 
-- [ ] Formal `mcma://` URI grammar
-- [ ] Implement deterministic encrypted root catalog
-- [ ] Implement encrypted sharded memory catalogs
-- [ ] Opaque memory identifiers
+- [ ] Encrypted root catalog
+- [ ] Encrypted index shards
+- [ ] Opaque physical object names
 - [ ] Lexical index
-- [ ] Semantic/vector index interface
-- [ ] RAG chunk mapping
-- [ ] Rebuildable index rules
-- [ ] Independent index key-derivation context
-- [ ] Minimum-shard retrieval tests
+- [ ] Semantic/vector interface
+- [ ] HOT/WARM/COLD/FROZEN transition policy
+- [ ] Reactivation policy
+- [ ] Rebuildable-index rules
 
-## v0.4 — Memory lifecycle engine
+## Identity, permissions and security
 
-- [ ] Explicit temperature transition rules
-- [ ] Activity/recency scoring
-- [ ] Hot → Warm → Cold → Frozen policies
-- [ ] Reactivation policies
-- [ ] Consolidation and summarization hooks
-- [ ] Conflict/version handling
-- [ ] Per-scope capture policies
+- [ ] Profile schema
+- [ ] History schema
+- [ ] Permission schema
+- [ ] Vault schema
+- [ ] Recovery design
+- [ ] Key rotation design
+- [ ] Device authorization model
 
-## v0.5 — Knowledge reuse engine
+## Knowledge and AI
 
-- [ ] Durable capture of approved/relevant consultation results
-- [ ] Question/intent fingerprints for memory matching
-- [ ] Confidence metadata
-- [ ] Validation states: unverified / plausible / supported / verified / disputed / retracted
-- [ ] Provenance/source references
-- [ ] Freshness and expiration policies
-- [ ] Direct memory answer path with no LLM call when policy allows
-- [ ] Automatic revalidation path for stale/dynamic memories
-- [ ] Successor/contradiction relationships instead of silent overwrite
-- [ ] Tests proving model-call bypass for validated remembered answers
+- [ ] Knowledge provenance
+- [ ] Confidence and validation metadata
+- [ ] Reuse/freshness policy
+- [ ] Direct memory answer path
+- [ ] Librarian/security agent boundaries
+- [ ] Optional `mcma ask`
 
-## v0.6 — Agent-managed memory
+## Long-term
 
-- [ ] Agent routing API
-- [ ] Memory write proposals
-- [ ] Human approval policies
-- [ ] Agent-driven classification
-- [ ] Retrieval budgets
-- [ ] Provenance and traceability
-- [ ] Multi-agent memory coordination
-- [ ] Agent-managed confidence updates from working tests/evidence
+- additional storage adapters;
+- KMS/HSM integrations;
+- desktop/mobile clients;
+- snapshots and recovery;
+- algorithm migration;
+- signed manifests/objects where required;
+- cross-model continuity tests.
 
-## v0.7 — Portable continuity
-
-- [ ] Complete encrypted memory + index export bundle
-- [ ] Import into a different storage adapter
-- [ ] Compatibility profile for different AI/agent systems
-- [ ] Portable preferences and project context
-- [ ] Portable procedural knowledge
-- [ ] Portable user-defined behavioral/persona context
-- [ ] Cross-model continuity tests
-- [ ] Explicit documentation that model behavior may differ even with identical memory
-
-## Future
-
-Potential future work includes:
-
-- GCS and Azure adapters
-- KMS/HSM integrations
-- multi-user key separation
-- tenant-aware memory stores
-- signed envelopes/manifests
-- distributed synchronization
-- snapshots and recovery
-- algorithm/key rotation for very long-lived memory
-- cross-model interoperability
-- reference SDKs in additional languages
-- offline/local-first memory consumers
-- storage-provider escape/migration tooling
-
-The roadmap intentionally separates working implementation from future research. Features remain unchecked until implemented and tested.
+Features remain unchecked until implemented and tested.
