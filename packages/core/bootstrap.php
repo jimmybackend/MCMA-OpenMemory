@@ -16,4 +16,8 @@ require_once __DIR__ . '/src/Storage/StorageMigrator.php';
 require_once __DIR__ . '/src/Security/PermissionEngine.php';
 require_once __DIR__ . '/src/Security/VaultPayload.php';
 require_once __DIR__ . '/src/Library.php';
+require_once __DIR__ . '/src/Knowledge/KnowledgeRecord.php';
+require_once __DIR__ . '/src/Knowledge/KnowledgeService.php';
+require_once __DIR__ . '/src/Agent/Librarian.php';
+require_once __DIR__ . '/src/Agent/SecurityAgent.php';
 require_once __DIR__ . '/src/LocalLibrary.php';

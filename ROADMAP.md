@@ -1,66 +1,61 @@
 # MCMA 1.0 Roadmap
 
 ## Foundation — complete
-
-- [x] Modular Cognitive Memory Archive
-- [x] user-owned memory
-- [x] file-first/database-free core
-- [x] provider-independent architecture
+- [x] user-owned, file-first, provider-independent memory
 - [x] AI-optional operation
-- [x] encrypted indexes and virtual temperature views
+- [x] encrypted indexes and temperature views
 
-## Identity/container contract — complete
-
-- [x] manifest.mcma
-- [x] stable library_id and object_id
-- [x] SHA-256 storage_hash
+## Identity/container — complete
+- [x] manifest, stable library_id/object_id
+- [x] storage_hash
 - [x] AES-256-GCM + HKDF-SHA256
-- [x] RFC 8785 canonical AAD
 - [x] memory:// addressing
-- [x] schemas and conformance vectors
+- [x] schemas/conformance
 
-## Manual core and hardening — complete
-
+## Manual core — complete
 - [x] init/open/info/write/read/verify/list/tree
-- [x] update preserving object_id
-- [x] temperature transitions preserving object_id
-- [x] encrypted revisions
-- [x] recovery export/import
+- [x] update/temperature preserving object_id
+- [x] recovery
 - [x] historical V1/V2 migration
 
-## Storage abstraction — complete
+## Storage — complete
+- [x] Local
+- [x] GitHub
+- [x] S3-compatible
+- [x] WebDAV
+- [x] CAS/write coordination
+- [x] byte-preserving provider migration
 
-- [x] stable StorageAdapter interface
-- [x] LocalFilesystemAdapter
-- [x] GitHubStorageAdapter
-- [x] S3StorageAdapter
-- [x] WebDavStorageAdapter
-- [x] provider-specific CAS/write coordination
-- [x] provider-neutral storage-copy
-- [x] byte-preserving migration tests
-
-## Permissions and Vault — first implementation complete
-
-- [x] actor/action/resource Permission Engine
-- [x] deny-by-default policy
-- [x] encrypted memory://access/permissions
-- [x] owner anti-lockout invariant
-- [x] actor-aware read/write/update/temperature/list/tree
-- [x] encrypted vault container
-- [x] vault-specific HKDF context
+## Permissions + Vault — first implementation complete
+- [x] actor/action/resource engine
+- [x] deny-by-default
+- [x] encrypted permissions
+- [x] owner anti-lockout
+- [x] actor-aware memory operations
+- [x] vault container/key context
 - [x] metadata-only vault listing
-- [x] internal useVaultSecret boundary
-- [x] CLI without raw-secret retrieval
-- [x] first encrypted recovery bundle
-- [ ] independent vault unlock factor / hardware-backed release
+- [x] useVaultSecret boundary
+- [ ] independent vault unlock / hardware release
 - [ ] key rotation
 - [ ] device authorization
 
-## Knowledge and AI — next
+## Knowledge reuse — first implementation complete
+- [x] deterministic exact-intent key
+- [x] memory://knowledge namespace
+- [x] provenance
+- [x] confidence
+- [x] validation states/history
+- [x] freshness + max age
+- [x] reuse policies
+- [x] current-data revalidation gate
+- [x] direct memory answer path
+- [x] correction preserving object_id
+- [x] Librarian deterministic boundary
+- [x] SecurityAgent deterministic boundary
 
-- [ ] provenance engine
-- [ ] confidence/validation policies
-- [ ] reuse/freshness policy
-- [ ] direct memory answer path
-- [ ] librarian/security agents
-- [ ] optional mcma ask
+## Next
+- [ ] semantic candidate retrieval for paraphrases
+- [ ] optional local/vector index
+- [ ] candidate ranking without weakening epistemic gates
+- [ ] optional mcma ask orchestration
+- [ ] provider AI connectors outside core

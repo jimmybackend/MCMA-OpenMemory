@@ -29,6 +29,7 @@ memory://identity/profile
 memory://identity/preferences
 memory://projects/mcma
 memory://topics/security
+memory://knowledge/q-<sha256>
 memory://access/vault
 memory://system/index/root
 memory://object/obj_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee
@@ -76,6 +77,7 @@ identity
 projects
 topics
 people
+knowledge
 access
 system
 object

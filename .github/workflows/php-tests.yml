@@ -45,3 +45,6 @@ jobs:
 
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php
+
+      - name: Knowledge reuse and agents
+        run: php tests/integration/knowledge-core.php

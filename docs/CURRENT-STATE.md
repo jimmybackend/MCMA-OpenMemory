@@ -2,70 +2,64 @@
 
 Date: 2026-08-29
 
-Status: **MCMA 1.0 has provider-neutral storage plus a first implemented Permissions + Vault security layer.**
+Status: **Portable storage + Permissions/Vault + deterministic Knowledge Reuse core.**
 
 ## Storage
 
-Implemented adapters:
+Local, GitHub, S3-compatible and WebDAV are implemented.
 
-~~~text
-Local
-GitHub
-S3 / S3-compatible
-WebDAV
-~~~
-
-Provider migration preserves exact encrypted bytes.
-
-## Permissions
-
-The encrypted policy lives at:
+## Security
 
 ~~~text
 memory://access/permissions
-~~~
-
-The first engine evaluates actor + action + resource with deny-by-default behavior and resource-specific overrides.
-
-CLI memory operations are actor-aware and default to owner.
-
-## Vault
-
-The encrypted vault lives at:
-
-~~~text
 memory://access/vault
 ~~~
 
-Its MCMA envelope uses:
+Permissions are deny-by-default. Vault uses container=vault and key_context=vault.
+
+## Knowledge reuse
 
 ~~~text
-container = vault
-key_context = vault
+question
+  ↓
+normalize
+  ↓
+sha256
+  ↓
+memory://knowledge/q-...
+  ↓
+authorized lookup
+  ↓
+validation + confidence + freshness
+  ↓
+reuse | revalidate | reject | miss
 ~~~
 
-Ordinary raw reads of the vault are blocked.
+Only reuse returns the remembered answer.
 
-Vault listing exposes metadata only. Trusted code can use a secret through an in-process callback after use_secret permission succeeds.
+The current implementation is exact-intent, not semantic search.
 
-## Security CLI
+## Epistemic metadata
+
+Records preserve provenance, confidence, validation state/history, evidence count, freshness, max age, reuse policy and relations.
+
+## Deterministic agents
+
+Librarian wraps remember/validate/recall.
+
+SecurityAgent wraps permission decisions, vault metadata and trusted secret use.
+
+Neither requires an AI provider.
+
+## New CLI
 
 ~~~text
-mcma access-init
-mcma access-check
-mcma permissions-show
-mcma permissions-set
-mcma vault-put
-mcma vault-list
-mcma vault-delete
+mcma knowledge-put
+mcma knowledge-check
+mcma knowledge-show
+mcma knowledge-validate
 ~~~
-
-There is no vault-get/vault-read command.
-
-## Tests
-
-New security integration coverage verifies AI normal read, AI write/update denial, AI vault denial, owner management, security-agent internal secret use, metadata-only vault listing, vault crypto role, plaintext-secret absence from stored bytes, resource-specific denial and whole-library verification.
 
 ## Next
 
-Build the Knowledge/AI layer on top of this authorization boundary, starting with provenance, validation/freshness and the librarian/security-agent execution model.
+Add optional semantic candidate retrieval while keeping the same permission, validation, confidence and freshness gates.

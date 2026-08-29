@@ -11,67 +11,57 @@ s3://BUCKET/prefix?region=us-east-1
 webdav+https://HOST/existing/library/root
 ~~~
 
-Provider credentials are supplied through environment variables, never storage URLs.
+## Knowledge commands
 
-## Actor-aware memory commands
-
-~~~text
-mcma write LOCATION URI INPUT [--actor=owner]
-mcma update LOCATION URI INPUT [--actor=owner]
-mcma temperature LOCATION URI hot|warm|cold|frozen [--actor=owner]
-mcma read LOCATION URI [--actor=owner]
-mcma list LOCATION [--actor=owner]
-mcma tree LOCATION [--actor=owner]
-~~~
-
-Before access control is initialized, actor-aware operations are owner-only.
-
-## Initialize security
-
-~~~bash
-./apps/cli/mcma access-init /path/to/library
-./apps/cli/mcma access-check /path/to/library ai read memory://topics/example
-~~~
-
-A custom policy can be supplied with --policy=FILE.json.
-
-## Permissions
+Capture:
 
 ~~~text
-mcma permissions-show LOCATION [--actor=owner]
-mcma permissions-set LOCATION FILE.json [--actor=owner]
+mcma knowledge-put LOCATION QUESTION_FILE ANSWER_FILE [options]
 ~~~
 
-## Vault
-
-Store a secret from an environment variable:
-
-~~~bash
-export MY_API_TOKEN='...'
-./apps/cli/mcma vault-put /path/to/library provider-token MY_API_TOKEN --type=api-token
-unset MY_API_TOKEN
-~~~
-
-Metadata only:
+Check direct reuse:
 
 ~~~text
-mcma vault-list LOCATION [--actor=owner]
+mcma knowledge-check LOCATION QUESTION_FILE [options]
 ~~~
 
-Delete:
+Inspect:
 
 ~~~text
-mcma vault-delete LOCATION NAME [--actor=owner]
+mcma knowledge-show LOCATION QUESTION_FILE [--actor=owner]
 ~~~
 
-There is intentionally no vault-get or vault-read command.
+Validate/reclassify:
 
-Trusted application/security-agent code uses the Library useVaultSecret callback and should return only the result of the authorized external operation.
+~~~text
+mcma knowledge-validate LOCATION QUESTION_FILE STATE CONFIDENCE REASON_FILE [options]
+~~~
+
+Important options:
+
+~~~text
+--actor=owner|ai|librarian
+--answer-format=text|markdown|json
+--confidence=0.0..1.0
+--validation=unverified|plausible|supported|verified|disputed|retracted
+--freshness=immutable|stable|dynamic|volatile
+--max-age=SECONDS
+--reuse=always|reuse-unless-stale|revalidate-if-stale|never-direct
+--provenance=FILE.json
+--current=yes|no
+--min-confidence=0.0..1.0
+~~~
+
+A provenance JSON file is an array of source objects.
+
+knowledge-check returns the remembered answer only when decision=reuse.
+
+For revalidate/reject/miss, no direct answer is emitted.
+
+## Security
+
+Permissions/Vault commands remain actor-aware. There is no vault-get or vault-read command.
 
 ## Storage migration
 
-~~~text
-mcma storage-copy SOURCE DESTINATION
-~~~
-
-Copies exact encrypted bytes; keys are not copied into the provider.
+mcma storage-copy preserves exact encrypted bytes between supported providers.

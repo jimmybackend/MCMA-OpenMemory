@@ -8,45 +8,44 @@ Storage providers receive encrypted bytes, not MCMA master keys.
 
 Provider credentials are deployment configuration and are never embedded in portable MCMA objects.
 
-## Never commit
-
-Do not commit master keys, provider tokens/passwords, AWS/S3 credentials, WebDAV credentials, plaintext private memories, recovery passphrases, recovery bundles or vault secrets.
-
 ## Permissions
 
-The first Permission Engine is deny-by-default and evaluates actor/action/resource.
+The Permission Engine is deny-by-default and evaluates actor/action/resource.
 
 Policies are encrypted at memory://access/permissions.
 
-Policy updates cannot remove the owner's own manage_permissions and manage_vault recovery authority.
-
-Low-level no-actor Library calls are trusted owner/runtime primitives; actor-facing clients should use actor-aware APIs.
+Actor-aware KnowledgeService reads and writes pass through the same Permission Engine.
 
 ## Vault
 
-The vault is encrypted with:
+The vault is encrypted with container=vault and key_context=vault.
 
-~~~text
-container=vault
-key_context=vault
-~~~
+Ordinary memory reads reject memory://access/vault.
 
-The ordinary memory read path explicitly rejects memory://access/vault.
+Secret bytes are available only inside the trusted useVaultSecret callback after authorization.
 
-Vault metadata can be listed only with vault_metadata permission. Secret bytes are available only inside the trusted useVaultSecret callback after use_secret authorization.
+## Knowledge safety
 
-There is no CLI raw-secret retrieval command.
+A remembered answer is not returned directly unless KnowledgeRecord assessment permits reuse.
 
-The current vault key is domain-separated via HKDF but still descends from the library master key. Hardware/KMS/independent unlock remains future hardening.
+The default gate requires:
 
-## Remote concurrency
+- supported or verified validation state;
+- confidence at or above the caller threshold;
+- freshness within policy;
+- no explicit current-data revalidation requirement;
+- authorized read access.
 
-GitHub, S3 and WebDAV use conditional version checks when publishing mutable library state. Stale writers fail instead of silently overwriting newer routing/policy/vault revisions.
+disputed/retracted knowledge is rejected.
 
-## Recovery
+revalidate/reject results do not include the remembered answer as a direct answer.
 
-The separate encrypted recovery bundle remains outside the portable library.
+Provenance and confidence are metadata, not proof.
+
+## Agent boundaries
+
+Librarian and SecurityAgent are deterministic wrappers. They do not grant extra permissions beyond their configured MCMA roles.
 
 ## Production hardening
 
-Future production work should include hardware/KMS key release, key rotation, device authorization, audit-event design, secure-agent isolation and external cryptographic/security review.
+Future work should include independent vault unlock/hardware key release, key rotation, device authorization, audit-event design, semantic retrieval review and external cryptographic/security review.

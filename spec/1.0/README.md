@@ -2,7 +2,7 @@
 
 Status: **experimental specification with executable PHP reference implementation**
 
-## Normative / active documents
+## Active documents
 
 - PRINCIPLES.md
 - IDENTITY.md
@@ -15,20 +15,14 @@ Status: **experimental specification with executable PHP reference implementatio
 - RECOVERY.md
 - PERMISSIONS.md
 - VAULT.md
+- KNOWLEDGE.md
+- AGENTS.md
 - CONFORMANCE.md
 - schema/
 - test-vectors/
 
 ## Implemented boundaries
 
-MCMA 1.0 currently has:
+MCMA 1.0 currently has stable identity, encrypted revisions, Local/GitHub/S3/WebDAV storage, encrypted permissions, a dedicated vault, deterministic exact-intent knowledge reuse, provenance/confidence/validation/freshness metadata and deterministic Librarian/SecurityAgent boundaries.
 
-- stable identity and encrypted revisions;
-- Local/GitHub/S3/WebDAV storage;
-- byte-preserving provider migration;
-- encrypted deny-by-default permissions;
-- dedicated vault container/key context;
-- metadata-only vault listing;
-- trusted internal secret-use callback.
-
-Historical prototype objects remain compatibility inputs and are never relabeled in place.
+Semantic retrieval and model-provider orchestration are intentionally outside the current core baseline.

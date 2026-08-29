@@ -1,76 +1,60 @@
 # MCMA 1.0 Architecture
 
 ~~~text
-Optional AI / Agents
-        ↓
- Permission Engine
-        ↓
-     MCMA Core
-   ┌────┼─────┐
- Memory Crypto Index
-   └────┼─────┘
-        ↓
-  StorageAdapter
+Optional AI / UI / Tools
+          ↓
+   Agent Boundaries
+   ├── Librarian
+   └── SecurityAgent
+          ↓
+ Permission + Knowledge Gates
+          ↓
+       MCMA Core
+   ┌──────┼────────┐
+ Memory  Crypto   Index
+   └──────┼────────┘
+          ↓
+    StorageAdapter
    ├── Local
    ├── GitHub
    ├── S3-compatible
    └── WebDAV
 ~~~
 
-## Portable identity
+## Knowledge route
 
 ~~~text
-memory://...
-   ↓
-encrypted index
-   ↓
-object_id
-   ↓
-storage_hash
-   ↓
-provider-neutral locator
-   ↓
-StorageAdapter
-~~~
-
-## Authorization
-
-Actor-facing operations evaluate:
-
-~~~text
-actor + action + resource
-~~~
-
-The encrypted policy object is memory://access/permissions.
-
-Mutating actor checks occur within the write coordination window after the library reloads current mutable state.
-
-## Vault boundary
-
-~~~text
-AI/tool request
-      ↓
+question
+  ↓
+exact intent normalization
+  ↓
+knowledge logical ref
+  ↓
 Permission Engine
-      ↓
-Security Agent / trusted client
-      ↓
-vault container (key_context=vault)
-      ↓
-useVaultSecret callback
-      ↓
-external action
-      ↓
-allowed result
+  ↓
+KnowledgeRecord assessment
+  ├── validation
+  ├── confidence
+  ├── freshness
+  └── reuse policy
+  ↓
+reuse | revalidate | reject | miss
 ~~~
 
-Ordinary memory reads cannot return the vault payload.
+The current route requires exact normalized intent. Semantic candidate retrieval is intentionally a later layer.
+
+## Agent boundaries
+
+Librarian is a deterministic wrapper for capture, validation and recall.
+
+SecurityAgent is a deterministic wrapper for authorization and trusted vault usage.
+
+Neither requires a model provider.
+
+## Security invariants
+
+A model-facing client must not bypass Permission Engine, freshness/revalidation decisions, disputed/retracted rejection or the vault secret-use boundary.
 
 ## Storage
 
-Local uses an exclusive filesystem lock. GitHub, S3 and WebDAV use provider versions/ETags with optimistic compare-and-swap for mutable manifest publication.
-
-Provider migration copies exact encrypted bytes.
-
-## Compatibility
-
-Historical V1/V2 objects remain under their original cryptographic rules until explicit authenticated migration.
+Physical provider paths do not define identity. Provider migration copies exact encrypted bytes and preserves object_id/storage_hash.

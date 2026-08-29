@@ -8,6 +8,7 @@ use MCMA\Core\Crypto;
 use MCMA\Core\HistoricalCrypto;
 use MCMA\Core\KeyStore;
 use MCMA\Core\Library;
+use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Storage\StorageFactory;
 use MCMA\Core\Storage\StorageMigrator;
 
@@ -43,6 +44,11 @@ Usage:
   mcma vault-list LOCATION [--actor=owner]
   mcma vault-delete LOCATION NAME [--actor=owner]
 
+  mcma knowledge-put LOCATION QUESTION_FILE ANSWER_FILE [options]
+  mcma knowledge-check LOCATION QUESTION_FILE [options]
+  mcma knowledge-show LOCATION QUESTION_FILE [--actor=owner]
+  mcma knowledge-validate LOCATION QUESTION_FILE STATE CONFIDENCE REASON_FILE [options]
+
   mcma key-export LOCATION OUTPUT [--passphrase-env=ENV_NAME]
   mcma key-import RECOVERY_FILE [--passphrase-env=ENV_NAME] [--replace=yes]
   mcma migrate LOCATION HISTORICAL.mcma MEMORY_URI [options]
@@ -61,6 +67,18 @@ write/update options:
   --layer=40-semantic
   --scope=user
   --maturity=raw|observed|classified|knowledge|confirmed
+
+knowledge options:
+  --actor=owner|ai|librarian
+  --answer-format=text|markdown|json
+  --confidence=0.0..1.0
+  --validation=unverified|plausible|supported|verified|disputed|retracted
+  --freshness=immutable|stable|dynamic|volatile
+  --max-age=SECONDS
+  --reuse=always|reuse-unless-stale|revalidate-if-stale|never-direct
+  --provenance=FILE.json
+  --current=yes|no
+  --min-confidence=0.0..1.0
 
 INPUT may be '-' to read from STDIN.
 TXT
@@ -93,14 +111,40 @@ function readInput(string $input,string $format): mixed
     }
     return $bytes;
 }
-function readJsonObject(string $path): array
+function readJsonValue(string $path): mixed
 {
     $bytes=@file_get_contents($path);
     if($bytes===false) fail('Unable to read JSON file: '.$path);
-    try{$value=json_decode($bytes,true,512,JSON_THROW_ON_ERROR);}
+    try{return json_decode($bytes,true,512,JSON_THROW_ON_ERROR);}
     catch(Throwable $e){fail('Invalid JSON file: '.$e->getMessage());}
-    if(!is_array($value)) fail('JSON file must contain an object');
+}
+function readJsonObject(string $path): array
+{
+    $value=readJsonValue($path);
+    if(!is_array($value)||array_is_list($value)) fail('JSON file must contain an object');
     return $value;
+}
+function readJsonArray(string $path): array
+{
+    $value=readJsonValue($path);
+    if(!is_array($value)||!array_is_list($value)) fail('JSON file must contain an array');
+    return $value;
+}
+function readTextFile(string $path): string
+{
+    $bytes=@file_get_contents($path);
+    if($bytes===false) fail('Unable to read text file: '.$path);
+    $value=trim($bytes);
+    if($value==='') fail('Text file must not be empty: '.$path);
+    return $value;
+}
+function yesNo(array $opts,string $name,bool $default=false): bool
+{
+    if(!array_key_exists($name,$opts)) return $default;
+    $value=strtolower(trim((string)$opts[$name]));
+    if(in_array($value,['yes','true','1','on'],true)) return true;
+    if(in_array($value,['no','false','0','off'],true)) return false;
+    fail('Invalid boolean option --'.$name.'='.$opts[$name]);
 }
 function envSecret(string $name): string
 {
@@ -209,6 +253,35 @@ try {
         }
         case 'vault-delete': {
             $loc=array_shift($args)??usage();$name=array_shift($args)??usage();$opts=parseOptions($args);echo pretty(library($loc)->vaultDelete($name,actor($opts))).PHP_EOL;break;
+        }
+
+        case 'knowledge-put': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$answerFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $question=readTextFile($questionFile);$format=$opts['answer-format']??'text';
+            $answer=$format==='json'?readJsonValue($answerFile):readInput($answerFile,$format);
+            $provenance=isset($opts['provenance'])?readJsonArray($opts['provenance']):[];
+            $freshness=$opts['freshness']??'stable';
+            $maxAge=$freshness==='immutable'?null:(isset($opts['max-age'])?(int)$opts['max-age']:2592000);
+            $service=new KnowledgeService(library($loc));
+            echo pretty($service->capture(actor($opts),$question,$answer,$format,(float)($opts['confidence']??0.5),$opts['validation']??'unverified',$provenance,$freshness,$maxAge,$opts['reuse']??'reuse-unless-stale')).PHP_EOL;
+            break;
+        }
+        case 'knowledge-check': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $service=new KnowledgeService(library($loc));
+            echo pretty($service->directAnswer(actor($opts),readTextFile($questionFile),yesNo($opts,'current',false),(float)($opts['min-confidence']??0.75))).PHP_EOL;
+            break;
+        }
+        case 'knowledge-show': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$opts=parseOptions($args);
+            echo pretty((new KnowledgeService(library($loc)))->inspect(actor($opts),readTextFile($questionFile))).PHP_EOL;
+            break;
+        }
+        case 'knowledge-validate': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$state=array_shift($args)??usage();$confidence=array_shift($args)??usage();$reasonFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $provenance=isset($opts['provenance'])?readJsonArray($opts['provenance']):[];
+            echo pretty((new KnowledgeService(library($loc)))->validateKnowledge(actor($opts),readTextFile($questionFile),$state,(float)$confidence,readTextFile($reasonFile),$provenance)).PHP_EOL;
+            break;
         }
 
         case 'key-export': {

@@ -7,9 +7,9 @@
 > **Intelligence can change. Memory belongs to the person.**  
 > **La inteligencia puede cambiar. La memoria pertenece a la persona.**
 
-MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is optional and receives only authorized memory.
+MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is optional.
 
-## Identity
+## Core model
 
 ~~~text
 memory:// logical reference
@@ -23,78 +23,54 @@ StorageAdapter
 encrypted .mcma bytes
 ~~~
 
-Physical path, storage provider and HOT/WARM/COLD/FROZEN temperature do not define permanent memory identity.
-
 ## Storage adapters
 
-~~~text
-StorageAdapter
-├── Local filesystem
-├── GitHub
-├── S3 / S3-compatible
-└── WebDAV
-~~~
-
-Example locations:
-
-~~~text
-/local/path
-github://OWNER/REPO/prefix?branch=main
-s3://BUCKET/prefix?region=us-east-1
-webdav+https://HOST/existing/library/root
-~~~
-
-mcma storage-copy moves exact encrypted bytes between providers without changing object IDs or storage hashes.
+Local, GitHub, S3/S3-compatible and WebDAV are implemented.
 
 ## Permissions + Vault
-
-MCMA now implements encrypted access control:
 
 ~~~text
 memory://access/permissions
 memory://access/vault
 ~~~
 
-Permission decisions use actor + action + resource and default to deny.
+Permissions are deny-by-default. Vault uses a dedicated MCMA container/key context and has no raw-secret CLI getter.
 
-The vault uses the dedicated MCMA vault container and HKDF key context. Raw vault reads are blocked from the ordinary memory API and there is no CLI command that prints a vault secret.
+## Knowledge Reuse
 
-## CLI
-
-Core:
+MCMA can preserve a question, answer, provenance, confidence, validation state and freshness policy.
 
 ~~~text
-mcma init/open/info
-mcma write/update/read
-mcma temperature/list/tree/verify
-mcma storage-copy
-mcma migrate
-mcma key-export/key-import
+question
+  ↓
+normalized exact intent
+  ↓
+memory://knowledge/q-<sha256>
+  ↓
+Permission Engine
+  ↓
+validation + confidence + freshness
+  ↓
+reuse / revalidate / reject / miss
 ~~~
 
-Security:
+Only reuse returns the remembered answer.
+
+This first implementation is exact-intent, not semantic search.
+
+## Deterministic agents
+
+Librarian and SecurityAgent work without a model provider.
+
+A future AI layer can call these boundaries but does not own memory, permissions or secrets.
+
+## Knowledge CLI
 
 ~~~text
-mcma access-init
-mcma access-check
-mcma permissions-show
-mcma permissions-set
-mcma vault-put
-mcma vault-list
-mcma vault-delete
-~~~
-
-Memory commands accept --actor=... and default to owner.
-
-## Repository
-
-~~~text
-spec/1.0/
-packages/core/
-apps/cli/
-tests/
-docs/
-reference/compatibility/
+mcma knowledge-put
+mcma knowledge-check
+mcma knowledge-show
+mcma knowledge-validate
 ~~~
 
 ## License
