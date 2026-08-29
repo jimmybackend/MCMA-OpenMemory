@@ -20,6 +20,7 @@ require_once __DIR__ . '/src/Knowledge/KnowledgeRecord.php';
 require_once __DIR__ . '/src/Knowledge/KnowledgeService.php';
 require_once __DIR__ . '/src/Semantic/EmbeddingProvider.php';
 require_once __DIR__ . '/src/Semantic/VectorMath.php';
+require_once __DIR__ . '/src/Semantic/DeterministicReranker.php';
 require_once __DIR__ . '/src/Semantic/SemanticIndexService.php';
 require_once __DIR__ . '/../connectors/aws/src/BedrockTitanEmbeddingProvider.php';
 require_once __DIR__ . '/src/Agent/Librarian.php';

@@ -53,4 +53,5 @@ jobs:
       - name: Semantic retrieval
         run: |
           php tests/integration/semantic-retrieval.php
+          php tests/integration/semantic-incremental-topk.php
           php tests/integration/bedrock-embedding-provider.php

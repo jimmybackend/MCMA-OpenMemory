@@ -49,7 +49,7 @@
 - [x] direct memory answer path
 - [x] Librarian and SecurityAgent boundaries
 
-## Semantic retrieval — first implementation complete
+## Semantic retrieval — incremental/top-K implementation complete
 - [x] provider-neutral EmbeddingProvider
 - [x] encrypted derived semantic index
 - [x] float embedding vectors
@@ -60,10 +60,16 @@
 - [x] storage_hash stale-vector detection
 - [x] Amazon Titan Text Embeddings V2 connector
 - [x] Bedrock bearer and SigV4 authentication
+- [x] incremental single-record index upsert
+- [x] incremental semantic entry removal hook
+- [x] Librarian-triggered semantic refresh when configured
+- [x] Top-K actor-visible candidate inspection
+- [x] deterministic local reranking
+- [x] reusable candidates prioritized over revalidate/reject candidates
 
 ## Next
-- [ ] incremental semantic index updates
-- [ ] multiple semantic candidate inspection/reranking
 - [ ] optional local embedding provider
 - [ ] optional mcma ask orchestration
 - [ ] provider AI connectors outside core
+- [ ] relation graph
+- [ ] automatic maturity and temperature policies

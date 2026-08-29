@@ -52,6 +52,7 @@ Usage:
   mcma knowledge-validate LOCATION QUESTION_FILE STATE CONFIDENCE REASON_FILE [options]
   mcma semantic-index LOCATION [--actor=librarian] [--dimensions=256]
   mcma semantic-check LOCATION QUESTION_FILE [options]
+  mcma semantic-topk LOCATION QUESTION_FILE [options]
 
   mcma key-export LOCATION OUTPUT [--passphrase-env=ENV_NAME]
   mcma key-import RECOVERY_FILE [--passphrase-env=ENV_NAME] [--replace=yes]
@@ -84,6 +85,7 @@ knowledge / semantic options:
   --current=yes|no
   --min-confidence=0.0..1.0
   --min-similarity=-1.0..1.0
+  --top-k=1..100
   --dimensions=256|512|1024
   --embedding-provider=bedrock-titan-v2
 
@@ -314,7 +316,22 @@ try {
                 embeddingProvider($opts),
                 yesNo($opts,'current',false),
                 (float)($opts['min-confidence']??0.75),
-                (float)($opts['min-similarity']??0.78)
+                (float)($opts['min-similarity']??0.78),
+                (int)($opts['top-k']??5)
+            )).PHP_EOL;
+            break;
+        }
+        case 'semantic-topk': {
+            $loc=array_shift($args)??usage();$questionFile=array_shift($args)??usage();$opts=parseOptions($args);
+            $service=new SemanticIndexService(library($loc));
+            echo pretty($service->topK(
+                actor($opts),
+                readTextFile($questionFile),
+                embeddingProvider($opts),
+                yesNo($opts,'current',false),
+                (float)($opts['min-confidence']??0.75),
+                (float)($opts['min-similarity']??0.78),
+                (int)($opts['top-k']??5)
             )).PHP_EOL;
             break;
         }
