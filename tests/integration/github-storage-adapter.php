@@ -8,9 +8,9 @@ use MCMA\Core\Storage\GitHubStorageAdapter;
 
 $files=[]; $counter=0;
 $requester=function(string $method,string $path,?array $json=null) use (&$files,&$counter): array {
-    if(preg_match('#/contents/(.+?)(?:\\?ref=.*)?$#',$path,$m)){
+    if(preg_match('#/contents/(.+?)(?:\?ref=.*)?$#',$path,$m)){
         $file=rawurldecode(str_replace('%2F','/',$m[1]));
-        $file=preg_replace('/\\?ref=.*$/','',$file);
+        $file=preg_replace('/\?ref=.*$/','',$file);
         if($method==='GET'){
             if(!isset($files[$file]))return[404,['message'=>'Not Found']];
             return[200,['type'=>'file','content'=>base64_encode($files[$file]['bytes']),'sha'=>$files[$file]['sha']]];
