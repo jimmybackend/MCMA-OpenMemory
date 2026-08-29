@@ -1,49 +1,54 @@
 # MCMA 1.0 Local CLI
 
-This is the first executable MCMA 1.0 core. It requires PHP 8.2+ with OpenSSL.
-
-It intentionally has **no AI and no database dependency**.
+The local CLI requires PHP 8.2+ with OpenSSL and has no AI or database dependency.
 
 ## Commands
 
-```text
+~~~text
 mcma init
 mcma open
 mcma info
 mcma write
+mcma update
+mcma temperature
 mcma read
 mcma verify
 mcma list
 mcma tree
-```
+mcma key-export
+mcma key-import
+mcma migrate
+~~~
 
-Example:
+## Stable revisions
 
-```bash
-export MCMA_KEY_DIR="$HOME/.config/mcma/keys"
+mcma update and mcma temperature preserve object_id. Each change creates a new encrypted revision and storage_hash, while the previous storage hash is retained inside encrypted metadata.
 
-./apps/cli/mcma init ~/memory.mcma-library --mode=private
-printf 'My first MCMA 1.0 memory\n' > /tmp/memory.txt
-./apps/cli/mcma write ~/memory.mcma-library memory://topics/first-memory /tmp/memory.txt
-./apps/cli/mcma read ~/memory.mcma-library memory://topics/first-memory
-./apps/cli/mcma verify ~/memory.mcma-library
-./apps/cli/mcma tree ~/memory.mcma-library
-```
+## Recovery
 
-## Key boundary
+~~~bash
+export MCMA_RECOVERY_PASSPHRASE='a-long-unique-passphrase'
+./apps/cli/mcma key-export ~/memory.mcma-library /secure/library.mcma-key
+./apps/cli/mcma key-import /secure/library.mcma-key
+~~~
 
-By default `init` creates a random 32-byte master key outside the portable library at:
+Passphrases are read from environment variables, not CLI values.
 
-```text
-~/.config/mcma/keys/<library_id>.key
-```
+## Historical migration
 
-Set `MCMA_KEY_DIR` to choose another protected local key directory.
+~~~bash
+export MCMA_LEGACY_MASTER_KEY_B64='...'
+./apps/cli/mcma migrate ~/memory.mcma-library /path/historical.mcma memory://topics/imported
+~~~
 
-For controlled deployments, `MCMA_MASTER_KEY_B64` may supply the key instead.
+Historical mcma-v1 and mcma-v2 are supported. Migration is non-destructive.
 
-The key is never embedded in `manifest.mcma` or an object envelope.
+## Concurrency
 
-## Current limitation
+All library-changing operations acquire an exclusive .mcma.lock filesystem lock and reload the latest manifest while holding that lock.
 
-The first PHP canonical JSON writer accepts integers but rejects floating-point JSON values. This is deliberate: MCMA 1.0 requires RFC 8785 JCS and the implementation will not silently emit non-conformant floating-point encodings. Text, Markdown, XML and binary content are unaffected.
+MCMA_LOCK_TIMEOUT_SECONDS controls the local wait timeout; default is 10 seconds.
+
+## Current JCS limitation
+
+The first PHP canonical JSON writer accepts integers but rejects floating-point JSON values rather than silently emit non-conformant RFC 8785 number serialization.

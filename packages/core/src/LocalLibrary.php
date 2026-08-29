@@ -101,49 +101,194 @@ final class LocalLibrary
         string $scope = 'user',
         string $maturity = 'raw'
     ): array {
-        self::validateLogicalRef($logicalRef);
-        self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
+        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity): array {
+            self::validateLogicalRef($logicalRef);
+            self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
 
-        $index = $this->loadRootIndex();
-        foreach ($index['payload']['entries'] as $entry) {
-            if (in_array($logicalRef, $entry['logical_refs'] ?? [], true)) throw new RuntimeException('Logical reference already exists: ' . $logicalRef);
-        }
+            $index = $this->loadRootIndex();
+            $this->assertLogicalRefAvailable($index['payload'], $logicalRef);
+            $objectId = Crypto::uuidV4('obj');
+            $payload = [
+                'content_format' => $contentFormat,
+                'metadata' => [
+                    'created_at' => self::now(),
+                    'temperature' => $temperature,
+                    'cognitive_layer' => $cognitiveLayer,
+                    'scope' => $scope,
+                    'maturity' => $maturity,
+                    'logical_refs' => [$logicalRef],
+                    'revision' => 1,
+                ],
+                'content' => self::normalizeContent($content, $contentFormat),
+            ];
 
-        if ($contentFormat === 'binary') {
-            if (!is_string($content)) throw new RuntimeException('Binary content must be raw bytes');
-            $content = Crypto::b64uEncode($content);
-        }
-        if (in_array($contentFormat, ['text', 'markdown', 'xml'], true) && !is_string($content)) throw new RuntimeException($contentFormat . ' content must be a string');
+            $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload);
+            self::writeObjectEnvelope($this->root, $envelope);
 
-        $objectId = Crypto::uuidV4('obj');
-        $payload = [
-            'content_format' => $contentFormat,
-            'metadata' => [
-                'created_at' => self::now(),
-                'temperature' => $temperature,
-                'cognitive_layer' => $cognitiveLayer,
-                'scope' => $scope,
-                'maturity' => $maturity,
-                'logical_refs' => [$logicalRef],
-            ],
-            'content' => $content,
-        ];
+            $index['payload']['entries'][] = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
+            self::sortEntries($index['payload']['entries']);
+            $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
 
-        $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload);
-        self::writeObjectEnvelope($this->root, $envelope);
+            return [
+                'object_id' => $objectId,
+                'storage_hash' => $envelope['storage_hash'],
+                'logical_ref' => $logicalRef,
+                'revision' => 1,
+            ];
+        });
+    }
 
-        $index['payload']['entries'][] = [
-            'object_id' => $objectId,
-            'storage_hash' => $envelope['storage_hash'],
-            'logical_refs' => [$logicalRef],
-            'temperature' => $temperature,
-            'cognitive_layer' => $cognitiveLayer,
-            'scope' => $scope,
-        ];
-        usort($index['payload']['entries'], static fn(array $a, array $b): int => strcmp($a['logical_refs'][0], $b['logical_refs'][0]));
-        $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
+    public function update(
+        string $logicalRef,
+        mixed $content,
+        ?string $contentFormat = null,
+        ?string $temperature = null,
+        ?string $cognitiveLayer = null,
+        ?string $scope = null,
+        ?string $maturity = null
+    ): array {
+        return $this->withWriteLock(function () use ($logicalRef, $content, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity): array {
+            self::validateLogicalRef($logicalRef);
+            $index = $this->loadRootIndex();
+            [$entryPosition, $entry] = $this->findEntryWithPosition($index['payload'], $logicalRef);
+            $oldEnvelope = $this->readObjectByHash($entry['storage_hash']);
+            $oldPayload = Crypto::decryptPayload($this->masterKey, $oldEnvelope);
 
-        return ['object_id' => $objectId, 'storage_hash' => $envelope['storage_hash'], 'logical_ref' => $logicalRef];
+            $format = $contentFormat ?? (string) ($oldPayload['content_format'] ?? 'text');
+            $metadata = $oldPayload['metadata'] ?? [];
+            if (!is_array($metadata)) throw new RuntimeException('Malformed object metadata');
+
+            $newTemperature = $temperature ?? (string) ($metadata['temperature'] ?? 'hot');
+            $newLayer = $cognitiveLayer ?? (string) ($metadata['cognitive_layer'] ?? '40-semantic');
+            $newScope = $scope ?? (string) ($metadata['scope'] ?? 'user');
+            $newMaturity = $maturity ?? (string) ($metadata['maturity'] ?? 'raw');
+            self::validateMetadata($format, $newTemperature, $newLayer, $newScope, $newMaturity);
+
+            $revision = max(1, (int) ($metadata['revision'] ?? 1)) + 1;
+            $metadata['updated_at'] = self::now();
+            $metadata['temperature'] = $newTemperature;
+            $metadata['cognitive_layer'] = $newLayer;
+            $metadata['scope'] = $newScope;
+            $metadata['maturity'] = $newMaturity;
+            $metadata['logical_refs'] = $entry['logical_refs'];
+            $metadata['revision'] = $revision;
+            $metadata['previous_storage_hash'] = $entry['storage_hash'];
+
+            $newPayload = [
+                'content_format' => $format,
+                'metadata' => $metadata,
+                'content' => self::normalizeContent($content, $format),
+            ];
+
+            return $this->commitRevision($index, $entryPosition, $entry['object_id'], $newPayload, $logicalRef);
+        });
+    }
+
+    public function setTemperature(string $logicalRef, string $temperature): array
+    {
+        if (!in_array($temperature, ['hot', 'warm', 'cold', 'frozen'], true)) throw new RuntimeException('Invalid temperature');
+
+        return $this->withWriteLock(function () use ($logicalRef, $temperature): array {
+            self::validateLogicalRef($logicalRef);
+            $index = $this->loadRootIndex();
+            [$entryPosition, $entry] = $this->findEntryWithPosition($index['payload'], $logicalRef);
+            $oldEnvelope = $this->readObjectByHash($entry['storage_hash']);
+            $payload = Crypto::decryptPayload($this->masterKey, $oldEnvelope);
+
+            if (!isset($payload['metadata']) || !is_array($payload['metadata'])) throw new RuntimeException('Malformed object metadata');
+            $metadata = $payload['metadata'];
+            $oldTemperature = (string) ($metadata['temperature'] ?? $entry['temperature'] ?? 'hot');
+            if ($oldTemperature === $temperature) {
+                return [
+                    'object_id' => $entry['object_id'],
+                    'storage_hash' => $entry['storage_hash'],
+                    'logical_ref' => $logicalRef,
+                    'temperature' => $temperature,
+                    'unchanged' => true,
+                ];
+            }
+
+            $metadata['updated_at'] = self::now();
+            $metadata['temperature'] = $temperature;
+            $metadata['revision'] = max(1, (int) ($metadata['revision'] ?? 1)) + 1;
+            $metadata['previous_storage_hash'] = $entry['storage_hash'];
+            $payload['metadata'] = $metadata;
+
+            $result = $this->commitRevision($index, $entryPosition, $entry['object_id'], $payload, $logicalRef);
+            $result['temperature'] = $temperature;
+            $result['previous_temperature'] = $oldTemperature;
+            return $result;
+        });
+    }
+
+    public function importHistorical(
+        string $logicalRef,
+        mixed $content,
+        array $sourceEnvelope,
+        string $contentFormat = 'text',
+        string $temperature = 'cold',
+        string $cognitiveLayer = '40-semantic',
+        string $scope = 'user',
+        string $maturity = 'observed',
+        ?string $sourceRef = null
+    ): array {
+        return $this->withWriteLock(function () use ($logicalRef, $content, $sourceEnvelope, $contentFormat, $temperature, $cognitiveLayer, $scope, $maturity, $sourceRef): array {
+            self::validateLogicalRef($logicalRef);
+            self::validateMetadata($contentFormat, $temperature, $cognitiveLayer, $scope, $maturity);
+
+            $sourceFormat = (string) ($sourceEnvelope['format'] ?? '');
+            if (!in_array($sourceFormat, ['mcma-v1', 'mcma-v2'], true)) throw new RuntimeException('Unsupported historical source format');
+
+            $index = $this->loadRootIndex();
+            $this->assertLogicalRefAvailable($index['payload'], $logicalRef);
+            $fingerprint = self::historicalFingerprint($sourceEnvelope);
+            foreach ($index['payload']['entries'] as $existing) {
+                if (($existing['migration_fingerprint'] ?? null) === $fingerprint) {
+                    throw new RuntimeException('Historical source appears to have already been migrated');
+                }
+            }
+
+            $objectId = Crypto::uuidV4('obj');
+            $payload = [
+                'content_format' => $contentFormat,
+                'metadata' => [
+                    'created_at' => self::now(),
+                    'temperature' => $temperature,
+                    'cognitive_layer' => $cognitiveLayer,
+                    'scope' => $scope,
+                    'maturity' => $maturity,
+                    'logical_refs' => [$logicalRef],
+                    'revision' => 1,
+                    'provenance' => [[
+                        'type' => 'migration',
+                        'source_format' => $sourceFormat,
+                        'source_key_id' => (string) ($sourceEnvelope['key_id'] ?? ''),
+                        'source_logical_path' => (string) ($sourceEnvelope['logical_path'] ?? ''),
+                        'source_file' => (string) ($sourceEnvelope['file'] ?? ''),
+                        'source_ref' => $sourceRef ?? (string) ($sourceEnvelope['file'] ?? ''),
+                        'migrated_at' => self::now(),
+                    ]],
+                ],
+                'content' => self::normalizeContent($content, $contentFormat),
+            ];
+
+            $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload);
+            self::writeObjectEnvelope($this->root, $envelope);
+
+            $entry = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
+            $entry['migration_fingerprint'] = $fingerprint;
+            $index['payload']['entries'][] = $entry;
+            self::sortEntries($index['payload']['entries']);
+            $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
+
+            return [
+                'object_id' => $objectId,
+                'storage_hash' => $envelope['storage_hash'],
+                'logical_ref' => $logicalRef,
+                'source_format' => $sourceFormat,
+                'source_preserved' => true,
+            ];
+        });
     }
 
     public function read(string $logicalRef): array
@@ -218,12 +363,68 @@ final class LocalLibrary
         return $this->manifestEnvelope['protected']['library_id'];
     }
 
+    private function withWriteLock(callable $callback): mixed
+    {
+        return LibraryLock::exclusive($this->root, function () use ($callback): mixed {
+            $this->reload();
+            return $callback();
+        });
+    }
+
+    private function reload(): void
+    {
+        $manifestEnvelope = self::readEnvelopeFile($this->root . '/manifest.mcma');
+        Crypto::verifyEnvelope($manifestEnvelope);
+        $libraryId = (string) ($manifestEnvelope['protected']['library_id'] ?? '');
+        if (!hash_equals($this->libraryId(), $libraryId)) throw new RuntimeException('Library identity changed while open');
+        $manifestPayload = Crypto::decryptPayload($this->masterKey, $manifestEnvelope);
+        self::validateManifestPayload($manifestPayload);
+        $this->manifestEnvelope = $manifestEnvelope;
+        $this->manifestPayload = $manifestPayload;
+    }
+
+    private function commitRevision(array $index, int $entryPosition, string $objectId, array $payload, string $logicalRef): array
+    {
+        $oldHash = $index['payload']['entries'][$entryPosition]['storage_hash'];
+        $envelope = Crypto::encryptPayload($this->masterKey, $this->libraryId(), $objectId, 'object', $payload);
+        self::writeObjectEnvelope($this->root, $envelope);
+
+        $newEntry = self::indexEntryFromPayload($objectId, $envelope['storage_hash'], $payload);
+        if (isset($index['payload']['entries'][$entryPosition]['migration_fingerprint'])) {
+            $newEntry['migration_fingerprint'] = $index['payload']['entries'][$entryPosition]['migration_fingerprint'];
+        }
+        $index['payload']['entries'][$entryPosition] = $newEntry;
+        self::sortEntries($index['payload']['entries']);
+        $this->replaceRootIndex($index['envelope']['protected']['object_id'], $index['payload']);
+
+        return [
+            'object_id' => $objectId,
+            'storage_hash' => $envelope['storage_hash'],
+            'previous_storage_hash' => $oldHash,
+            'logical_ref' => $logicalRef,
+            'revision' => (int) ($payload['metadata']['revision'] ?? 1),
+        ];
+    }
+
     private function findEntry(string $logicalRef): array
     {
-        foreach ($this->list() as $entry) {
-            if (in_array($logicalRef, $entry['logical_refs'] ?? [], true)) return $entry;
+        [, $entry] = $this->findEntryWithPosition($this->loadRootIndex()['payload'], $logicalRef);
+        return $entry;
+    }
+
+    private function findEntryWithPosition(array $indexPayload, string $logicalRef): array
+    {
+        foreach ($indexPayload['entries'] as $position => $entry) {
+            if (in_array($logicalRef, $entry['logical_refs'] ?? [], true)) return [$position, $entry];
         }
         throw new RuntimeException('Memory not found: ' . $logicalRef);
+    }
+
+    private function assertLogicalRefAvailable(array $indexPayload, string $logicalRef): void
+    {
+        foreach ($indexPayload['entries'] as $entry) {
+            if (in_array($logicalRef, $entry['logical_refs'] ?? [], true)) throw new RuntimeException('Logical reference already exists: ' . $logicalRef);
+        }
     }
 
     private function loadRootIndex(): array
@@ -287,6 +488,52 @@ final class LocalLibrary
         if (!preg_match('/^sha256:([0-9a-f]{64})$/', $storageHash, $m)) throw new RuntimeException('Invalid storage_hash locator');
         $digest = $m[1];
         return rtrim($root, DIRECTORY_SEPARATOR) . '/objects/' . substr($digest, 0, 2) . '/' . substr($digest, 2, 2) . '/' . $digest . '.mcma';
+    }
+
+    private static function indexEntryFromPayload(string $objectId, string $storageHash, array $payload): array
+    {
+        $metadata = $payload['metadata'] ?? [];
+        if (!is_array($metadata) || !isset($metadata['logical_refs']) || !is_array($metadata['logical_refs'])) throw new RuntimeException('Payload lacks logical references');
+
+        return [
+            'object_id' => $objectId,
+            'storage_hash' => $storageHash,
+            'logical_refs' => $metadata['logical_refs'],
+            'temperature' => (string) ($metadata['temperature'] ?? 'cold'),
+            'cognitive_layer' => (string) ($metadata['cognitive_layer'] ?? '40-semantic'),
+            'scope' => (string) ($metadata['scope'] ?? 'user'),
+        ];
+    }
+
+    private static function sortEntries(array &$entries): void
+    {
+        usort($entries, static fn(array $a, array $b): int => strcmp((string) ($a['logical_refs'][0] ?? ''), (string) ($b['logical_refs'][0] ?? '')));
+    }
+
+    private static function historicalFingerprint(array $sourceEnvelope): string
+    {
+        $copy = [
+            'format' => $sourceEnvelope['format'] ?? null,
+            'key_id' => $sourceEnvelope['key_id'] ?? null,
+            'logical_path' => $sourceEnvelope['logical_path'] ?? null,
+            'file' => $sourceEnvelope['file'] ?? null,
+            'iv_b64' => $sourceEnvelope['iv_b64'] ?? null,
+            'tag_b64' => $sourceEnvelope['tag_b64'] ?? null,
+            'ciphertext_b64' => $sourceEnvelope['ciphertext_b64'] ?? null,
+        ];
+        return 'sha256:' . hash('sha256', Jcs::encode($copy));
+    }
+
+    private static function normalizeContent(mixed $content, string $format): mixed
+    {
+        if ($format === 'binary') {
+            if (!is_string($content)) throw new RuntimeException('Binary content must be raw bytes');
+            return Crypto::b64uEncode($content);
+        }
+        if (in_array($format, ['text', 'markdown', 'xml'], true) && !is_string($content)) {
+            throw new RuntimeException($format . ' content must be a string');
+        }
+        return $content;
     }
 
     private static function readEnvelopeFile(string $path): array

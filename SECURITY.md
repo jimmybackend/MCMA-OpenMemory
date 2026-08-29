@@ -1,160 +1,66 @@
 # MCMA 1.0 Security Model
 
-MCMA-OpenMemory is experimental R&D. This document defines security invariants for the active MCMA 1.0 architecture and records which protections are inherited from the working prototype.
+MCMA-OpenMemory is experimental R&D.
 
-## Threat model
-
-Storage may be observable or copied independently of the key-holding runtime.
+## Storage/key separation
 
 A storage provider should be able to store encrypted MCMA bytes without receiving plaintext memory or master keys.
 
-## Current cryptographic baseline
+Current object crypto:
 
-The strongest working prototype uses:
-
-```text
+~~~text
 AES-256-GCM
 HKDF-SHA256
 12-byte random IV
-16-byte authentication tag
-per-object derived keys
-```
-
-MCMA 1.0 keeps this as the current algorithmic baseline while redefining stable identity, canonical AAD and authenticated metadata.
-
-The final MCMA 1.0 cryptographic contract is not frozen until conformance vectors exist.
-
-## Secret classes
-
-Examples:
-
-```text
-MCMA_MASTER_KEY_B64
-MCMA_API_TOKEN
-MCMA_BRIDGE_TOKEN
-provider-specific credentials
-recovery material
-```
-
-Secrets MUST NOT be embedded in portable memory envelopes merely for convenience.
+16-byte tag
+RFC 8785 canonical protected header/AAD
+~~~
 
 ## Never commit
 
-Do not commit:
+Do not commit master keys, bearer tokens, provider secrets, plaintext private memories, production environment files, decrypted vault content, recovery passphrases or *.mcma-key recovery bundles.
 
-- master keys;
-- bearer tokens;
-- provider secret keys;
-- plaintext private memories;
-- populated production environment files;
-- decrypted vault contents;
-- logs containing authorization headers or secrets.
+## Local key boundary
 
-## Key boundary
+The default local key store is outside the portable library:
 
-Encryption/decryption should occur inside an authorized runtime.
+~~~text
+~/.config/mcma/keys/<library_id>.key
+~~~
 
-```text
-authorized caller
-      ↓
-MCMA client / crypto boundary
-      ↓
-load protected key material
-      ↓
-derive/use object key internally
-      ↓
-encrypt or decrypt
-      ↓
-return only authorized result
-```
+## Recovery
 
-Master and derived keys must not be returned to ordinary clients or AI context.
+The first recovery profile uses a separate mcma-key-backup-1 bundle protected with:
 
-## Vault boundary
+~~~text
+PBKDF2-HMAC-SHA256
+600000 iterations
+16-byte random salt
+AES-256-GCM
+12-byte random IV
+16-byte tag
+~~~
 
-`access/vault.mcma` represents a protected secret boundary.
+The passphrase is supplied through an environment variable, not a command-line value. Recovery files and passphrases should not be stored together.
 
-An AI may request an operation that requires a secret, but the client/security agent must use that secret internally and return only the permitted result.
+## Concurrent writers
 
-Raw vault content MUST NOT become normal model context.
+Mutating local operations use .mcma.lock with flock(). After lock acquisition the current manifest is reloaded before index modification.
 
-## Environment and server deployment
+This is local filesystem coordination, not a distributed lock. Remote adapters must define their own concurrency semantics.
 
-A server may keep protected configuration outside the repository, for example:
+## Stable revisions
 
-```text
-/etc/mcma/mcma.env
-```
+Content and temperature changes preserve object_id and create a new encrypted storage_hash. Previous content-addressed revisions remain until an explicit future cleanup policy removes them.
 
-with restrictive OS permissions and explicit secret injection to the required process.
+## Historical migration
 
-The historical PHP-FPM deployment pattern is preserved under:
+Historical V1/V2 objects are authenticated with their original crypto rules before plaintext is accepted. Historical keys are supplied by protected file/environment variable and never as CLI values. Migration is non-destructive.
 
-```text
-reference/compatibility/DEPLOYMENT-EC2-PHP-FPM.md
-```
+## Vault and biometrics
 
-## Storage is not the key store
-
-Storage credentials, MCMA encryption keys and AI-provider credentials are separate responsibilities.
-
-Changing storage provider must not require exposing the MCMA master key to that provider.
-
-## Metadata privacy
-
-Encryption of payloads alone does not hide:
-
-- filenames;
-- directory names;
-- object sizes;
-- timestamps;
-- access patterns;
-- plaintext catalogs.
-
-Private libraries should use opaque physical identifiers and encrypted semantic indexes where required.
-
-## Stable identity and authenticated metadata
-
-MCMA 1.0 must bind cryptographic identity to stable object identity rather than mutable physical paths.
-
-Security-sensitive metadata must have a defined integrity boundary.
-
-The specification must explicitly define which fields participate in AAD/canonical authentication and which fields are encrypted or rebuildable.
-
-## Biometric boundary
-
-Raw fingerprints, face templates or equivalent biometrics should not be ordinary MCMA memory.
-
-Use platform mechanisms such as Secure Enclave, TPM, Android Keystore, Windows Hello or passkeys to unlock keys without exposing biometric material to MCMA or AI.
-
-## Permissions
-
-Authorization is independent from temperature.
-
-Policies may distinguish owner, AI, librarian, security agent, applications, tools and devices.
-
-## Compatibility
-
-Historical encrypted memories retain their original cryptographic rules and are read only through compatibility code.
-
-Do not modify historical envelope metadata and relabel the result as MCMA 1.0.
+Raw vault contents must never become normal model context. Raw biometric templates should not be ordinary MCMA memory; platform secure hardware/passkeys should unlock keys without exposing biometrics to MCMA or AI.
 
 ## Production hardening
 
-Production deployments should consider:
-
-- managed KMS/HSM or secret manager;
-- key rotation;
-- recovery testing;
-- separate service identities;
-- rate limiting;
-- network segmentation;
-- audit logs without plaintext/secrets;
-- token expiration;
-- intrusion detection;
-- formal cryptographic review;
-- signed releases and protected source branches.
-
-## Responsible disclosure
-
-Before encouraging broad production use, the project should publish a dedicated private security contact and disclosure process.
+Production deployments should consider KMS/HSM, key rotation, recovery testing, least privilege, network segmentation, secret-free audit logs, intrusion detection, formal cryptographic review, signed releases and protected branches.

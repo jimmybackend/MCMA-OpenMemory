@@ -1,83 +1,65 @@
 # MCMA 1.0 Compatibility Migration
 
-Status: **Normative migration rule**
+Status: **Normative migration rule with first PHP implementation**
 
-## Principle
+Historical encrypted prototype objects are real user data and MUST NOT be edited in place or relabeled as MCMA 1.0.
 
-Historical encrypted prototype objects are real user data.
+## Supported historical readers
 
-They MUST NOT be renamed internally, edited in place or relabeled as MCMA 1.0.
+The first migrator detects and authenticates:
+
+~~~text
+mcma-v1
+mcma-v2
+~~~
+
+using their original path/filename-bound HKDF and AES-GCM AAD rules.
 
 ## Migration pipeline
 
-```text
+~~~text
 historical .mcma
     ↓
 detect original format
     ↓
-validate with original compatibility rules
+validate original identity
     ↓
-authenticate + decrypt in authorized runtime
+authenticate + decrypt with authorized historical key
     ↓
-classify payload / preserve source metadata
+assign new MCMA 1.0 stable object_id
     ↓
-assign MCMA 1.0 stable object_id
-    ↓
-create MCMA 1.0 encrypted payload
-    ↓
-fresh IV + MCMA 1.0 KDF/AAD
+encrypt with MCMA 1.0 rules
     ↓
 calculate storage_hash
     ↓
-write new object revision
+update encrypted root index
     ↓
-update MCMA 1.0 index
-```
+verify new object
+~~~
 
-## Source preservation
+## Conservative default
 
-Migration SHOULD preserve provenance inside the encrypted MCMA 1.0 payload.
+The migration CLI defaults imported objects to:
 
-Conceptual provenance entry:
+~~~text
+cold
+observed
+~~~
 
-```json
-{
-  "type": "migration",
-  "source_format": "historical-prototype",
-  "source_key_id": "non-secret historical identifier",
-  "source_ref": "original authorized storage reference",
-  "migrated_at": "RFC3339 timestamp"
-}
-```
+unless an authorized operator explicitly supplies another target classification.
 
-Sensitive source paths MAY be omitted or replaced with an opaque reference in private libraries.
+## Provenance and duplicate detection
 
-## Identity assignment
+Migration preserves encrypted provenance: source format, non-secret historical key ID, original logical path, original filename, source reference and migration timestamp.
 
-Migration MUST create a new MCMA 1.0 `object_id` because historical prototype identity was not the MCMA 1.0 stable-ID contract.
+The implementation computes an internal SHA-256 fingerprint from historical encrypted-envelope identity/ciphertext fields and stores it only inside the encrypted root index. A second attempt to migrate the same encrypted object is rejected.
 
-Repeated migration of the same source object SHOULD be detected by migration tooling to avoid accidental duplicates.
+## CLI
 
-The deduplication mechanism must not expose plaintext hashes publicly in private libraries.
+~~~text
+mcma migrate LIBRARY HISTORICAL.mcma memory://topics/example
+~~~
 
-## Existing compatibility code
+Historical key material is supplied through either a protected --legacy-key-file or MCMA_LEGACY_MASTER_KEY_B64. The raw key is never accepted as a command-line argument.
 
-Original readers remain under:
-
-```text
-reference/compatibility/
-```
-
-That code is authoritative only for reading its historical format.
-
-New MCMA 1.0 writers MUST NOT emit historical envelopes.
-
-## No destructive migration by default
-
-A migration tool SHOULD:
-
-1. write and verify the new MCMA 1.0 object;
-2. update the new index;
-3. preserve the historical source until an explicit authorized cleanup step.
-
-Successful migration MUST be verifiable before old encrypted data is deleted.
+The source file is never deleted by mcma migrate.

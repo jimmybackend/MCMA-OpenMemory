@@ -1,90 +1,71 @@
 # MCMA 1.0 Roadmap
 
-MCMA-OpenMemory follows one active development line: **MCMA 1.0**.
-
-Historical prototype formats are preserved only for compatibility/migration.
-
 ## Foundation — complete
 
-- [x] Define Modular Cognitive Memory Archive
-- [x] User-owned memory principle
-- [x] File-first/database-free core
-- [x] Provider-independent storage
+- [x] Modular Cognitive Memory Archive
+- [x] user-owned memory
+- [x] file-first/database-free core
+- [x] provider-independent architecture
 - [x] AI-optional operation
-- [x] Living `profile.mcma`
-- [x] Knowledge maturity states
-- [x] Independent permissions
-- [x] `vault.mcma` boundary
-- [x] Normal/private metadata modes
-- [x] Hierarchical indexes
-- [x] Virtual HOT/WARM/COLD/FROZEN views
-- [x] Historical compatibility boundary
+- [x] profile, knowledge maturity, permissions and vault direction
+- [x] encrypted indexes and virtual temperature views
 
-## MCMA 1.0 identity/container contract — complete
+## Identity/container contract — complete
 
-- [x] Define `manifest.mcma`
-- [x] Define stable library ID
-- [x] Define stable object ID
-- [x] Define canonical SHA-256 storage hash
-- [x] Freeze first MCMA 1.0 envelope/header baseline
-- [x] Define HKDF identity
-- [x] Define AES-GCM AAD
-- [x] Define authenticated metadata boundary
-- [x] Define `memory://` resolution
-- [x] Define root/sharded index bootstrap
-- [x] Define historical migration
-- [x] Add machine-readable schemas
-- [x] Add synthetic conformance vector
+- [x] manifest.mcma
+- [x] stable library_id
+- [x] stable object_id
+- [x] SHA-256 storage_hash
+- [x] AES-256-GCM + HKDF-SHA256
+- [x] RFC 8785 canonical AAD
+- [x] memory:// addressing
+- [x] root index bootstrap
+- [x] schemas and conformance vector
 
-## Manual portable core — implemented
+## Manual local core — complete
 
-- [x] `mcma init`
-- [x] `mcma open`
-- [x] `mcma info`
-- [x] `mcma write`
-- [x] `mcma read`
-- [x] `mcma verify`
-- [x] `mcma list`
-- [x] `mcma tree`
-- [x] Local filesystem adapter
-- [x] Pass conformance vector
-- [x] Tests without AI/database
+- [x] init/open/info/write/read/verify/list/tree
+- [x] content-addressed local storage
+- [x] tests without AI/database
 
-## Storage abstraction
+## Local hardening and compatibility — complete
 
-- [ ] Stable adapter interface
+- [x] exclusive write locking
+- [x] manifest reload under lock
+- [x] mcma update preserving object_id
+- [x] encrypted revision chain
+- [x] mcma temperature preserving object_id
+- [x] encrypted key export/import recovery bundle
+- [x] historical mcma-v1 reader
+- [x] historical mcma-v2 reader
+- [x] mcma migrate
+- [x] duplicate historical migration detection
+- [x] non-destructive migration tests
+
+## Next — storage abstraction
+
+- [ ] stable Storage Adapter interface
+- [ ] refactor local filesystem behind adapter
 - [ ] Git-backed adapter
 - [ ] S3-compatible adapter
 - [ ] WebDAV adapter
-- [ ] Import/export
-- [ ] Provider migration tests
+- [ ] library export/import
+- [ ] provider migration tests preserving exact MCMA bytes
 
 ## Identity, permissions and security
 
-- [ ] Profile/history schemas beyond the base payload
-- [ ] Permission enforcement implementation
-- [ ] Vault implementation
-- [ ] Recovery design
-- [ ] Key rotation workflow
-- [ ] Device authorization model
+- [ ] profile/history schemas beyond base payload
+- [ ] permission enforcement
+- [ ] vault implementation
+- [x] first encrypted recovery bundle
+- [ ] key rotation
+- [ ] device authorization
 
 ## Knowledge and AI
 
-- [ ] Knowledge provenance engine
-- [ ] Confidence/validation policies
-- [ ] Reuse/freshness policy
-- [ ] Direct memory answer path
-- [ ] Librarian/security agents
-- [ ] Optional `mcma ask`
-
-## Long-term
-
-- additional adapters;
-- KMS/HSM integrations;
-- desktop/mobile clients;
-- snapshots/recovery;
-- algorithm migration;
-- signed manifests/objects where required;
-- cross-model continuity tests.
-
-Features remain unchecked until implemented and tested.
+- [ ] provenance engine
+- [ ] confidence/validation policies
+- [ ] reuse/freshness policy
+- [ ] direct memory answer path
+- [ ] librarian/security agents
+- [ ] optional mcma ask

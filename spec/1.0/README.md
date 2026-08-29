@@ -1,57 +1,24 @@
 # MCMA 1.0 Specification
 
-This directory contains the active interoperability contract for **MCMA 1.0 — Modular Cognitive Memory Archive**.
+Status: **experimental specification; identity/container baseline implemented locally**
 
-Status: **experimental specification; identity/container baseline frozen for the first implementation**
+Normative files include PRINCIPLES.md, IDENTITY.md, MANIFEST.md, CONTAINER.md, CRYPTOGRAPHY.md, ADDRESSING.md, INDEX.md, MIGRATION.md, RECOVERY.md and CONFORMANCE.md.
 
-Historical prototype formats remain under `reference/compatibility/` only for reading and migration.
+## Stable revisions
 
-## Normative files
+~~~text
+object_id stays stable
+storage_hash changes per revision
+~~~
 
-- `PRINCIPLES.md` — architectural invariants.
-- `IDENTITY.md` — library/object stable identifiers.
-- `MANIFEST.md` — deterministic library bootstrap.
-- `CONTAINER.md` — envelope and storage-hash rules.
-- `CRYPTOGRAPHY.md` — AES-GCM, HKDF and AAD.
-- `ADDRESSING.md` — `memory://` logical aliases.
-- `INDEX.md` — root/sharded index bootstrap.
-- `MIGRATION.md` — historical compatibility migration.
-- `CONFORMANCE.md` — required interoperability tests.
-- `schema/` — machine-readable JSON Schemas.
-- `test-vectors/` — synthetic cryptographic vectors.
+The local implementation preserves the previous revision hash inside encrypted object metadata.
 
-## First profile
+## Compatibility
 
-```text
-format          mcma-1.0
-cipher          AES-256-GCM
-kdf             HKDF-SHA256
-canonical JSON  RFC 8785 JCS
-library ID      lib_<UUIDv4>
-object ID       obj_<UUIDv4>
-logical alias   memory://...
-physical object hash  SHA-256
-```
+Existing historical encrypted memories are never edited or relabeled in place. Migration authenticates/decrypts them with their original rules and writes a new MCMA 1.0 object.
 
-## Important compatibility rule
+## Implementation status
 
-Existing historical encrypted memories are not renamed or edited in place.
+The PHP local core implements update/revision handling, temperature transitions, locking, recovery backup and historical V1/V2 migration.
 
-A migration reader authenticates/decrypts them with their original rules and writes a new MCMA 1.0 object with a stable identity.
-
-## Next implementation milestone
-
-With this contract defined, the next block is the manual local core:
-
-```text
-mcma init
-mcma open
-mcma info
-mcma write
-mcma read
-mcma verify
-mcma list
-mcma tree
-```
-
-No AI or database is required for that milestone.
+The next boundary is the provider-neutral Storage Adapter interface.

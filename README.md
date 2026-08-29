@@ -7,149 +7,88 @@
 > **Intelligence can change. Memory belongs to the person.**  
 > **La inteligencia puede cambiar. La memoria pertenece a la persona.**
 
-MCMA is an open, portable, encrypted, file-first memory archive controlled by the user.
+MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is an optional authorized consumer of memory.
 
-The memory is not owned by an AI provider, database, device, cloud vendor or application. AI is an optional authorized consumer of memory.
+## Active version
 
-## Active version line
+This repository has one active public development line:
 
-This repository now has one active public development line:
-
-```text
+~~~text
 MCMA 1.0
-```
+~~~
 
-Earlier prototype envelope identifiers are preserved only for compatibility with real encrypted memories that already exist. They are implementation lineage, not competing public versions of MCMA.
+Historical prototype envelope identifiers are preserved only for compatibility with real encrypted memories.
 
-MCMA 1.0 is being defined from the strongest working prototype while changing the architecture where required for stable identity, portability and long-lived libraries.
+## Identity model
 
-## Core principles
+~~~text
+memory:// logical reference
+        ↓
+stable object_id
+        ↓
+current storage_hash
+        ↓
+storage adapter
+        ↓
+encrypted .mcma bytes
+~~~
 
-- file-first;
-- database-free core;
-- provider-independent;
-- storage-independent;
-- usable with AI or without AI;
-- document-oriented;
-- self-describing;
-- encrypted by default for private content;
-- permission-aware;
-- portable across local, removable, mobile, server and cloud storage;
-- prepared for libraries that can live for many years.
+Temperature, physical path and storage provider do not define permanent memory identity.
 
-## Architecture
+## Implemented local core
 
-```text
-MCMA Library
-    │
-    ▼
-MCMA Core
-    │
-    ├── Memory Engine
-    ├── Crypto Engine
-    ├── Index Engine
-    └── Permission / Vault boundary
-    │
-    ▼
-Storage Adapter
-    │
-    ├── Local
-    ├── S3-compatible
-    ├── WebDAV
-    ├── Git-backed
-    └── future providers
+The PHP implementation currently supports:
 
-Optional AI / Agents
-    │
-    └── consume only authorized memory
-```
-
-## MCMA 1.0 direction
-
-The active architecture adopts:
-
-- stable object identity independent of physical path;
-- logical references such as `memory://identity/profile`;
-- `profile.mcma` as the living consolidated profile;
-- separate historical objects;
-- knowledge maturity: `raw → observed → classified → knowledge → confirmed`;
-- independent permissions;
-- `access/vault.mcma` as a protected secret boundary;
-- normal and private library modes;
-- hierarchical encrypted indexes;
-- hash-based physical object storage;
-- virtual HOT / WARM / COLD / FROZEN views;
-- JSON as the recommended first structured payload, with extensibility for XML, text, Markdown and binary content.
-
-Temperature describes cognitive relevance. It is not privacy and must not define permanent object identity.
-
-## Existing working baseline
-
-Before MCMA 1.0 consolidation, the prototype successfully produced and read encrypted `.mcma` objects using AES-256-GCM and HKDF-SHA256, server-side key handling, authenticated encryption and external persistence.
-
-Those exact compatibility readers and prototype files are preserved under:
-
-```text
-reference/compatibility/
-```
-
-They are not renamed in place because real encrypted memories depend on their original cryptographic identity.
-
-## Repository layout today
-
-```text
-MCMA-OpenMemory/
-├── README.md
-├── ARCHITECTURE.md
-├── SPECIFICATION.md
-├── SECURITY.md
-├── ROADMAP.md
-├── spec/
-│   └── 1.0/
-│       ├── README.md
-│       ├── PRINCIPLES.md
-│       └── CONTAINER.md
-├── docs/
-├── config/
-└── reference/
-    └── compatibility/
-```
-
-Implementation directories such as `apps/`, `packages/`, `connectors/`, `tests/` and `tools/` will be created only when the corresponding implementation actually begins.
-
-## Compatibility rule
-
-Existing encrypted prototype memories must remain readable.
-
-MCMA 1.0 will **not** pretend that an older encrypted object already has stable-ID semantics. A future migration operation will read the historical object with its original rules and write a new MCMA 1.0 object with the new identity contract.
-
-## Current implementation
-
-The first non-AI MCMA 1.0 local core is now implemented in PHP:
-
-```text
+~~~text
 mcma init
 mcma open
 mcma info
 mcma write
+mcma update
+mcma temperature
 mcma read
 mcma verify
 mcma list
 mcma tree
-```
+mcma key-export
+mcma key-import
+mcma migrate
+~~~
 
-It uses the local filesystem adapter, content-addressed `objects/` storage, `manifest.mcma`, stable object IDs and the MCMA 1.0 cryptographic contract. It has no AI or database dependency.
+It works without AI and without a database.
 
-See [apps/cli/README.md](apps/cli/README.md).
+Updates and temperature transitions preserve object_id while creating new encrypted revisions/storage hashes. Mutating local operations use an exclusive write lock. The master key remains outside the portable library and can be backed up in a separate passphrase-encrypted recovery bundle.
 
-See:
+The migrator can authenticate/decrypt historical mcma-v1 and mcma-v2 objects when the authorized historical key is supplied. Migration never deletes the historical source.
 
-- [SPECIFICATION.md](SPECIFICATION.md)
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [SECURITY.md](SECURITY.md)
-- [ROADMAP.md](ROADMAP.md)
-- [spec/1.0/](spec/1.0/)
-- [docs/DESIGN-INDEX.md](docs/DESIGN-INDEX.md)
+## Repository layout
+
+~~~text
+MCMA-OpenMemory/
+├── spec/1.0/
+├── packages/core/
+├── apps/cli/
+├── tests/
+├── docs/
+├── config/
+└── reference/compatibility/
+~~~
+
+## Compatibility rule
+
+Existing encrypted prototype memories are not relabeled as MCMA 1.0. Migration means authenticated historical decrypt followed by a real MCMA 1.0 encrypted write with a new stable identity.
+
+## Next block
+
+The next implementation block is the Storage Adapter abstraction:
+
+1. define the adapter interface;
+2. move local filesystem access behind it;
+3. preserve exact MCMA 1.0 bytes;
+4. implement Git-backed storage;
+5. then implement S3-compatible storage.
+
+See SPECIFICATION.md, ARCHITECTURE.md, SECURITY.md, ROADMAP.md, spec/1.0/ and apps/cli/README.md.
 
 ## License
 

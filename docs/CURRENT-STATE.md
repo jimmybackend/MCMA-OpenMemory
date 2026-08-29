@@ -2,102 +2,67 @@
 
 Date: 2026-08-29
 
-Status: **First executable MCMA 1.0 local core implemented.**
+Status: **MCMA 1.0 local core hardened with revisions, locking, recovery and historical migration.**
 
-## Active project
+## Implemented commands
 
-**MCMA — Modular Cognitive Memory Archive**
-
-> **Intelligence can change. Memory belongs to the person.**
-
-## Specification baseline
-
-The repository defines:
-
-- stable library and object IDs;
-- `manifest.mcma`;
-- MCMA 1.0 envelope;
-- AES-256-GCM + HKDF-SHA256;
-- RFC 8785 canonical JSON profile;
-- authenticated protected headers;
-- SHA-256 storage hashes;
-- `memory://` aliases;
-- encrypted root-index bootstrap;
-- explicit historical migration;
-- schemas and conformance vector.
-
-## Implemented local core
-
-The first PHP core now exists under:
-
-```text
-packages/core/
-apps/cli/
-```
-
-Implemented commands:
-
-```text
+~~~text
 mcma init
 mcma open
 mcma info
 mcma write
+mcma update
+mcma temperature
 mcma read
 mcma verify
 mcma list
 mcma tree
-```
+mcma key-export
+mcma key-import
+mcma migrate
+~~~
 
-The implementation:
+## Stable revision behavior
 
-- works without AI;
-- works without a database;
-- creates stable library/object UUIDv4 identities;
-- stores the master key outside the portable library;
-- creates encrypted `manifest.mcma`;
-- stores encrypted revisions under content-addressed `objects/<hash>`;
-- maintains an encrypted root index;
-- resolves `memory://` references;
-- verifies storage hashes and AES-GCM authentication.
+~~~text
+object_id stays stable
+storage_hash changes
+revision increments
+previous_storage_hash is retained inside encrypted metadata
+~~~
+
+Changing HOT/WARM/COLD/FROZEN follows the same stable-identity rule.
+
+Old content-addressed revisions are retained; the encrypted root index points to the current revision.
+
+## Concurrent writes
+
+Mutating operations use an exclusive .mcma.lock with flock(). After acquiring the lock, the library reloads the current manifest before updating indexes.
+
+## Recovery
+
+The master key remains outside the portable library. The CLI can export/import a passphrase-encrypted mcma-key-backup-1 recovery bundle using AES-256-GCM and PBKDF2-HMAC-SHA256.
+
+## Historical migration
+
+The first migrator can authenticate/decrypt historical mcma-v1 and mcma-v2 files when the authorized historical master key is supplied.
+
+Migration creates a new MCMA 1.0 object_id, preserves encrypted provenance, defaults to COLD + observed unless explicitly classified, detects repeated import of the same encrypted source, and never deletes the source.
 
 ## Tests
 
-```text
+~~~text
 tests/conformance/run.php
 tests/integration/local-core.php
-```
+tests/integration/historical-migration.php
+~~~
 
-The conformance test reproduces the published synthetic vector.
+The hardening tests cover update identity, temperature identity, recovery export/import and synthetic historical V2 migration.
 
-The integration test executes:
+## Real historical user memory
 
-```text
-init → verify → write → reopen → read → verify
-```
-
-without AI or a database.
-
-## Compatibility
-
-Historical working PHP remains under:
-
-```text
-reference/compatibility/
-```
-
-Existing historical encrypted memories are not modified.
-
-## Current limitation
-
-The first PHP JCS writer rejects floating-point JSON values rather than risk emitting non-RFC-8785 canonical number serialization. Integer JSON, text, Markdown, XML and binary payloads are supported.
+jimmybackend/jimmybackend/memories contains real historical encrypted objects. This development environment does not expose the private historical master key, so no real user memory was decrypted or copied during this block.
 
 ## Next block
 
-Harden the local core before adding remote providers:
-
-1. library write locking / concurrent update protection;
-2. explicit update/revision command preserving `object_id`;
-3. temperature transition command without changing object identity;
-4. key export/import/recovery workflow;
-5. migrate one real historical prototype memory into MCMA 1.0;
-6. then define the reusable Storage Adapter interface and Git/S3 adapters.
+Define the reusable Storage Adapter interface, move local filesystem access behind it, then implement Git-backed storage while preserving the same MCMA 1.0 bytes and identities.

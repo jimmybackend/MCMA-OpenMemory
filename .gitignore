@@ -7,6 +7,12 @@
 # Private MCMA memory objects
 *.mcma
 
+# MCMA recovery/key exports
+*.mcma-key
+
+# Local runtime lock
+.mcma.lock
+
 # Local secret/config variants
 *.local
 config/*.local
