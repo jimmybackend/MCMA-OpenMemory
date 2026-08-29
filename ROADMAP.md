@@ -36,19 +36,19 @@ Historical prototype formats are preserved only for compatibility/migration.
 - [x] Add machine-readable schemas
 - [x] Add synthetic conformance vector
 
-## Next — manual portable core
+## Manual portable core — implemented
 
-- [ ] `mcma init`
-- [ ] `mcma open`
-- [ ] `mcma info`
-- [ ] `mcma write`
-- [ ] `mcma read`
-- [ ] `mcma verify`
-- [ ] `mcma list`
-- [ ] `mcma tree`
-- [ ] Local filesystem adapter
-- [ ] Pass conformance vector
-- [ ] Tests without AI/database
+- [x] `mcma init`
+- [x] `mcma open`
+- [x] `mcma info`
+- [x] `mcma write`
+- [x] `mcma read`
+- [x] `mcma verify`
+- [x] `mcma list`
+- [x] `mcma tree`
+- [x] Local filesystem adapter
+- [x] Pass conformance vector
+- [x] Tests without AI/database
 
 ## Storage abstraction
 

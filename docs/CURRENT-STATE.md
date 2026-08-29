@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **MCMA 1.0 identity/container contract defined; implementation next.**
+Status: **First executable MCMA 1.0 local core implemented.**
 
 ## Active project
 
@@ -10,47 +10,32 @@ Status: **MCMA 1.0 identity/container contract defined; implementation next.**
 
 > **Intelligence can change. Memory belongs to the person.**
 
-## Completed architecture baseline
+## Specification baseline
 
-The repository now defines one active MCMA 1.0 line with:
+The repository defines:
 
-- file-first/database-free core;
-- stable library identity;
-- stable object identity;
-- deterministic encrypted manifest bootstrap;
-- physical-path independence;
-- provider independence;
-- `memory://` logical aliases;
-- SHA-256 storage revision hashes;
+- stable library and object IDs;
+- `manifest.mcma`;
+- MCMA 1.0 envelope;
 - AES-256-GCM + HKDF-SHA256;
+- RFC 8785 canonical JSON profile;
 - authenticated protected headers;
-- hierarchical encrypted index bootstrap;
-- virtual HOT/WARM/COLD/FROZEN views;
+- SHA-256 storage hashes;
+- `memory://` aliases;
+- encrypted root-index bootstrap;
 - explicit historical migration;
-- JSON Schemas;
-- synthetic conformance vector.
+- schemas and conformance vector.
 
-## Working historical implementation
+## Implemented local core
 
-The strongest previous PHP prototype remains unchanged under:
-
-```text
-reference/compatibility/
-```
-
-It proves encrypted memory creation/decryption and real external persistence, but it is not the MCMA 1.0 writer.
-
-## Active specification
+The first PHP core now exists under:
 
 ```text
-spec/1.0/
+packages/core/
+apps/cli/
 ```
 
-The identity/container contract is now stable enough to implement against.
-
-## Next exact block
-
-Implement the first local, non-AI MCMA 1.0 core:
+Implemented commands:
 
 ```text
 mcma init
@@ -63,10 +48,56 @@ mcma list
 mcma tree
 ```
 
-First storage adapter:
+The implementation:
+
+- works without AI;
+- works without a database;
+- creates stable library/object UUIDv4 identities;
+- stores the master key outside the portable library;
+- creates encrypted `manifest.mcma`;
+- stores encrypted revisions under content-addressed `objects/<hash>`;
+- maintains an encrypted root index;
+- resolves `memory://` references;
+- verifies storage hashes and AES-GCM authentication.
+
+## Tests
 
 ```text
-local filesystem
+tests/conformance/run.php
+tests/integration/local-core.php
 ```
 
-The implementation must pass the published conformance vector before additional storage adapters or AI are added.
+The conformance test reproduces the published synthetic vector.
+
+The integration test executes:
+
+```text
+init → verify → write → reopen → read → verify
+```
+
+without AI or a database.
+
+## Compatibility
+
+Historical working PHP remains under:
+
+```text
+reference/compatibility/
+```
+
+Existing historical encrypted memories are not modified.
+
+## Current limitation
+
+The first PHP JCS writer rejects floating-point JSON values rather than risk emitting non-RFC-8785 canonical number serialization. Integer JSON, text, Markdown, XML and binary payloads are supported.
+
+## Next block
+
+Harden the local core before adding remote providers:
+
+1. library write locking / concurrent update protection;
+2. explicit update/revision command preserving `object_id`;
+3. temperature transition command without changing object identity;
+4. key export/import/recovery workflow;
+5. migrate one real historical prototype memory into MCMA 1.0;
+6. then define the reusable Storage Adapter interface and Git/S3 adapters.

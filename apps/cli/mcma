@@ -1,0 +1,211 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../packages/core/bootstrap.php';
+
+use MCMA\Core\Crypto;
+use MCMA\Core\KeyStore;
+use MCMA\Core\LocalLibrary;
+
+function fail(string $message, int $code = 1): never
+{
+    fwrite(STDERR, 'Error: ' . $message . PHP_EOL);
+    exit($code);
+}
+
+function usage(): never
+{
+    $text = <<<'TXT'
+MCMA 1.0 local CLI
+
+Usage:
+  mcma init LIBRARY [--mode=private|normal]
+  mcma open LIBRARY
+  mcma info LIBRARY
+  mcma write LIBRARY MEMORY_URI INPUT [options]
+  mcma read LIBRARY MEMORY_URI
+  mcma verify LIBRARY
+  mcma list LIBRARY
+  mcma tree LIBRARY
+
+write options:
+  --format=text|markdown|xml|json|binary
+  --temperature=hot|warm|cold|frozen
+  --layer=40-semantic
+  --scope=user
+  --maturity=raw|observed|classified|knowledge|confirmed
+
+INPUT may be '-' to read from STDIN.
+
+Key handling:
+  MCMA_MASTER_KEY_B64  optional 32-byte Base64 master key override
+  MCMA_KEY_DIR         optional local key-store directory
+
+Without MCMA_MASTER_KEY_B64, mcma init creates a per-library key under:
+  ~/.config/mcma/keys/<library_id>.key
+TXT;
+    fwrite(STDERR, $text . PHP_EOL);
+    exit(2);
+}
+
+function parseOptions(array $args): array
+{
+    $options = [];
+    foreach ($args as $arg) {
+        if (!str_starts_with($arg, '--') || !str_contains($arg, '=')) fail('Invalid option: ' . $arg, 2);
+        [$name, $value] = explode('=', substr($arg, 2), 2);
+        $options[$name] = $value;
+    }
+    return $options;
+}
+
+function pretty(mixed $value): string
+{
+    return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+}
+
+function renderTree(array $tree, string $prefix = ''): string
+{
+    $lines = [];
+    $keys = array_values(array_filter(array_keys($tree), static fn(string $k): bool => $k !== '@object_id'));
+    sort($keys, SORT_STRING);
+
+    foreach ($keys as $i => $key) {
+        $last = $i === count($keys) - 1;
+        $lines[] = $prefix . ($last ? '└── ' : '├── ') . $key;
+        $child = $tree[$key];
+        if (is_array($child)) {
+            $childPrefix = $prefix . ($last ? '    ' : '│   ');
+            if (isset($child['@object_id'])) $lines[] = $childPrefix . '└── ' . $child['@object_id'];
+            $nested = renderTree($child, $childPrefix);
+            if ($nested !== '') $lines[] = $nested;
+        }
+    }
+    return implode(PHP_EOL, $lines);
+}
+
+try {
+    $args = $argv;
+    array_shift($args);
+    $command = array_shift($args) ?? null;
+    if ($command === null || in_array($command, ['-h', '--help', 'help'], true)) usage();
+
+    switch ($command) {
+        case 'init': {
+            $library = array_shift($args) ?? usage();
+            $opts = parseOptions($args);
+            $lib = LocalLibrary::init($library, $opts['mode'] ?? 'private');
+            $info = $lib->info();
+
+            echo "Initialized MCMA 1.0 library\n";
+            echo pretty($info) . PHP_EOL;
+            if (getenv('MCMA_MASTER_KEY_B64') === false || trim((string) getenv('MCMA_MASTER_KEY_B64')) === '') {
+                echo 'Local key: ' . KeyStore::keyPath($info['library_id']) . PHP_EOL;
+            } else {
+                echo "Key source: MCMA_MASTER_KEY_B64\n";
+            }
+            break;
+        }
+
+        case 'open': {
+            $library = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+            $verify = LocalLibrary::open($library)->verify();
+            echo 'Opened MCMA 1.0 library ' . $verify['library_id'] . PHP_EOL;
+            echo 'Verified indexed objects: ' . $verify['objects_verified'] . PHP_EOL;
+            break;
+        }
+
+        case 'info': {
+            $library = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+            echo pretty(LocalLibrary::open($library)->info()) . PHP_EOL;
+            break;
+        }
+
+        case 'write': {
+            $library = array_shift($args) ?? usage();
+            $uri = array_shift($args) ?? usage();
+            $input = array_shift($args) ?? usage();
+            $opts = parseOptions($args);
+            $format = $opts['format'] ?? 'text';
+
+            $bytes = $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
+            if ($bytes === false) fail('Unable to read input: ' . $input);
+
+            $content = $bytes;
+            if ($format === 'json') {
+                try {
+                    $content = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+                } catch (Throwable $e) {
+                    fail('Input is not valid JSON: ' . $e->getMessage());
+                }
+            }
+
+            $result = LocalLibrary::open($library)->write(
+                $uri,
+                $content,
+                $format,
+                $opts['temperature'] ?? 'hot',
+                $opts['layer'] ?? '40-semantic',
+                $opts['scope'] ?? 'user',
+                $opts['maturity'] ?? 'raw'
+            );
+            echo pretty($result) . PHP_EOL;
+            break;
+        }
+
+        case 'read': {
+            $library = array_shift($args) ?? usage();
+            $uri = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+
+            $payload = LocalLibrary::open($library)->read($uri)['payload'];
+            $format = $payload['content_format'] ?? 'json';
+            $content = $payload['content'] ?? null;
+
+            if ($format === 'binary' && is_string($content)) {
+                fwrite(STDOUT, Crypto::b64uDecode($content));
+            } elseif ($format === 'json') {
+                echo pretty($content) . PHP_EOL;
+            } elseif (is_string($content)) {
+                echo $content;
+                if (!str_ends_with($content, "\n")) echo PHP_EOL;
+            } else {
+                echo pretty($content) . PHP_EOL;
+            }
+            break;
+        }
+
+        case 'verify': {
+            $library = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+            echo pretty(LocalLibrary::open($library)->verify()) . PHP_EOL;
+            break;
+        }
+
+        case 'list': {
+            $library = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+            foreach (LocalLibrary::open($library)->list() as $entry) {
+                echo ($entry['logical_refs'][0] ?? '(no-ref)') . "\t" . $entry['object_id'] . "\t" . ($entry['temperature'] ?? '') . PHP_EOL;
+            }
+            break;
+        }
+
+        case 'tree': {
+            $library = array_shift($args) ?? usage();
+            if ($args !== []) usage();
+            echo "memory://\n";
+            $rendered = renderTree(LocalLibrary::open($library)->tree());
+            if ($rendered !== '') echo $rendered . PHP_EOL;
+            break;
+        }
+
+        default:
+            usage();
+    }
+} catch (Throwable $e) {
+    fail($e->getMessage());
+}

@@ -123,22 +123,24 @@ Existing encrypted prototype memories must remain readable.
 
 MCMA 1.0 will **not** pretend that an older encrypted object already has stable-ID semantics. A future migration operation will read the historical object with its original rules and write a new MCMA 1.0 object with the new identity contract.
 
-## Current implementation target
+## Current implementation
 
-Before AI integration, the first dependable implementation should support:
+The first non-AI MCMA 1.0 local core is now implemented in PHP:
 
 ```text
 mcma init
 mcma open
-mcma tree
-mcma list
 mcma info
-mcma read
 mcma write
+mcma read
 mcma verify
+mcma list
+mcma tree
 ```
 
-The first storage adapter should be local filesystem. AI support comes after the manual portable core is trustworthy.
+It uses the local filesystem adapter, content-addressed `objects/` storage, `manifest.mcma`, stable object IDs and the MCMA 1.0 cryptographic contract. It has no AI or database dependency.
+
+See [apps/cli/README.md](apps/cli/README.md).
 
 See:
 
