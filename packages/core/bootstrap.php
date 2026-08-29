@@ -39,6 +39,13 @@ require_once __DIR__ . '/../connectors/local/src/LlamaCppGenerationProvider.php'
 require_once __DIR__ . '/src/Cli/CliException.php';
 require_once __DIR__ . '/src/Cli/ProviderFactory.php';
 require_once __DIR__ . '/src/Cli/CliApplication.php';
+require_once __DIR__ . '/src/Web/WebException.php';
+require_once __DIR__ . '/src/Web/HttpRequest.php';
+require_once __DIR__ . '/src/Web/HttpResponse.php';
+require_once __DIR__ . '/src/Web/EncryptedCookie.php';
+require_once __DIR__ . '/src/Web/OidcClient.php';
+require_once __DIR__ . '/src/Web/WebApplication.php';
+require_once __DIR__ . '/src/Web/WebFactory.php';
 require_once __DIR__ . '/src/Agent/Librarian.php';
 require_once __DIR__ . '/src/Ask/AskService.php';
 require_once __DIR__ . '/src/Agent/SecurityAgent.php';

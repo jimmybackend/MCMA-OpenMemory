@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **Portable multi-cloud storage + encrypted multi-user libraries + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + complete OIDC web application + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
 
 ## Semantic retrieval
 
@@ -174,3 +174,14 @@ The user path is derived from the authenticated identity using HMAC-SHA256 and `
 Multi-user mode deliberately rejects `MCMA_MASTER_KEY_B64`; it requires per-library keys through the KeyStore.
 
 The web/application layer must authenticate the request first and pass verified issuer + subject to `MultiUserService::resolve()`. MCMA does not trust a browser-supplied user id.
+
+
+## Web application
+
+MCMA now includes a same-origin web application under `apps/web/public`.
+
+It provides OIDC Authorization Code + PKCE login, RS256/JWKS ID-token validation, encrypted HttpOnly sessions, multi-user library resolution, `/mcma/v1/me`, `/mcma/v1/ask`, optional registration, logout and a browser chat UI.
+
+The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
+
+The remaining web milestone is a real EC2 HTTPS + live OIDC smoke test.

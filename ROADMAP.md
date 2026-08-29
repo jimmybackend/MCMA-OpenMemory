@@ -109,9 +109,29 @@
 - [x] issuer/subject never stored in plaintext
 - [x] CLI identity read from environment, not shell arguments
 - [x] multi-user mode rejects global MCMA_MASTER_KEY_B64
+- [x] production HTTP authentication adapter
+- [x] OIDC Authorization Code + PKCE web login
+- [x] encrypted HttpOnly web sessions
+- [x] multi-user /mcma/v1/me and /mcma/v1/ask
+- [x] same-origin web UI
+- [x] Nginx/PHP-FPM deployment example
 - [ ] pepper rotation/migration
 - [ ] bulk multi-user recovery workflow
-- [ ] production HTTP authentication adapter
+
+## Web application — first implementation complete
+- [x] OIDC discovery
+- [x] RS256/JWKS ID-token validation
+- [x] issuer/audience/nonce/expiry validation
+- [x] login / callback / logout
+- [x] encrypted state and session cookies
+- [x] auto-registration or controlled self-registration
+- [x] authenticated user library resolution
+- [x] AskService connected to web
+- [x] server-only AI/storage/provider selection
+- [x] origin checking for POST requests
+- [x] browser chat UI
+- [x] no database dependency
+- [ ] real EC2 HTTPS + live OIDC smoke test
 
 ## PHP architecture — OOP production boundary complete
 - [x] core services/classes/interfaces

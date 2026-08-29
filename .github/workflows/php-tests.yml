@@ -23,6 +23,7 @@ jobs:
         run: |
           find packages tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l apps/cli/mcma
+          php -l apps/web/public/index.php
 
       - name: MCMA conformance
         run: |
@@ -57,6 +58,11 @@ jobs:
 
       - name: Multi-user isolation
         run: php tests/integration/multiuser.php
+
+      - name: Web application
+        run: |
+          php tests/integration/web-oidc.php
+          php tests/integration/web-application.php
 
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php

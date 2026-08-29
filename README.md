@@ -151,3 +151,26 @@ The application authenticates the user first, then `MultiUserService` derives a 
 No raw email/subject is used as a storage path. Multi-user mode uses per-library KeyStore keys and rejects a shared `MCMA_MASTER_KEY_B64`.
 
 See `docs/MULTIUSER.md`.
+
+
+## Web application
+
+A database-free multi-user web application is available in:
+
+~~~text
+apps/web/public
+~~~
+
+It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-user MCMA library resolution and a same-origin chat UI connected to `AskService`.
+
+~~~text
+GET  /login
+GET  /callback
+GET  /mcma/v1/health
+GET  /mcma/v1/me
+POST /mcma/v1/register
+POST /mcma/v1/ask
+POST /logout
+~~~
+
+See `docs/WEB.md` and `config/nginx/mcma-web.conf.example`.
