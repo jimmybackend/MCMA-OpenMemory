@@ -268,3 +268,27 @@ The API key resolves to the same isolated MCMA user library. The billing event r
 SuperAdmin routes are documented in `docs/BILLING.md`. The browser panel is `/admin.html`.
 
 Billing is disabled by default. Configure pricing and credits before enabling paid AI calls.
+
+
+## Stripe Checkout
+
+When billing and Stripe are configured, authenticated users can list purchasable packages and start Stripe Checkout:
+
+~~~text
+GET  /mcma/v1/billing/stripe/packages
+POST /mcma/v1/billing/stripe/checkout
+~~~
+
+Stripe redirects the browser to its hosted payment page.
+
+The webhook endpoint is public but cryptographically verified:
+
+~~~text
+POST /mcma/v1/billing/stripe/webhook
+~~~
+
+The webhook must receive the original raw request body unchanged. No browser session or CORS permission is used for the webhook.
+
+When `MCMA_BILLING_ENABLED=false`, package listing and Checkout creation are disabled. A correctly signed webhook can still finish a Checkout that was already started.
+
+See `docs/BILLING.md` for package configuration and fulfillment rules.

@@ -185,3 +185,12 @@ The web application supports user balances, API keys, external Bearer API calls 
 SuperAdmin can manage plans, credits, service/access state, pricing and already verified payment records without receiving an API for reading private memory or Vault contents.
 
 See `docs/BILLING.md`.
+
+
+### Stripe Checkout
+
+Optional commercial deployments can enable server-side Stripe Checkout. A verified Stripe webhook automatically applies package credits and an optional paid plan to the authenticated MCMA user.
+
+Personal deployments can keep `MCMA_BILLING_ENABLED=false`; Stripe is not required.
+
+See `docs/BILLING.md`.

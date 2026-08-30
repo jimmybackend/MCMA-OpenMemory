@@ -7,6 +7,10 @@ use MCMA\Core\Billing\AdminService;
 use MCMA\Core\Billing\ApiKeyService;
 use MCMA\Core\Billing\BillingCatalog;
 use MCMA\Core\Billing\BillingService;
+use MCMA\Core\Billing\StripeCheckoutService;
+use MCMA\Core\Billing\StripeClient;
+use MCMA\Core\Billing\StripePackageCatalog;
+use MCMA\Core\Billing\StripeWebhookVerifier;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Storage\StorageFactory;
@@ -44,6 +48,25 @@ final class WebFactory
             $admin->bootstrapRoot($rootAdminIssuer,$rootAdminSubject);
         }
 
+        $stripe=null;
+        $stripeKey=self::optional('MCMA_STRIPE_SECRET_KEY');
+        $stripeWebhook=self::optional('MCMA_STRIPE_WEBHOOK_SECRET');
+        $stripePackages=self::optional('MCMA_STRIPE_PACKAGES_JSON');
+        $stripeConfigured=[$stripeKey!==null,$stripeWebhook!==null,$stripePackages!==null];
+        if(in_array(true,$stripeConfigured,true)&&in_array(false,$stripeConfigured,true)){
+            throw new RuntimeException('MCMA_STRIPE_SECRET_KEY, MCMA_STRIPE_WEBHOOK_SECRET and MCMA_STRIPE_PACKAGES_JSON must be configured together');
+        }
+        if($stripeKey!==null&&$stripeWebhook!==null&&$stripePackages!==null){
+            $stripe=new StripeCheckoutService(
+                new StripeClient($stripeKey),
+                new StripeWebhookVerifier($stripeWebhook),
+                StripePackageCatalog::fromJson($stripePackages),
+                $users,
+                $billing,
+                $publicOrigin
+            );
+        }
+
         $oidc=new OidcClient($issuer,$clientId,$clientSecret,$publicOrigin.'/callback',$scope);
 
         $generationProvider=self::optional('MCMA_WEB_GENERATION_PROVIDER')??'none';
@@ -79,7 +102,8 @@ final class WebFactory
             $apiKeys,
             $admin,
             self::boolEnv('MCMA_BILLING_ENABLED',false),
-            $maxOutput
+            $maxOutput,
+            $stripe
         );
     }
 

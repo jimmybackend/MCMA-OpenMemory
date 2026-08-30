@@ -153,7 +153,11 @@
 - [x] recorded Stripe / PayPal / Mercado Pago / bank-transfer / manual payment types
 - [x] user billing/API-key dashboard
 - [x] SuperAdmin web panel
-- [ ] live payment checkout/webhook verification connectors
+- [x] Stripe Checkout payment-mode integration
+- [x] Stripe webhook signature verification and idempotent fulfillment
+- [x] automatic credits + optional plan activation from Stripe packages
+- [ ] Stripe recurring subscription renewals
+- [ ] live PayPal / Mercado Pago checkout-webhook connectors
 
 ## PHP architecture — OOP production boundary complete
 - [x] core services/classes/interfaces

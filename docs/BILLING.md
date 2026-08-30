@@ -231,7 +231,36 @@ A provider payment reference is idempotent: the same provider/payment id cannot 
 
 MCMA does not store card or bank credentials.
 
-The current implementation intentionally does not claim live Stripe, PayPal or Mercado Pago webhook/checkout verification. Those connectors require merchant credentials, callback URLs and provider-specific signature verification at deployment time.
+Stripe Checkout is implemented for one-time payment packages.
+
+Routes:
+
+~~~text
+GET  /mcma/v1/billing/stripe/packages
+POST /mcma/v1/billing/stripe/checkout
+POST /mcma/v1/billing/stripe/webhook
+~~~
+
+A Stripe package is configured server-side with a Stripe Price id, plan id, credit units, currency, amount in the currency minor unit, and minor-unit exponent.
+
+Checkout Sessions are created server-side. MCMA binds the authenticated user and package to Stripe using client_reference_id and metadata. A package fingerprint is also embedded so a package changed after Checkout creation is rejected instead of silently applying new terms.
+
+The webhook uses the raw request body and Stripe-Signature header. It checks timestamp tolerance and HMAC-SHA256 signature before parsing the event.
+
+Only paid payment-mode Checkout Sessions are fulfilled. The webhook verifies:
+
+- event livemode matches the configured Stripe key;
+- client_reference_id and metadata user id match;
+- package id exists;
+- package fingerprint matches;
+- amount_total matches the configured package;
+- currency matches the configured package.
+
+Fulfillment is idempotent through the Stripe Checkout Session id. Retries do not duplicate credits.
+
+A successful package may add credits, change the MCMA plan, or both.
+
+Stripe recurring subscription renewals are not implemented yet. PayPal and Mercado Pago remain recorded-payment types until their own live checkout/webhook connectors are implemented.
 
 ## Important configuration
 
@@ -241,6 +270,9 @@ MCMA_API_KEY_PEPPER=32+ random bytes
 MCMA_SUPERADMIN_ISSUER=...
 MCMA_SUPERADMIN_SUBJECT=...
 MCMA_WEB_BILLING_MAX_OUTPUT_TOKENS=1024
+MCMA_STRIPE_SECRET_KEY=...
+MCMA_STRIPE_WEBHOOK_SECRET=...
+MCMA_STRIPE_PACKAGES_JSON=...
 ~~~
 
 Do not enable paid model billing until pricing entries are configured.

@@ -199,4 +199,13 @@ External API keys are stored as HMAC only and resolve to the same user library/b
 
 SuperAdmin can inspect account/billing totals, change plans, adjust credits, suspend service/access, configure provider pricing and record already verified payments. No SuperAdmin route reads private memory content or Vault secrets.
 
-Live payment-provider checkout/webhook verification remains an operational connector milestone.
+Stripe one-time Checkout and verified webhook fulfillment are implemented. Stripe recurring subscriptions and live PayPal/Mercado Pago checkout-webhook connectors remain future payment milestones.
+
+
+## Stripe payments
+
+MCMA supports Stripe-hosted Checkout for versioned one-time packages that grant credits, change plan, or both.
+
+Webhook fulfillment verifies Stripe-Signature against the raw body, validates user/package binding, package fingerprint, live/test mode, amount and currency, and is idempotent by Checkout Session id.
+
+Stripe credentials remain server-side. Billing-disabled personal installations do not expose Checkout.

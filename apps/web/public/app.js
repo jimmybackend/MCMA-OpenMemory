@@ -4,6 +4,7 @@
   const account=$('account'),registerBox=$('registerBox'),register=$('register');
   const form=$('askForm'),send=$('send'),answer=$('answer');
   const apiKeysBox=$('apiKeysBox'),createKey=$('createKey'),keyList=$('keyList'),newKey=$('newKey');
+  const stripeBox=$('stripeBox'),stripePackages=$('stripePackages'),stripeStatus=$('stripeStatus');
 
   async function api(path,options={}){
     const response=await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
@@ -47,6 +48,33 @@
     }catch(e){apiKeysBox.hidden=true;}
   }
 
+  async function loadStripe(){
+    try{
+      const data=await api('/mcma/v1/billing/stripe/packages',{method:'GET',headers:{}});
+      stripeBox.hidden=false;stripePackages.innerHTML='';
+      for(const pkg of data.packages){
+        const card=document.createElement('div');
+        const label=document.createElement('strong');label.textContent=pkg.label;
+        const details=document.createElement('small');
+        const exp=Number(pkg.minor_unit_exponent||0);
+        const amount=Number(pkg.amount_minor)/Math.pow(10,exp);
+        details.textContent=(pkg.plan_id?('Plan '+pkg.plan_id+' · '):'')+number(pkg.credit_units)+' créditos · '+pkg.currency+' '+amount.toFixed(exp);
+        const btn=document.createElement('button');btn.textContent='Comprar';
+        btn.onclick=async()=>{
+          btn.disabled=true;stripeStatus.textContent='Creando Checkout…';
+          try{
+            const checkout=await api('/mcma/v1/billing/stripe/checkout',{method:'POST',body:JSON.stringify({package_id:pkg.id})});
+            location.href=checkout.checkout.url;
+          }catch(e){stripeStatus.textContent=e.message;btn.disabled=false;}
+        };
+        card.append(label,details,btn);stripePackages.appendChild(card);
+      }
+      const params=new URLSearchParams(location.search);
+      if(params.get('stripe')==='success') stripeStatus.textContent='Pago recibido. El webhook actualizará tus créditos.';
+      if(params.get('stripe')==='cancel') stripeStatus.textContent='Pago cancelado.';
+    }catch(e){stripeBox.hidden=true;}
+  }
+
   async function detectAdmin(){
     try{await api('/mcma/v1/admin/users',{method:'GET',headers:{}});adminLink.hidden=false;}
     catch(e){adminLink.hidden=true;}
@@ -58,9 +86,9 @@
       status.textContent='Sesión activa';login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;
       $('library').textContent=data.user.library_id;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
-      await Promise.all([loadBilling(),loadKeys(),detectAdmin()]);
+      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin()]);
     }catch(error){
-      account.hidden=true;apiKeysBox.hidden=true;adminLink.hidden=true;
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;
       if(error.status===401){status.textContent='Sin sesión';login.hidden=false;logout.hidden=true;registerBox.hidden=true;}
       else if(error.code==='user_not_registered'){status.textContent='Usuario autenticado, memoria no registrada';login.hidden=true;logout.hidden=false;registerBox.hidden=false;}
       else status.textContent=error.message;

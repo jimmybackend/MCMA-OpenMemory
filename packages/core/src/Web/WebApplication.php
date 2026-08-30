@@ -10,6 +10,7 @@ use MCMA\Core\Billing\ApiKeyService;
 use MCMA\Core\Billing\BillableAskService;
 use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
+use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
@@ -38,7 +39,8 @@ final class WebApplication
         private readonly ?ApiKeyService $apiKeys=null,
         private readonly ?AdminService $admin=null,
         private readonly bool $billingEnabled=false,
-        private readonly int $billingMaxOutputTokens=1024
+        private readonly int $billingMaxOutputTokens=1024,
+        private readonly ?StripeCheckoutService $stripe=null
     ){
         if(!preg_match('#^https://[^/]+$#',$this->publicOrigin)) throw new RuntimeException('MCMA web public origin must be an HTTPS origin without a path');
         if($this->sessionTtl<300||$this->sessionTtl>604800) throw new RuntimeException('MCMA web session TTL must be between 300 and 604800 seconds');
@@ -66,6 +68,7 @@ final class WebApplication
             return HttpResponse::json([
                 'ok'=>true,'service'=>'mcma-web','version'=>'1.0','multi_user'=>true,
                 'billing_enabled'=>$this->billingEnabled,'api_keys_enabled'=>$this->apiKeys!==null,
+                'stripe_enabled'=>$this->billingEnabled&&$this->stripe!==null,
             ]);
         }
         if($method==='GET'&&$path==='/login') return $this->login();
@@ -102,6 +105,29 @@ final class WebApplication
                 'billing'=>$this->billing->summary($principal['library']),
                 'totals'=>$this->billing->totals($principal['library']),
             ]);
+        }
+
+        if($method==='POST'&&$path==='/mcma/v1/billing/stripe/webhook'){
+            if($this->stripe===null) throw new WebException(503,'stripe_unavailable','Stripe is not configured');
+            $signature=$request->header('stripe-signature')??'';
+            return HttpResponse::json(['ok'=>true,'stripe'=>$this->stripe->handleWebhook($request->body(),$signature)]);
+        }
+
+        if($method==='GET'&&$path==='/mcma/v1/billing/stripe/packages'){
+            if(!$this->billingEnabled) throw new WebException(503,'billing_disabled','Billing is disabled');
+            if($this->stripe===null) throw new WebException(503,'stripe_unavailable','Stripe is not configured');
+            $this->sessionPrincipal($request);
+            return HttpResponse::json(['ok'=>true,'packages'=>$this->stripe->packages()]);
+        }
+
+        if($method==='POST'&&$path==='/mcma/v1/billing/stripe/checkout'){
+            if(!$this->billingEnabled) throw new WebException(503,'billing_disabled','Billing is disabled');
+            if($this->stripe===null) throw new WebException(503,'stripe_unavailable','Stripe is not configured');
+            $this->assertOrigin($request);
+            $principal=$this->sessionPrincipal($request);
+            $input=$request->json(16384);
+            $packageId=(string)($input['package_id']??'');
+            return HttpResponse::json(['ok'=>true,'checkout'=>$this->stripe->createCheckout($principal['user_id'],$packageId)],201);
         }
 
         if($method==='GET'&&$path==='/mcma/v1/billing/usage'){
