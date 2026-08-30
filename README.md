@@ -199,3 +199,24 @@ Subscription renewals are idempotent by Stripe invoice id. `past_due` preserves 
 Personal deployments can keep `MCMA_BILLING_ENABLED=false`; Stripe is not required.
 
 See `docs/BILLING.md`.
+
+
+## Installation
+
+A first server installer is included:
+
+~~~bash
+git clone git@github.com:jimmybackend/MCMA-OpenMemory.git
+cd MCMA-OpenMemory
+sudo ./install.sh
+~~~
+
+It prepares PHP-FPM/nginx, protected runtime directories and `/etc/mcma/mcma.env` without overwriting an existing environment file or generating external-provider credentials.
+
+Diagnostics:
+
+~~~bash
+sudo /opt/MCMA-OpenMemory/scripts/mcma-doctor.sh
+~~~
+
+See `docs/INSTALL.md`.

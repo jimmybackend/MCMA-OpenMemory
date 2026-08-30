@@ -1,0 +1,347 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="/opt/MCMA-OpenMemory"
+ENV_FILE="/etc/mcma/mcma.env"
+KEY_DIR="/var/lib/mcma/keys"
+LOCAL_STORAGE_DIR="/var/lib/mcma/storage"
+DOMAIN=""
+ENV_SOURCE=""
+SKIP_PACKAGES=0
+SKIP_NGINX=0
+
+usage() {
+  cat <<'EOF'
+MCMA-OpenMemory installer
+
+Usage:
+  sudo ./install.sh [options]
+
+Options:
+  --install-dir PATH   Deployment checkout path (default: /opt/MCMA-OpenMemory)
+  --env-file PATH      Protected runtime env file (default: /etc/mcma/mcma.env)
+  --env-source PATH    Install a pre-populated env file if --env-file does not exist
+  --domain HOST        Nginx server_name; also used for local health test
+  --skip-packages      Do not install nginx/php packages
+  --skip-nginx         Do not create/reload nginx configuration
+  -h, --help           Show this help
+
+The installer never overwrites an existing runtime env file and never invents
+AWS, OIDC, Stripe or other provider credentials.
+EOF
+}
+
+log(){ printf '[mcma-install] %s\n' "$*"; }
+warn(){ printf '[mcma-install] WARNING: %s\n' "$*" >&2; }
+die(){ printf '[mcma-install] ERROR: %s\n' "$*" >&2; exit 1; }
+
+while (($#)); do
+  case "$1" in
+    --install-dir) [[ $# -ge 2 ]] || die "--install-dir requires a path"; INSTALL_DIR="$2"; shift 2;;
+    --env-file) [[ $# -ge 2 ]] || die "--env-file requires a path"; ENV_FILE="$2"; shift 2;;
+    --env-source) [[ $# -ge 2 ]] || die "--env-source requires a path"; ENV_SOURCE="$2"; shift 2;;
+    --domain) [[ $# -ge 2 ]] || die "--domain requires a host"; DOMAIN="$2"; shift 2;;
+    --skip-packages) SKIP_PACKAGES=1; shift;;
+    --skip-nginx) SKIP_NGINX=1; shift;;
+    -h|--help) usage; exit 0;;
+    *) die "Unknown option: $1";;
+  esac
+done
+
+[[ $EUID -eq 0 ]] || die "Run with sudo/root."
+[[ "$INSTALL_DIR" != *" "* ]] || die "Install path must not contain spaces."
+[[ -f "$SOURCE_DIR/packages/core/bootstrap.php" ]] || die "Run this installer from an MCMA-OpenMemory checkout."
+
+CALLING_USER="${SUDO_USER:-root}"
+CALLING_GROUP="$(id -gn "$CALLING_USER" 2>/dev/null || printf root)"
+
+detect_os() {
+  [[ -r /etc/os-release ]] || die "/etc/os-release not found."
+  . /etc/os-release
+  OS_ID="${ID:-unknown}"
+}
+
+install_packages() {
+  ((SKIP_PACKAGES==1)) && { log "Skipping package installation."; return; }
+
+  if command -v dnf >/dev/null 2>&1; then
+    log "Installing nginx, PHP-FPM and PHP runtime packages with dnf."
+    dnf install -y nginx php php-cli php-fpm php-opcache php-mbstring
+    dnf install -y php-curl >/dev/null 2>&1 || true
+  elif command -v apt-get >/dev/null 2>&1; then
+    log "Installing nginx, PHP-FPM and PHP runtime packages with apt."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y nginx php-cli php-fpm php-curl php-mbstring php-opcache
+  else
+    die "Supported package manager not found (dnf or apt-get). Use --skip-packages after installing PHP 8.2+, PHP-FPM and nginx manually."
+  fi
+}
+
+check_php() {
+  command -v php >/dev/null 2>&1 || die "php is not installed."
+  local php_id
+  php_id="$(php -r 'echo PHP_VERSION_ID;')"
+  (( php_id >= 80200 )) || die "PHP 8.2+ is required; found $(php -r 'echo PHP_VERSION;')."
+  php -r 'foreach(["openssl","json","curl"] as $e){if(!extension_loaded($e)){fwrite(STDERR,"Missing PHP extension: ".$e.PHP_EOL);exit(1);}}' || die "Required PHP extensions are missing."
+  log "PHP $(php -r 'echo PHP_VERSION;') is ready."
+}
+
+deploy_checkout() {
+  if [[ "$SOURCE_DIR" == "$INSTALL_DIR" ]]; then
+    log "Using current checkout at $INSTALL_DIR."
+    return
+  fi
+  if [[ -d "$INSTALL_DIR/.git" ]]; then
+    log "Existing Git checkout found at $INSTALL_DIR; leaving its working tree untouched."
+    return
+  fi
+  [[ ! -e "$INSTALL_DIR" ]] || die "$INSTALL_DIR exists but is not an MCMA Git checkout."
+  log "Copying current Git checkout to $INSTALL_DIR."
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+  cp -a "$SOURCE_DIR" "$INSTALL_DIR"
+  chown -R "$CALLING_USER:$CALLING_GROUP" "$INSTALL_DIR"
+}
+
+random_hex_32(){ openssl rand -hex 32; }
+
+create_runtime_dirs() {
+  install -d -m 700 -o root -g root "$(dirname "$ENV_FILE")"
+  install -d -m 700 -o root -g root "$KEY_DIR"
+  install -d -m 750 -o root -g root "$LOCAL_STORAGE_DIR"
+
+  if [[ -f "$ENV_FILE" ]]; then
+    chmod 600 "$ENV_FILE"; chown root:root "$ENV_FILE"
+    log "Keeping existing runtime environment: $ENV_FILE"
+    return
+  fi
+
+  if [[ -n "$ENV_SOURCE" ]]; then
+    [[ -f "$ENV_SOURCE" ]] || die "Env source not found: $ENV_SOURCE"
+    install -m 600 -o root -g root "$ENV_SOURCE" "$ENV_FILE"
+    log "Installed runtime environment from $ENV_SOURCE"
+    return
+  fi
+
+  log "Creating first-run runtime environment at $ENV_FILE"
+  local multi_pepper session_secret api_pepper
+  multi_pepper="$(random_hex_32)"
+  session_secret="$(random_hex_32)"
+  api_pepper="$(random_hex_32)"
+
+  cat >"$ENV_FILE" <<EOF
+# Generated by MCMA install.sh. Root-owned mode 600.
+MCMA_KEY_DIR=$KEY_DIR
+MCMA_MULTIUSER_PEPPER=$multi_pepper
+MCMA_WEB_SESSION_SECRET=$session_secret
+MCMA_API_KEY_PEPPER=$api_pepper
+
+MCMA_WEB_STORAGE_LOCATION=$LOCAL_STORAGE_DIR
+MCMA_WEB_EMBEDDING_PROVIDER=none
+MCMA_WEB_GENERATION_PROVIDER=none
+MCMA_WEB_AUTO_REGISTER=true
+MCMA_WEB_SELF_REGISTER=true
+MCMA_WEB_SESSION_TTL=28800
+MCMA_OIDC_SCOPE=openid
+MCMA_BILLING_ENABLED=false
+
+# Required for authenticated web use:
+# MCMA_WEB_PUBLIC_ORIGIN=https://memory.example.com
+# MCMA_OIDC_ISSUER=https://idp.example.com
+# MCMA_OIDC_CLIENT_ID=mcma-web
+# MCMA_OIDC_CLIENT_SECRET=...
+
+# Optional SuperAdmin:
+# MCMA_SUPERADMIN_ISSUER=https://idp.example.com
+# MCMA_SUPERADMIN_SUBJECT=provider-stable-admin-subject
+
+# Example S3 + Bedrock:
+# MCMA_WEB_STORAGE_LOCATION=s3://BUCKET/mcma
+# MCMA_S3_REGION=us-east-1
+# MCMA_S3_ACCESS_KEY_ID=...
+# MCMA_S3_SECRET_ACCESS_KEY=...
+# MCMA_WEB_EMBEDDING_PROVIDER=bedrock-titan-v2
+# MCMA_WEB_GENERATION_PROVIDER=bedrock-converse
+# MCMA_BEDROCK_REGION=us-east-1
+# MCMA_BEDROCK_CHAT_MODEL=...
+# AWS_BEARER_TOKEN_BEDROCK=...
+
+# Optional Stripe:
+# MCMA_STRIPE_SECRET_KEY=sk_test_...
+# MCMA_STRIPE_WEBHOOK_SECRET=whsec_...
+# MCMA_STRIPE_PACKAGES_JSON='{"pro-monthly":{"billing_mode":"subscription","label":"Pro monthly","price_id":"price_...","plan_id":"pro","credit_units":500000,"currency":"usd","amount_minor":3000,"minor_unit_exponent":2}}'
+EOF
+  chmod 600 "$ENV_FILE"
+}
+
+env_value() {
+  local key="$1" line value
+  line="$(grep -E "^[[:space:]]*$key=" "$ENV_FILE" | tail -n1 || true)"
+  [[ -n "$line" ]] || return 1
+  value="${line#*=}"
+  value="${value#\'}"; value="${value%\'}"
+  value="${value#\"}"; value="${value%\"}"
+  printf '%s' "$value"
+}
+
+discover_domain() {
+  if [[ -n "$DOMAIN" ]]; then
+    [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die "Invalid --domain value."
+    return
+  fi
+  local origin
+  origin="$(env_value MCMA_WEB_PUBLIC_ORIGIN || true)"
+  if [[ "$origin" =~ ^https://([^/]+)$ ]]; then DOMAIN="${BASH_REMATCH[1]}"; else DOMAIN="_"; fi
+}
+
+find_fpm_service() {
+  local candidate
+  for candidate in php-fpm php8.4-fpm php8.3-fpm php8.2-fpm php8.1-fpm; do
+    if systemctl list-unit-files "$candidate.service" --no-legend 2>/dev/null | grep -q "^$candidate.service"; then
+      FPM_SERVICE="$candidate"
+      return
+    fi
+  done
+  candidate="$(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '$1 ~ /^php.*fpm\.service$/ {sub(/\.service$/,"",$1);print $1;exit}')"
+  [[ -n "$candidate" ]] || die "Unable to locate PHP-FPM systemd service."
+  FPM_SERVICE="$candidate"
+}
+
+find_fpm_pool() {
+  if [[ -f /etc/php-fpm.d/www.conf ]]; then
+    FPM_POOL=/etc/php-fpm.d/www.conf
+  else
+    FPM_POOL="$(find /etc/php -type f -path '*/fpm/pool.d/www.conf' 2>/dev/null | sort -r | head -n1 || true)"
+  fi
+  [[ -n "$FPM_POOL" && -f "$FPM_POOL" ]] || die "Unable to locate PHP-FPM www pool configuration."
+  FPM_POOL_DIR="$(dirname "$FPM_POOL")"
+}
+
+fpm_listen() {
+  local listen
+  listen="$(awk -F= '/^[[:space:]]*listen[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2);print $2;exit}' "$FPM_POOL")"
+  [[ -n "$listen" ]] || listen="/run/php-fpm/www.sock"
+  if [[ "$listen" == /* ]]; then printf 'unix:%s' "$listen"; else printf '%s' "$listen"; fi
+}
+
+configure_fpm() {
+  find_fpm_service
+  find_fpm_pool
+
+  local override="/etc/systemd/system/${FPM_SERVICE}.service.d"
+  install -d -m 755 "$override"
+  cat >"$override/mcma-env.conf" <<EOF
+[Service]
+EnvironmentFile=$ENV_FILE
+EOF
+
+  local env_dropin="$FPM_POOL_DIR/zz-mcma-env.conf"
+  {
+    printf '[www]\n'
+    while IFS= read -r name; do printf 'env[%s] = $%s\n' "$name" "$name"; done < <(sed -nE 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' "$ENV_FILE" | sort -u)
+  } >"$env_dropin"
+
+  systemctl daemon-reload
+  systemctl enable "$FPM_SERVICE" >/dev/null
+  systemctl restart "$FPM_SERVICE"
+  systemctl is-active --quiet "$FPM_SERVICE" || die "PHP-FPM failed to start."
+  log "PHP-FPM configured: $FPM_SERVICE"
+}
+
+configure_nginx() {
+  ((SKIP_NGINX==1)) && { log "Skipping nginx configuration."; return; }
+  if [[ "$DOMAIN" == "_" ]]; then
+    SKIP_NGINX=1
+    warn "No web domain was configured; nginx MCMA virtual host was not created. Use --domain HOST or set MCMA_WEB_PUBLIC_ORIGIN, then rerun."
+    return
+  fi
+  command -v nginx >/dev/null 2>&1 || die "nginx is not installed."
+
+  local pass
+  pass="$(fpm_listen)"
+  cat >/etc/nginx/conf.d/mcma.conf <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+    root $INSTALL_DIR/apps/web/public;
+    index index.html;
+    client_max_body_size 1m;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'" always;
+
+    location / { try_files \$uri \$uri/ /index.php?\$query_string; }
+
+    location = /index.php {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root/index.php;
+        fastcgi_param HTTP_PROXY "";
+        fastcgi_pass $pass;
+    }
+
+    location ~ \.php\$ { return 404; }
+    location ~ /\. { deny all; }
+}
+EOF
+
+  nginx -t
+  systemctl enable nginx >/dev/null
+  systemctl restart nginx
+  systemctl is-active --quiet nginx || die "nginx failed to start."
+  log "nginx configured for server_name $DOMAIN"
+}
+
+web_env_ready() {
+  local required=(MCMA_WEB_STORAGE_LOCATION MCMA_WEB_PUBLIC_ORIGIN MCMA_WEB_SESSION_SECRET MCMA_MULTIUSER_PEPPER MCMA_OIDC_ISSUER MCMA_OIDC_CLIENT_ID)
+  local name value
+  for name in "${required[@]}"; do
+    value="$(env_value "$name" || true)"
+    [[ -n "$value" && "$value" != *REPLACE* ]] || return 1
+  done
+}
+
+smoke_tests() {
+  log "Running CLI smoke test."
+  local status
+  set +e
+  php "$INSTALL_DIR/apps/cli/mcma" --help >/tmp/mcma-install-cli.txt 2>&1
+  status=$?
+  set -e
+  [[ "$status" -eq 2 ]] || die "CLI smoke test returned unexpected status $status."
+  grep -q 'MCMA 1.0 CLI' /tmp/mcma-install-cli.txt || die "CLI smoke test output is invalid."
+
+  if web_env_ready && command -v curl >/dev/null 2>&1 && ((SKIP_NGINX==0)); then
+    local host="$DOMAIN" response
+    [[ "$host" != "_" ]] || host="localhost"
+    response="$(curl -fsS -H "Host: $host" http://127.0.0.1/mcma/v1/health)" || die "Web health check failed."
+    grep -q '"ok":true' <<<"$response" || die "Web health response is not healthy."
+    log "Web health check passed."
+  else
+    warn "Web health check skipped until web/OIDC variables are complete."
+  fi
+}
+
+main() {
+  detect_os
+  log "Detected ${PRETTY_NAME:-$OS_ID}."
+  install_packages
+  check_php
+  deploy_checkout
+  create_runtime_dirs
+  discover_domain
+  configure_fpm
+  configure_nginx
+  smoke_tests
+  log "Installation stage complete."
+  log "Deployment checkout: $INSTALL_DIR"
+  log "Runtime environment: $ENV_FILE"
+  log "Key directory: $KEY_DIR"
+  if ! web_env_ready; then warn "Complete web/OIDC/provider values in $ENV_FILE, then rerun: sudo $INSTALL_DIR/install.sh --skip-packages"; fi
+  log "Diagnostics: sudo $INSTALL_DIR/scripts/mcma-doctor.sh"
+}
+
+main "$@"

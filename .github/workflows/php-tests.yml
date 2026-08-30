@@ -25,6 +25,15 @@ jobs:
           php -l apps/cli/mcma
           php -l apps/web/public/index.php
 
+      - name: Installer shell checks
+        run: |
+          bash -n install.sh
+          bash -n scripts/mcma-doctor.sh
+          bash install.sh --help >/tmp/mcma-install-help.txt
+          bash scripts/mcma-doctor.sh --help >/tmp/mcma-doctor-help.txt
+          grep -q "MCMA-OpenMemory installer" /tmp/mcma-install-help.txt
+          grep -q "MCMA doctor" /tmp/mcma-doctor-help.txt
+
       - name: MCMA conformance
         run: |
           php tests/conformance/run.php

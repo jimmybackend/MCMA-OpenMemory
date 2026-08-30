@@ -164,6 +164,19 @@
 - [ ] Stripe Customer Portal / self-service cancellation UI
 - [ ] live PayPal / Mercado Pago checkout-webhook connectors
 
+## Server installer — first implementation complete
+- [x] root installer for Amazon Linux/RHEL-family and Debian/Ubuntu-family package managers
+- [x] protected /etc/mcma/mcma.env creation/preservation
+- [x] protected MCMA_KEY_DIR and local storage defaults
+- [x] PHP 8.2+ and required-extension validation
+- [x] PHP-FPM EnvironmentFile + explicit MCMA env forwarding
+- [x] nginx virtual-host generation without catch-all takeover
+- [x] CLI smoke test and conditional HTTP health check
+- [x] mcma-doctor diagnostics without secret output
+- [x] installer shell syntax/help checks in CI
+- [ ] real EC2 installation smoke test with S3 + Bedrock + OIDC
+- [ ] real Stripe test-mode Checkout/subscription smoke test
+
 ## PHP architecture — OOP production boundary complete
 - [x] core services/classes/interfaces
 - [x] storage adapters as objects

@@ -1,0 +1,114 @@
+# Installation
+
+MCMA can be installed from a normal Git checkout.
+
+## Recommended EC2/server flow
+
+~~~bash
+git clone git@github.com:jimmybackend/MCMA-OpenMemory.git
+cd MCMA-OpenMemory
+sudo ./install.sh
+~~~
+
+The installer keeps a deployable Git checkout at:
+
+~~~text
+/opt/MCMA-OpenMemory
+~~~
+
+That checkout retains its `.git` metadata. If the EC2 user's SSH key already has GitHub access, you can edit/test fixes on the server and push normal commits from that checkout.
+
+## What the installer does
+
+- detects Linux package manager;
+- installs nginx, PHP 8.2+ runtime/PHP-FPM dependencies when possible;
+- refuses PHP older than 8.2;
+- deploys/keeps the Git checkout;
+- creates `/etc/mcma/mcma.env` with mode 600;
+- never overwrites an existing runtime env file;
+- creates protected per-library key storage;
+- generates MCMA-local random peppers/session secrets on a fresh install;
+- never invents AWS/OIDC/Stripe/cloud credentials;
+- passes configured env names into PHP-FPM;
+- writes an nginx MCMA server block;
+- validates nginx;
+- runs a CLI smoke test;
+- runs the HTTP health check when web/OIDC variables are complete.
+
+## Existing environment file
+
+If you prepare the values separately:
+
+~~~bash
+sudo ./install.sh --env-source /secure/path/mcma.env --domain memory.example.com
+~~~
+
+The installed file becomes `/etc/mcma/mcma.env`. If that target already exists, the installer preserves it.
+
+## First-run generated defaults
+
+On a fresh installation the installer generates only local MCMA security values:
+
+~~~text
+MCMA_KEY_DIR
+MCMA_MULTIUSER_PEPPER
+MCMA_WEB_SESSION_SECRET
+MCMA_API_KEY_PEPPER
+~~~
+
+It starts with local storage, no AI provider and billing disabled. Provider credentials remain an explicit deployment choice.
+
+## Variables to complete for web login
+
+Before the web application is fully usable, configure at least:
+
+~~~text
+MCMA_WEB_STORAGE_LOCATION
+MCMA_WEB_PUBLIC_ORIGIN
+MCMA_WEB_SESSION_SECRET
+MCMA_MULTIUSER_PEPPER
+MCMA_OIDC_ISSUER
+MCMA_OIDC_CLIENT_ID
+~~~
+
+Then configure the storage/AI credentials you actually use. An AWS deployment can use S3 + Bedrock; another installation can use Local + Ollama.
+
+## Commercial mode
+
+Personal use does not require billing:
+
+~~~text
+MCMA_BILLING_ENABLED=false
+~~~
+
+Commercial installations can enable billing and optionally Stripe after pricing/credit policy is configured. Stripe packages support both `payment` and `subscription`; subscription renewals are applied from verified `invoice.paid` events.
+
+## TLS
+
+The generated nginx block listens on HTTP port 80. This works when TLS terminates at a trusted reverse proxy/CDN such as CloudFront. If nginx itself terminates TLS, add the certificate/listen configuration appropriate to that server. `MCMA_WEB_PUBLIC_ORIGIN` must still be the public HTTPS origin.
+
+## Diagnostics
+
+~~~bash
+sudo /opt/MCMA-OpenMemory/scripts/mcma-doctor.sh
+~~~
+
+The doctor checks versions, extensions, protected env presence, multi-user key rules, required web variables, optional Stripe completeness, nginx syntax and service state without printing secret values.
+
+## Updating/fixing from EC2
+
+~~~bash
+cd /opt/MCMA-OpenMemory
+git status
+git pull --ff-only
+~~~
+
+After a code/config update:
+
+~~~bash
+sudo ./install.sh --skip-packages
+~~~
+
+The installer preserves `/etc/mcma/mcma.env`.
+
+If a real EC2 test exposes a bug, fix it in the Git checkout, run the relevant tests, commit, and push over the existing GitHub SSH remote. Never commit `/etc/mcma/mcma.env`, KeyStore files, AWS credentials or Stripe secrets.

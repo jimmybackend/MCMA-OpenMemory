@@ -213,3 +213,14 @@ Subscription state is persisted in the encrypted billing account. Active subscri
 Webhook fulfillment verifies Stripe-Signature against the raw body, validates user/package binding, package fingerprint, live/test mode, Stripe Price, amount and currency, and rejects stale subscription/invoice events when another subscription is already current.
 
 Stripe credentials remain server-side. Billing-disabled personal installations do not expose Checkout.
+
+
+## Installer
+
+The repository now includes `install.sh` and `scripts/mcma-doctor.sh`.
+
+The installer can prepare a Linux/EC2 host from the Git checkout, create/preserve the protected runtime environment, configure PHP-FPM and an isolated nginx virtual host, retain the deployment as a Git repository, and run CLI/health smoke checks.
+
+It does not invent or commit AWS, OIDC, Stripe or other provider credentials. Existing `/etc/mcma/mcma.env` values are preserved.
+
+The next operational milestone is the real EC2 installation test with actual S3/Bedrock/OIDC settings, followed by Stripe test-mode validation.
