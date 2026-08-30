@@ -1,9 +1,13 @@
 # MCMA 1.0 Architecture
 
 ~~~text
-Optional AI / UI / Tools
+Web / CLI / External API
           ↓
-   Agent Boundaries
+ OIDC session / API key
+          ↓
+  MultiUserService
+          ↓
+ Billing / Credits / Plans
           ↓
  Exact Knowledge Lookup
           ↓ miss
@@ -16,7 +20,11 @@ Optional AI / UI / Tools
     StorageAdapter
    ├── Local
    ├── GitHub
-   ├── S3-compatible
+   ├── S3 / S3-compatible
+   ├── Google Cloud Storage
+   ├── Google Drive
+   ├── Azure Blob
+   ├── Alibaba OSS
    └── WebDAV
 ~~~
 
@@ -60,6 +68,24 @@ The derived semantic index is internally readable by the semantic service, but o
 
 ## Provider independence
 
-The core depends only on EmbeddingProvider.
+The core remains provider-neutral.
 
-Amazon Bedrock Titan is the first optional connector; other embedding providers can implement the same interface without changing MCMA knowledge/storage identity.
+Embedding providers currently include Bedrock Titan V2, Ollama and llama.cpp. Generation providers include Bedrock Converse, Ollama and llama.cpp. Provider choice does not change MCMA knowledge or storage identity.
+
+## Multi-user and commercial boundary
+
+The web/API layer resolves an authenticated identity to one isolated MCMA Library. Billing, credits, API keys and Stripe operate around that Library without becoming part of the portable memory format.
+
+~~~text
+OIDC / Bearer API key
+        ↓
+user_id
+        ↓
+isolated Library
+        ↓
+optional BillingService
+        ↓
+AskService
+~~~
+
+Stripe Checkout supports one-time and recurring packages. Recurring credits are fulfilled from verified paid invoices, while subscription lifecycle state is stored in the encrypted billing account.

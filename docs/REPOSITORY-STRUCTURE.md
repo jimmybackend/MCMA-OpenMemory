@@ -1,8 +1,6 @@
 # MCMA Repository Structure
 
-The repository is being organized incrementally around one active line: **MCMA 1.0**.
-
-Only directories with real content should be created.
+The repository has one active public line: **MCMA 1.0**. The normative portable-memory contract lives under `spec/1.0/`; the PHP implementation, web/API, billing and connectors are product layers built on top of that contract.
 
 ~~~text
 MCMA-OpenMemory/
@@ -14,58 +12,122 @@ MCMA-OpenMemory/
 ├── SPECIFICATION.md
 ├── ROADMAP.md
 │
-├── spec/
-│   └── 1.0/
-│       ├── README.md
-│       ├── PRINCIPLES.md
-│       └── CONTAINER.md
+├── .github/
+│   └── workflows/
+│       └── php-tests.yml
 │
-├── docs/
-│   ├── DESIGN-INDEX.md
-│   ├── FOUNDATIONAL-VISION.md
-│   ├── FIRST-RUN-FLOW.md
-│   ├── IDENTITY-PROFILE.md
-│   ├── PERMISSIONS-VAULT.md
-│   ├── CURRENT-STATE.md
-│   ├── MEMORY-TAXONOMY.md
-│   ├── ENCRYPTED-INDEX.md
-│   ├── KNOWLEDGE-REUSE.md
-│   └── STORAGE-ADAPTERS.md
+├── apps/
+│   ├── cli/
+│   │   ├── mcma
+│   │   └── README.md
+│   └── web/
+│       └── public/
+│           ├── index.php
+│           ├── index.html
+│           ├── app.js
+│           ├── app.css
+│           ├── admin.html
+│           └── admin.js
+│
+├── packages/
+│   ├── core/
+│   │   ├── bootstrap.php
+│   │   └── src/
+│   │       ├── Agent/
+│   │       ├── Ask/
+│   │       ├── Billing/
+│   │       ├── Cli/
+│   │       ├── Knowledge/
+│   │       ├── MultiUser/
+│   │       ├── Security/
+│   │       ├── Semantic/
+│   │       ├── Storage/
+│   │       └── Web/
+│   └── connectors/
+│       ├── aws/
+│       └── local/
 │
 ├── config/
-│   └── mcma.env.example
+│   ├── mcma.env.example
+│   └── nginx/
+│       └── mcma-web.conf.example
+│
+├── tests/
+│   ├── conformance/
+│   └── integration/
+│
+├── docs/
+│   ├── ASK.md
+│   ├── BILLING.md
+│   ├── CURRENT-STATE.md
+│   ├── DESIGN-INDEX.md
+│   ├── ENCRYPTED-INDEX.md
+│   ├── FIRST-RUN-FLOW.md
+│   ├── FOUNDATIONAL-VISION.md
+│   ├── IDENTITY-PROFILE.md
+│   ├── KNOWLEDGE-REUSE.md
+│   ├── LLAMACPP.md
+│   ├── LOCAL-AI.md
+│   ├── MEMORY-TAXONOMY.md
+│   ├── MULTIUSER.md
+│   ├── PERMISSIONS-VAULT.md
+│   ├── PHP-OOP.md
+│   ├── REPOSITORY-STRUCTURE.md
+│   ├── STORAGE-ADAPTERS.md
+│   ├── STORAGE-PROVIDERS.md
+│   └── WEB.md
+│
+├── spec/
+│   └── 1.0/
+│       └── ... normative MCMA 1.0 documents
 │
 └── reference/
     └── compatibility/
-        ├── README.md
-        ├── specification-prototype.md
-        ├── IMPLEMENTATION-LINEAGE.md
-        ├── DEPLOYMENT-EC2-PHP-FPM.md
-        └── php/
-            ├── current/
-            └── legacy/
+        └── ... historical/prototype compatibility material
 ~~~
 
-## Later, when implementation starts
+## Current implementation boundaries
 
-Create only as required:
+### Core
+
+The production PHP boundary is object-oriented. The core includes encrypted libraries, addressing, cryptography, indexes, permissions, Vault, knowledge reuse, semantic retrieval and ask orchestration.
+
+### Storage
+
+Implemented StorageAdapters include Local, GitHub, S3/S3-compatible, Google Cloud Storage, Google Drive, Azure Blob Storage, Alibaba OSS and WebDAV.
+
+### AI
+
+Optional connectors include:
 
 ~~~text
-apps/
-packages/
-connectors/
-examples/
-tests/
-tools/
+Embeddings: Bedrock Titan V2 | Ollama | llama.cpp
+Generation: Bedrock Converse | Ollama | llama.cpp
 ~~~
 
-Likely implementation order:
+Memory remains usable without an AI provider.
 
-1. freeze the MCMA 1.0 identity/container contract;
-2. create the local manual core;
-3. add tests and conformance vectors;
-4. add storage adapters;
-5. add permissions/vault implementation;
-6. add optional AI support.
+### Multi-user web/API
 
-The specification defines interoperability. Compatibility code proves lineage but does not define the new format.
+The web application uses OIDC Authorization Code + PKCE and encrypted HttpOnly sessions. External clients can use HMAC-backed `mcma_api_*` API keys. Both resolve to an isolated user MCMA Library.
+
+### Metering and billing
+
+The Billing package implements AI usage metering, integer credits, plans, encrypted daily ledgers, pricing snapshots, rate/quota controls, SuperAdmin and payment records.
+
+Stripe supports:
+
+~~~text
+payment      -> one-time Checkout
+subscription -> recurring Checkout + invoice.paid renewal credits
+~~~
+
+Webhook retries are idempotent. Subscription lifecycle state is persisted in the encrypted billing account.
+
+## Specification vs implementation
+
+Files under `spec/1.0/` define portable-format interoperability.
+
+Files under `apps/`, `packages/`, `config/` and `tests/` implement the current PHP product/runtime and do not redefine the MCMA 1.0 encrypted container format.
+
+Historical prototype code under `reference/compatibility/` remains available for lineage and migration, not as the active runtime.

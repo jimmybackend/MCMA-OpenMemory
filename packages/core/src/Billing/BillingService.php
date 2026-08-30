@@ -63,6 +63,40 @@ final class BillingService
         return $this->account($library);
     }
 
+    public function setStripeSubscriptionState(
+        Library $library,
+        string $subscriptionId,
+        string $packageId,
+        string $status,
+        ?int $currentPeriodEnd,
+        bool $cancelAtPeriodEnd
+    ): array {
+        if(!preg_match('/^sub_[A-Za-z0-9_]+$/',$subscriptionId)) throw new RuntimeException('Invalid Stripe subscription id');
+        if(!preg_match('/^[a-z][a-z0-9_-]{1,63}$/',$packageId)) throw new RuntimeException('Invalid Stripe package id');
+        if(!in_array($status,['trialing','active','past_due','incomplete','incomplete_expired','unpaid','canceled','paused'],true)){
+            throw new RuntimeException('Invalid Stripe subscription status');
+        }
+        if($currentPeriodEnd!==null&&$currentPeriodEnd<0) throw new RuntimeException('Invalid Stripe subscription period end');
+
+        $this->ensureAccount($library);
+        $library->mutateJson(self::ACCOUNT_REF,function(mixed $current)use(
+            $subscriptionId,$packageId,$status,$currentPeriodEnd,$cancelAtPeriodEnd
+        ):array{
+            if(!is_array($current)||array_is_list($current)) throw new RuntimeException('Malformed billing account');
+            $current['stripe_subscription']=[
+                'subscription_id'=>$subscriptionId,
+                'package_id'=>$packageId,
+                'status'=>$status,
+                'current_period_end'=>$currentPeriodEnd,
+                'cancel_at_period_end'=>$cancelAtPeriodEnd,
+                'updated_at'=>self::now(),
+            ];
+            $current['updated_at']=self::now();
+            return $current;
+        },'owner');
+        return $this->account($library);
+    }
+
     public function state(Library $library): array
     {
         $library->refresh();

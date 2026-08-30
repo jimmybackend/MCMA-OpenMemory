@@ -58,7 +58,8 @@
         const details=document.createElement('small');
         const exp=Number(pkg.minor_unit_exponent||0);
         const amount=Number(pkg.amount_minor)/Math.pow(10,exp);
-        details.textContent=(pkg.plan_id?('Plan '+pkg.plan_id+' · '):'')+number(pkg.credit_units)+' créditos · '+pkg.currency+' '+amount.toFixed(exp);
+        const mode=pkg.billing_mode==='subscription'?'Suscripción':'Pago único';
+        details.textContent=mode+' · '+(pkg.plan_id?('Plan '+pkg.plan_id+' · '):'')+number(pkg.credit_units)+' créditos · '+pkg.currency+' '+amount.toFixed(exp);
         const btn=document.createElement('button');btn.textContent='Comprar';
         btn.onclick=async()=>{
           btn.disabled=true;stripeStatus.textContent='Creando Checkout…';

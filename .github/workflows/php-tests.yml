@@ -69,6 +69,7 @@ jobs:
           php tests/integration/billing-metering-admin.php
           php tests/integration/web-billing-api.php
           php tests/integration/stripe-checkout-webhook.php
+          php tests/integration/stripe-subscription-renewal.php
 
       - name: Permissions and vault
         run: php tests/integration/permissions-vault.php

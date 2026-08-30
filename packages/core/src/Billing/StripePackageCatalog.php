@@ -50,6 +50,7 @@ final class StripePackageCatalog
             $out[]=[
                 'id'=>$id,
                 'label'=>$package['label'],
+                'billing_mode'=>$package['billing_mode'],
                 'plan_id'=>$package['plan_id'],
                 'credit_units'=>$package['credit_units'],
                 'currency'=>strtoupper($package['currency']),
@@ -71,6 +72,9 @@ final class StripePackageCatalog
         $planId=trim((string)($package['plan_id']??''));
         if($planId!==''&&!preg_match('/^[a-z][a-z0-9-]{1,63}$/',$planId)) throw new RuntimeException('Invalid Stripe package plan_id');
 
+        $billingMode=strtolower(trim((string)($package['billing_mode']??'payment')));
+        if(!in_array($billingMode,['payment','subscription'],true)) throw new RuntimeException('Stripe package billing_mode must be payment or subscription');
+
         $credits=self::integer($package,'credit_units',0,PHP_INT_MAX);
         if($credits<1&&$planId==='') throw new RuntimeException('Stripe package must grant credits and/or a plan');
 
@@ -84,12 +88,13 @@ final class StripePackageCatalog
         if($amountMinor>intdiv(PHP_INT_MAX,$factor)) throw new RuntimeException('Stripe package amount is too large');
 
         $fingerprint=hash('sha256',implode('|',[
-            $id,$priceId,$planId,(string)$credits,$currency,(string)$amountMinor,(string)$minorExponent
+            $id,$billingMode,$priceId,$planId,(string)$credits,$currency,(string)$amountMinor,(string)$minorExponent
         ]));
 
         return [
             'id'=>$id,
             'label'=>$label,
+            'billing_mode'=>$billingMode,
             'price_id'=>$priceId,
             'plan_id'=>$planId,
             'credit_units'=>$credits,

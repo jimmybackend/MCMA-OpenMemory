@@ -17,6 +17,10 @@
 ## User and application flow
 
 - FIRST-RUN-FLOW.md — create/open library and use it with or without AI.
+- MULTIUSER.md — encrypted multi-user registry and isolated per-user libraries.
+- WEB.md — OIDC web application, API-key access and HTTP routes.
+- BILLING.md — metering, credits, plans, SuperAdmin and Stripe Checkout/subscriptions.
+- ASK.md — memory-first ask orchestration.
 - IDENTITY-PROFILE.md — living user profile and historical evolution.
 - PERMISSIONS-VAULT.md — independent permissions and vault security boundary.
 
@@ -25,7 +29,11 @@
 - MEMORY-TAXONOMY.md — cognitive memory classification.
 - ENCRYPTED-INDEX.md — encrypted catalogs and scalable retrieval.
 - KNOWLEDGE-REUSE.md — memory-first answer reuse.
-- STORAGE-ADAPTERS.md — provider-independent storage.
+- STORAGE-ADAPTERS.md — provider-independent storage contract.
+- STORAGE-PROVIDERS.md — implemented Local/GitHub/S3/GCS/Drive/Azure/OSS/WebDAV providers.
+- LOCAL-AI.md — local provider architecture.
+- LLAMACPP.md — llama.cpp connector.
+- PHP-OOP.md — production OOP boundary.
 
 ## Compatibility and history
 

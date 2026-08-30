@@ -27,14 +27,25 @@ Semantic retrieval:
 mcma semantic-check LOCATION QUESTION_FILE --actor=ai --min-similarity=0.78 --min-confidence=0.75
 ~~~
 
-Options:
+Options include:
 
 ~~~text
---embedding-provider=bedrock-titan-v2
---dimensions=256|512|1024
+--embedding-provider=bedrock-titan-v2|ollama|llamacpp|none
+--generation-provider=bedrock-converse|ollama|llamacpp|none
+--dimensions=256|512|1024      # Bedrock Titan
 --min-similarity=-1.0..1.0
 --min-confidence=0.0..1.0
 --current=yes|no
+~~~
+
+The CLI also includes multi-user administrative commands:
+
+~~~text
+mcma users-init
+mcma user-register
+mcma user-info
+mcma users-list
+mcma user-disable
 ~~~
 
 Exact knowledge lookup runs first. Semantic search runs only on an exact miss.
@@ -56,3 +67,10 @@ No Bedrock credential is written into MCMA objects.
 ## Security
 
 The semantic index is derived internal data. AI is denied direct index reads by the default permissions profile; semantic candidate results are filtered through the requesting actor's access.
+
+
+## Current runtime boundary
+
+The CLI and web application use the same MCMA core. Storage and AI providers are independently configurable.
+
+Web-only commercial layers such as OIDC sessions, external API keys, billing, SuperAdmin and Stripe Checkout do not change CLI memory compatibility or the MCMA 1.0 format.

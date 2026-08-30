@@ -199,13 +199,17 @@ External API keys are stored as HMAC only and resolve to the same user library/b
 
 SuperAdmin can inspect account/billing totals, change plans, adjust credits, suspend service/access, configure provider pricing and record already verified payments. No SuperAdmin route reads private memory content or Vault secrets.
 
-Stripe one-time Checkout and verified webhook fulfillment are implemented. Stripe recurring subscriptions and live PayPal/Mercado Pago checkout-webhook connectors remain future payment milestones.
+Stripe one-time Checkout, recurring subscriptions, renewal credit fulfillment and verified webhook lifecycle handling are implemented. Live PayPal/Mercado Pago checkout-webhook connectors remain future payment milestones.
 
 
 ## Stripe payments
 
-MCMA supports Stripe-hosted Checkout for versioned one-time packages that grant credits, change plan, or both.
+MCMA supports Stripe-hosted Checkout for versioned one-time and recurring packages.
 
-Webhook fulfillment verifies Stripe-Signature against the raw body, validates user/package binding, package fingerprint, live/test mode, amount and currency, and is idempotent by Checkout Session id.
+One-time packages are fulfilled from paid Checkout Session webhooks. Subscription packages are linked during Checkout but credits are granted only by paid invoices, including renewal invoices. Each Stripe invoice id can be credited only once.
+
+Subscription state is persisted in the encrypted billing account. Active subscriptions activate the configured paid plan; `past_due` is recorded while Stripe retries payment; canceled, unpaid, paused or expired subscriptions return the paid plan to Free without deleting the user's memory or existing credit balance.
+
+Webhook fulfillment verifies Stripe-Signature against the raw body, validates user/package binding, package fingerprint, live/test mode, Stripe Price, amount and currency, and rejects stale subscription/invoice events when another subscription is already current.
 
 Stripe credentials remain server-side. Billing-disabled personal installations do not expose Checkout.

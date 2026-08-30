@@ -272,14 +272,14 @@ Billing is disabled by default. Configure pricing and credits before enabling pa
 
 ## Stripe Checkout
 
-When billing and Stripe are configured, authenticated users can list purchasable packages and start Stripe Checkout:
+When billing and Stripe are configured, authenticated users can list purchasable one-time or subscription packages and start Stripe Checkout:
 
 ~~~text
 GET  /mcma/v1/billing/stripe/packages
 POST /mcma/v1/billing/stripe/checkout
 ~~~
 
-Stripe redirects the browser to its hosted payment page.
+Stripe redirects the browser to its hosted payment page. Package `billing_mode` controls whether Checkout uses `mode=payment` or `mode=subscription`.
 
 The webhook endpoint is public but cryptographically verified:
 
@@ -289,6 +289,10 @@ POST /mcma/v1/billing/stripe/webhook
 
 The webhook must receive the original raw request body unchanged. No browser session or CORS permission is used for the webhook.
 
-When `MCMA_BILLING_ENABLED=false`, package listing and Checkout creation are disabled. A correctly signed webhook can still finish a Checkout that was already started.
+For subscription packages, Checkout links the user and Stripe Subscription but does not grant recurring credits. Credits and paid-plan activation are fulfilled from verified `invoice.paid` events; future paid invoices automatically renew the configured credit grant.
+
+Subscription lifecycle events are also processed. A payment failure records the Stripe state while retries remain possible; cancellation/unpaid/paused states return the paid plan to Free without deleting the MCMA library.
+
+When `MCMA_BILLING_ENABLED=false`, package listing and Checkout creation are disabled. A correctly signed webhook can still finish a Checkout or renewal that was already in flight.
 
 See `docs/BILLING.md` for package configuration and fulfillment rules.

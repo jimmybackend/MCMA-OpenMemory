@@ -40,6 +40,27 @@ final class StripeClient
         return $json;
     }
 
+    public function retrieveSubscription(string $subscriptionId): array
+    {
+        if(!preg_match('/^sub_[A-Za-z0-9_]+$/',$subscriptionId)){
+            throw new BillingException('Invalid Stripe subscription id','stripe_subscription_invalid',400);
+        }
+
+        [$status,$body]=$this->request(
+            'GET',
+            'https://api.stripe.com/v1/subscriptions/'.rawurlencode($subscriptionId),
+            ['accept'=>'application/json']
+        );
+        if($status<200||$status>=300){
+            throw new BillingException('Stripe subscription retrieval failed','stripe_subscription_retrieve_failed',502);
+        }
+        $json=self::jsonObject($body);
+        if(($json['object']??null)!=='subscription'||($json['id']??null)!==$subscriptionId){
+            throw new BillingException('Stripe subscription response is invalid','stripe_subscription_invalid_response',502);
+        }
+        return $json;
+    }
+
     public function expectedLiveMode(): bool
     {
         return str_contains($this->apiKey,'_live_');
@@ -64,13 +85,13 @@ final class StripeClient
             CURLOPT_RETURNTRANSFER=>true,
             CURLOPT_CUSTOMREQUEST=>strtoupper($method),
             CURLOPT_HTTPHEADER=>$wire,
-            CURLOPT_POSTFIELDS=>$body,
             CURLOPT_TIMEOUT=>30,
             CURLOPT_CONNECTTIMEOUT=>5,
             CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTPS,
             CURLOPT_FOLLOWLOCATION=>false,
         ]);
+        if($body!=='') curl_setopt($ch,CURLOPT_POSTFIELDS,$body);
         $response=curl_exec($ch);
         if($response===false){
             $error=curl_error($ch);curl_close($ch);

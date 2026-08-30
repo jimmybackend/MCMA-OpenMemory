@@ -139,7 +139,7 @@ MCMA verifies all of the following before returning the library:
 4. the opened manifest has the registered `library_id`;
 5. the user library identity marker contains the same non-PII `user_id`.
 
-The application can then construct the normal Knowledge/Semantic/Ask services using that Library.
+The application can then construct the normal Knowledge/Semantic/Ask services using that Library. The current web application already performs this resolution for OIDC sessions and external HMAC-backed API keys.
 
 ## Web request flow
 
@@ -224,10 +224,19 @@ Implemented:
 - namespace isolation;
 - atomic JSON registry mutation with provider CAS/locking where supported.
 
+Additional implemented lifecycle layers:
+
+- OIDC web authentication and encrypted sessions;
+- external API keys stored as HMAC only;
+- per-user billing account and encrypted daily usage ledger;
+- Free / Starter / Pro / Business plans;
+- SuperAdmin for plan, credit, access and service administration;
+- Stripe one-time Checkout and recurring subscriptions with verified webhook fulfillment.
+
 Future lifecycle work:
 
 - pepper rotation/migration;
 - bulk user key recovery/export;
 - device authorization;
-- production HTTP authentication adapter;
-- optional account deletion/retention policy.
+- optional account deletion/retention policy;
+- Stripe Customer Portal/self-service subscription management.

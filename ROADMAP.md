@@ -154,9 +154,14 @@
 - [x] user billing/API-key dashboard
 - [x] SuperAdmin web panel
 - [x] Stripe Checkout payment-mode integration
+- [x] Stripe Checkout subscription-mode integration
 - [x] Stripe webhook signature verification and idempotent fulfillment
-- [x] automatic credits + optional plan activation from Stripe packages
-- [ ] Stripe recurring subscription renewals
+- [x] automatic credits + optional plan activation from one-time packages
+- [x] recurring credits from each paid subscription invoice
+- [x] Stripe subscription lifecycle tracking (active / past_due / canceled / unpaid / paused)
+- [x] paid-plan downgrade to Free when the Stripe subscription ends
+- [x] Stripe retry-safe renewal handling by invoice id
+- [ ] Stripe Customer Portal / self-service cancellation UI
 - [ ] live PayPal / Mercado Pago checkout-webhook connectors
 
 ## PHP architecture — OOP production boundary complete

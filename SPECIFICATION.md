@@ -59,6 +59,8 @@ Historical ciphertext MUST NOT be relabeled as MCMA 1.0 without authenticated de
 
 ## Implementation status
 
-The format contract is now ready to drive the first manual/local implementation.
+The MCMA 1.0 format contract now drives a working PHP implementation.
 
-The CLI/core itself is the next work block and is not claimed as implemented yet.
+Implemented non-normative product layers include CLI/core operations, permissions/vault, knowledge reuse, semantic retrieval, Bedrock/Ollama/llama.cpp connectors, multi-cloud StorageAdapters, encrypted multi-user web/API operation, metering/credits, SuperAdmin and optional Stripe Checkout with one-time and recurring subscription fulfillment.
+
+These product layers do not change the normative MCMA 1.0 container/cryptography/addressing contract under `spec/1.0/`.

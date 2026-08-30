@@ -2,6 +2,8 @@
 
 This document describes the deployment pattern used by the original MCMA prototype and generalizes it for a public implementation.
 
+> Current MCMA 1.0 deployments should use the real web root under `apps/web/public`, the example `config/nginx/mcma-web.conf.example`, and the environment names in `config/mcma.env.example`. The older `/mcma/v2/crypto` examples below are retained only as compatibility lineage.
+
 It intentionally documents **where secrets live and how the service receives them** without publishing any production secret values.
 
 ## Goals
@@ -218,3 +220,43 @@ The `/etc/mcma/mcma.env` pattern is useful because it makes the trust boundary c
 - workload identity or short-lived credentials.
 
 MCMA-OpenMemory does not require a particular provider. The invariant is that secret delivery remains outside the portable memory format and outside the public repository.
+
+
+## Current MCMA 1.0 web deployment additions
+
+The current web runtime is database-free and uses:
+
+~~~text
+apps/web/public
+packages/core
+packages/connectors
+~~~
+
+A multi-user deployment should use a protected `MCMA_KEY_DIR` and leave `MCMA_MASTER_KEY_B64` unset.
+
+Current server-only secrets/config can include:
+
+~~~text
+MCMA_MULTIUSER_PEPPER
+MCMA_WEB_SESSION_SECRET
+MCMA_OIDC_CLIENT_SECRET
+MCMA_API_KEY_PEPPER
+
+AWS / storage-provider credentials as required
+
+MCMA_STRIPE_SECRET_KEY
+MCMA_STRIPE_WEBHOOK_SECRET
+MCMA_STRIPE_PACKAGES_JSON
+~~~
+
+Stripe is optional. Personal deployments can keep `MCMA_BILLING_ENABLED=false`.
+
+Commercial Stripe packages support both one-time `payment` and recurring `subscription` modes. The webhook endpoint is:
+
+~~~text
+POST /mcma/v1/billing/stripe/webhook
+~~~
+
+The raw webhook body must reach PHP unchanged because signature verification authenticates the exact payload bytes.
+
+For recurring subscriptions, paid invoices renew credits idempotently by Stripe invoice id. Subscription cancellation/unpaid/paused lifecycle events remove the paid-plan benefit and return the account to Free while preserving encrypted memory and existing credits.

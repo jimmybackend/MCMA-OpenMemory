@@ -231,7 +231,7 @@ A provider payment reference is idempotent: the same provider/payment id cannot 
 
 MCMA does not store card or bank credentials.
 
-Stripe Checkout is implemented for one-time payment packages.
+Stripe Checkout is implemented for both one-time and recurring subscription packages.
 
 Routes:
 
@@ -241,26 +241,44 @@ POST /mcma/v1/billing/stripe/checkout
 POST /mcma/v1/billing/stripe/webhook
 ~~~
 
-A Stripe package is configured server-side with a Stripe Price id, plan id, credit units, currency, amount in the currency minor unit, and minor-unit exponent.
+A Stripe package is configured server-side with `billing_mode=payment|subscription`, a Stripe Price id, plan id, credit units, currency, amount in the currency minor unit, and minor-unit exponent.
 
-Checkout Sessions are created server-side. MCMA binds the authenticated user and package to Stripe using client_reference_id and metadata. A package fingerprint is also embedded so a package changed after Checkout creation is rejected instead of silently applying new terms.
+For `payment`, `credit_units` are granted once when the Checkout Session is confirmed paid.
+
+For `subscription`, the Stripe Price must be recurring and `credit_units` are granted on every successfully paid subscription invoice, including the initial invoice and future renewal invoices.
+
+Checkout Sessions are created server-side. MCMA binds the authenticated user and package to Stripe using `client_reference_id` and metadata. Subscription packages also copy the binding into `subscription_data.metadata` so renewal events can be resolved without a database. A package fingerprint is embedded so a changed package configuration is rejected instead of silently applying new terms.
 
 The webhook uses the raw request body and Stripe-Signature header. It checks timestamp tolerance and HMAC-SHA256 signature before parsing the event.
 
-Only paid payment-mode Checkout Sessions are fulfilled. The webhook verifies:
+The webhook handles:
 
-- event livemode matches the configured Stripe key;
-- client_reference_id and metadata user id match;
-- package id exists;
-- package fingerprint matches;
-- amount_total matches the configured package;
-- currency matches the configured package.
+~~~text
+checkout.session.completed
+checkout.session.async_payment_succeeded
+invoice.paid
+invoice.payment_failed
+customer.subscription.created
+customer.subscription.updated
+customer.subscription.deleted
+customer.subscription.paused
+customer.subscription.resumed
+~~~
 
-Fulfillment is idempotent through the Stripe Checkout Session id. Retries do not duplicate credits.
+For one-time packages, paid Checkout Sessions are fulfilled idempotently by Checkout Session id.
 
-A successful package may add credits, change the MCMA plan, or both.
+For subscriptions, Checkout never grants recurring credits directly. MCMA retrieves the Stripe Subscription, verifies its metadata and configured recurring Price, stores its lifecycle state, and waits for `invoice.paid`. Every paid invoice is fulfilled idempotently by invoice id, so webhook retries cannot duplicate renewal credits.
 
-Stripe recurring subscription renewals are not implemented yet. PayPal and Mercado Pago remain recorded-payment types until their own live checkout/webhook connectors are implemented.
+Subscription behavior:
+
+- `active` / `trialing`: paid plan may remain active;
+- `past_due`: state is recorded while Stripe performs configured retries; MCMA does not immediately revoke the plan;
+- `canceled`, `unpaid`, `paused`, `incomplete_expired`: the subscription's paid-plan benefit is removed and the user returns to Free while keeping memory and previously acquired credits;
+- stale events from an older subscription do not override a newer current subscription.
+
+Paid invoices additionally verify the configured Stripe Price, package fingerprint, currency and expected package amount before granting credits.
+
+PayPal and Mercado Pago remain recorded-payment types until their own live checkout/webhook connectors are implemented.
 
 ## Important configuration
 
@@ -273,6 +291,10 @@ MCMA_WEB_BILLING_MAX_OUTPUT_TOKENS=1024
 MCMA_STRIPE_SECRET_KEY=...
 MCMA_STRIPE_WEBHOOK_SECRET=...
 MCMA_STRIPE_PACKAGES_JSON=...
+
+# Example package modes:
+# {"credits-once":{"billing_mode":"payment",...},
+#  "pro-monthly":{"billing_mode":"subscription",...}}
 ~~~
 
 Do not enable paid model billing until pricing entries are configured.

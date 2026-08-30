@@ -24,9 +24,9 @@ Open MCMA
              │
              ▼
        Choose mode
-        ┌────┼──────────────┐
-        ▼    ▼              ▼
-      With   Without      Configure
+        ┌────┼──────────────┬──────────────┐
+        ▼    ▼              ▼              ▼
+      With   Without      Configure      Web/API
        AI      AI
 ~~~
 
@@ -91,7 +91,15 @@ migrate
 
 Configuration should be divided into storage, security, identity, permissions and AI.
 
-Storage may include local filesystem, USB/removable media, S3-compatible storage, WebDAV and future providers.
+Storage may use Local, GitHub, S3/S3-compatible, Google Cloud Storage, Google Drive, Azure Blob Storage, Alibaba OSS or WebDAV.
+
+## Mode: Web/API
+
+The current PHP web application can authenticate with OIDC, derive an isolated multi-user library and expose the same Ask/Knowledge/Semantic core through HTTPS.
+
+Commercial deployments may optionally enable AI metering, credits, API keys, plans, SuperAdmin and Stripe Checkout. Personal deployments can keep billing disabled.
+
+Stripe packages may be one-time purchases or recurring subscriptions. Recurring packages renew credits from verified `invoice.paid` events.
 
 ## Device portability
 

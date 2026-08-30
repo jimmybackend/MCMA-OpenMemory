@@ -189,7 +189,12 @@ See `docs/BILLING.md`.
 
 ### Stripe Checkout
 
-Optional commercial deployments can enable server-side Stripe Checkout. A verified Stripe webhook automatically applies package credits and an optional paid plan to the authenticated MCMA user.
+Optional commercial deployments can enable server-side Stripe Checkout in two modes:
+
+- `payment`: one-time credits and/or paid-plan activation;
+- `subscription`: recurring Stripe Price, paid-plan activation and automatic credit renewal on every successful `invoice.paid`.
+
+Subscription renewals are idempotent by Stripe invoice id. `past_due` preserves the current paid plan while Stripe retries collection; canceled, unpaid or paused subscriptions revoke the paid-plan benefit and return the account to Free without deleting memory or already purchased credits.
 
 Personal deployments can keep `MCMA_BILLING_ENABLED=false`; Stripe is not required.
 
