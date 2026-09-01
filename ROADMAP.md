@@ -135,6 +135,8 @@
 - [x] memory text search, temperature/validation filters and pagination
 - [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
 - [x] Preguntar / Mi memoria / Contexto MCMA primary tab navigation
+- [x] delegated click + keyboard tab activation with ARIA tab semantics
+- [x] mutable UI cache revalidation guidance for Nginx/CloudFront
 - [x] encrypted per-user context traces for the latest 50 questions
 - [x] exact injected-memory transparency for generation requests
 - [x] owner-only context trace policy and zero-AI context inspection
