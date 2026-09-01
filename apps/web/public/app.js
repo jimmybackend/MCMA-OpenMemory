@@ -216,6 +216,7 @@
         const button=document.createElement('button');
         button.type='button';
         button.className='memory-list-item';
+        button.dataset.memoryId=item.id;
         if(item.id===memoryState.selectedId)button.classList.add('selected');
 
         const title=document.createElement('strong');
@@ -283,7 +284,7 @@
     memoryValidationStatus.textContent='';
 
     for(const node of memoryList.querySelectorAll('.memory-list-item')){
-      node.classList.toggle('selected',memoryState.items.some(item=>item.id===memory.id&&node.querySelector('strong')?.textContent===item.question));
+      node.classList.toggle('selected',node.dataset.memoryId===memory.id);
     }
 
     memoryDetailQuestion.textContent=memory.question||'—';
