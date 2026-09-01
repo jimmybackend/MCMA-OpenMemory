@@ -44,12 +44,22 @@
   }
 
   function activateTab(name){
-    for(const panel of tabPanels)panel.hidden=panel.dataset.tabPanel!==name;
+    const valid=tabButtons.some(button=>button.dataset.tabTarget===name);
+    if(!valid)name='ask';
+
+    for(const panel of tabPanels){
+      const active=panel.dataset.tabPanel===name;
+      panel.hidden=!active;
+      panel.setAttribute('aria-hidden',active?'false':'true');
+    }
+
     for(const button of tabButtons){
       const active=button.dataset.tabTarget===name;
       button.classList.toggle('active',active);
       button.setAttribute('aria-selected',active?'true':'false');
+      button.tabIndex=active?0:-1;
     }
+
     if(name==='memory'&&memoryState.items.length===0)loadMemories(1);
     if(name==='context')loadContext();
   }
@@ -573,6 +583,29 @@
       newKey.textContent='Guárdala ahora; no volverá a mostrarse:\n'+data.key.token;
       await loadKeys();
     }catch(error){newKey.hidden=false;newKey.textContent=error.message;}
+  });
+
+  mainTabs.addEventListener('click',event=>{
+    const button=event.target.closest('[data-tab-target]');
+    if(!button||!mainTabs.contains(button))return;
+    activateTab(button.dataset.tabTarget);
+  });
+
+  mainTabs.addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const current=tabButtons.findIndex(button=>button.getAttribute('aria-selected')==='true');
+    if(current<0)return;
+
+    event.preventDefault();
+    let next=current;
+    if(event.key==='ArrowLeft')next=(current-1+tabButtons.length)%tabButtons.length;
+    if(event.key==='ArrowRight')next=(current+1)%tabButtons.length;
+    if(event.key==='Home')next=0;
+    if(event.key==='End')next=tabButtons.length-1;
+
+    const button=tabButtons[next];
+    activateTab(button.dataset.tabTarget);
+    button.focus();
   });
 
   memorySearchForm.addEventListener('submit',event=>{
