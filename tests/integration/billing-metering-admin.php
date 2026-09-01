@@ -181,7 +181,10 @@ try{
     assert_billing(isset($adminUsers[0]['billing'],$adminUsers[0]['totals']),'Admin billing overview incomplete');
 
     $bobSummary=$billing->summary($bobLib);
-    assert_billing(($bobSummary['balance_units']??-1)===0,'Alice billing leaked into Bob account');
+    assert_billing(($bobSummary['balance_units']??-1)===100000,'Bob Free allowance mismatch');
+    assert_billing(($bobSummary['quota']['monthly_tokens_used']??-1)===0,'Alice token usage leaked into Bob quota');
+    $bobTotals=$billing->totals($bobLib);
+    assert_billing(($bobTotals['payments']??-1)===0&&($bobTotals['total_tokens']??-1)===0,'Alice billing activity leaked into Bob account');
 
     $allBytes='';
     foreach($root->list('') as $locator) $allBytes.=$root->get($locator)['bytes'];

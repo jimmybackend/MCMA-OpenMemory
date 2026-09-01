@@ -152,7 +152,7 @@ try{
     $checkoutBody=json_encode($checkoutEvent,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $checkoutHandled=$stripe->handleWebhook($checkoutBody,stripe_sub_signature($now,$checkoutBody,$secret));
     assert_sub(($checkoutHandled['credits_granted']??-1)===0,'Subscription checkout incorrectly granted credits');
-    assert_sub(($billing->summary($library)['balance_units']??-1)===0,'Subscription checkout changed balance');
+    assert_sub(($billing->summary($library)['balance_units']??-1)===100000,'Free allowance missing while subscription awaits invoice');
     assert_sub(($billing->account($library)['plan_id']??null)==='free','Subscription checkout activated plan before invoice.paid');
     assert_sub(($billing->account($library)['stripe_subscription']['subscription_id']??null)===$subscriptionId,'Subscription state was not linked');
 
@@ -178,7 +178,7 @@ try{
     $invoiceBody1=json_encode($invoiceEvent1,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $paid1=$stripe->handleWebhook($invoiceBody1,stripe_sub_signature($now,$invoiceBody1,$secret));
     assert_sub(($paid1['processed']??false)===true,'Initial subscription invoice was not processed');
-    assert_sub(($billing->summary($library)['balance_units']??0)===1000,'Initial subscription credits missing');
+    assert_sub(($billing->summary($library)['balance_units']??0)===101000,'Initial subscription credits missing');
     assert_sub(($billing->account($library)['plan_id']??null)==='pro','Initial subscription plan not activated');
     assert_sub(($billing->account($library)['stripe_subscription']['status']??null)==='active','Subscription state not active');
 
@@ -194,14 +194,14 @@ try{
     $invoiceBody2=json_encode($invoiceEvent2,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $paid2=$stripe->handleWebhook($invoiceBody2,stripe_sub_signature($now,$invoiceBody2,$secret));
     assert_sub(($paid2['processed']??false)===true,'Recurring invoice was not processed');
-    assert_sub(($billing->summary($library)['balance_units']??0)===2000,'Recurring credits were not added');
+    assert_sub(($billing->summary($library)['balance_units']??0)===102000,'Recurring credits were not added');
 
     $retryEvent=$invoiceEvent2;
     $retryEvent['id']='evt_invoice_paid_002_retry';
     $retryBody=json_encode($retryEvent,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $retry=$stripe->handleWebhook($retryBody,stripe_sub_signature($now,$retryBody,$secret));
     assert_sub(($retry['already_recorded']??false)===true,'Recurring invoice retry was not idempotent');
-    assert_sub(($billing->summary($library)['balance_units']??0)===2000,'Recurring invoice retry duplicated credits');
+    assert_sub(($billing->summary($library)['balance_units']??0)===102000,'Recurring invoice retry duplicated credits');
 
     $subscriptionStatus='past_due';
     $failedInvoice=[
@@ -241,7 +241,7 @@ try{
     assert_sub(($deleted['processed']??false)===true,'Subscription deletion was not processed');
     assert_sub(($billing->account($library)['plan_id']??null)==='free','Canceled subscription did not downgrade to free');
     assert_sub(($billing->account($library)['service_status']??null)==='active','Canceled subscription disabled free service');
-    assert_sub(($billing->summary($library)['balance_units']??0)===2000,'Cancellation removed purchased credits');
+    assert_sub(($billing->summary($library)['balance_units']??0)===102000,'Cancellation removed purchased credits');
 
     echo "MCMA Stripe recurring subscription renewals passed.\n";
 }finally{

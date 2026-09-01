@@ -118,7 +118,7 @@ try{
         'authorization'=>'Bearer '.$token,
     ]));
     assert_web_billing($billingResponse->status()===200,'Bearer billing endpoint failed');
-    assert_web_billing((json_response_body($billingResponse)['billing']['balance_units']??0)===5000,'Billing balance mismatch');
+    assert_web_billing((json_response_body($billingResponse)['billing']['balance_units']??0)===105000,'Billing balance mismatch after Free allowance plus admin credits');
 
     $adminUsers=$app->handle(new HttpRequest('GET','/mcma/v1/admin/users',[],[],['mcma_session'=>$adminCookie]));
     assert_web_billing($adminUsers->status()===200,'Admin users endpoint failed');
