@@ -80,11 +80,15 @@ final class AskService
             ];
         }
 
-        $generated = $this->generationProvider->generate($question, [
+        $memoryContext = $this->generationMemoryContext($actor, $question, $memoryAttempt, $minConfidence);
+        $generationContext = [
             'actor' => $actor,
             'current_required' => $currentRequired,
             'memory_attempt' => self::memorySummary($memoryAttempt),
-        ]);
+        ];
+        if ($memoryContext !== null) $generationContext['memory_context'] = $memoryContext;
+
+        $generated = $this->generationProvider->generate($question, $generationContext);
         $text = trim((string)($generated['text'] ?? ''));
         if ($text === '') throw new RuntimeException('Generation provider returned an empty answer');
 
@@ -155,10 +159,71 @@ final class AskService
             $result['store_reason'] = $storeReason;
         }
 
+        if ($memoryContext !== null) {
+            $result['context_used'] = [
+                'memory' => true,
+                'logical_ref' => $memoryContext['logical_ref'],
+                'matched_question' => $memoryContext['question'],
+                'validation_state' => $memoryContext['validation_state'],
+                'confidence' => $memoryContext['confidence'],
+                'freshness_class' => $memoryContext['freshness_class'],
+                'stale' => $memoryContext['stale'],
+                'reasons' => $memoryContext['reasons'],
+            ];
+        } else {
+            $result['context_used'] = ['memory' => false];
+        }
+
         if (isset($generated['usage']) && is_array($generated['usage'])) $result['usage'] = $generated['usage'];
         if (array_key_exists('stop_reason', $generated)) $result['stop_reason'] = $generated['stop_reason'];
 
         return $result;
+    }
+
+    private function generationMemoryContext(string $actor, string $question, array $memoryAttempt, float $minConfidence): ?array
+    {
+        if (($memoryAttempt['found'] ?? false) !== true) return null;
+        if (($memoryAttempt['decision'] ?? null) !== 'revalidate') return null;
+
+        $state=(string)($memoryAttempt['validation_state']??'');
+        $confidence=(float)($memoryAttempt['confidence']??-1);
+        if(!in_array($state,['supported','verified'],true)||$confidence<$minConfidence) return null;
+
+        $reasons=is_array($memoryAttempt['reasons']??null)?array_values($memoryAttempt['reasons']):[];
+        foreach(['validation-insufficient','confidence-below-threshold','validation-state-disputed','validation-state-retracted','reuse-policy-never-direct'] as $blocked){
+            if(in_array($blocked,$reasons,true)) return null;
+        }
+
+        $matchedQuestion=(string)($memoryAttempt['matched_question']??$question);
+        try{
+            $stored=$this->knowledge->inspect($actor,$matchedQuestion);
+        }catch(\Throwable){
+            return null;
+        }
+        $record=$stored['record']??null;
+        if(!is_array($record)) return null;
+
+        $answer=$record['answer']['value']??null;
+        $format=(string)($record['answer']['format']??'text');
+        if(is_array($answer)||is_object($answer)){
+            $answer=json_encode($answer,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+        }elseif(!is_string($answer)){
+            return null;
+        }
+        if(!is_string($answer)||trim($answer)==='') return null;
+        if(strlen($answer)>12000) $answer=substr($answer,0,12000)."\n[context truncated]";
+
+        return [
+            'logical_ref'=>(string)($stored['logical_ref']??KnowledgeRecord::logicalRef($matchedQuestion)),
+            'question'=>$matchedQuestion,
+            'answer_format'=>$format,
+            'answer'=>$answer,
+            'validation_state'=>$state,
+            'confidence'=>$confidence,
+            'freshness_class'=>(string)($memoryAttempt['freshness_class']??'stable'),
+            'stale'=>(bool)($memoryAttempt['stale']??false),
+            'reasons'=>$reasons,
+        ];
     }
 
     private static function memorySummary(array $memory): array
