@@ -265,6 +265,32 @@ try {
     $askBody = json_decode($ask->body(), true, 64, JSON_THROW_ON_ERROR);
     assert_web_app(($askBody['ok'] ?? false) === true, 'Ask response not ok');
     assert_web_app(is_array($askBody['result'] ?? null), 'Ask result missing');
+    assert_web_app(($askBody['result']['context_trace']['recorded']??false) === true, 'Ask context trace was not recorded');
+
+    $aliceContext = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/context',
+        [],
+        [],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($aliceContext->status() === 200, 'Alice context transparency route failed');
+    $aliceContextBody = json_decode($aliceContext->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($aliceContextBody['context']['ai_tokens_used']??-1) === 0, 'Context transparency read used AI tokens');
+    assert_web_app(($aliceContextBody['context']['credit_units_charged']??-1) === 0, 'Context transparency read charged credits');
+    assert_web_app(count($aliceContextBody['context']['traces']??[]) >= 1, 'Alice context trace list is empty');
+    assert_web_app(($aliceContextBody['context']['traces'][0]['question']??null) === 'What is MCMA?', 'Context trace question mismatch');
+
+    $bobContext = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/context',
+        [],
+        [],
+        ['mcma_session'=>$bobCookie]
+    ));
+    assert_web_app($bobContext->status() === 200, 'Bob context transparency route failed');
+    $bobContextBody = json_decode($bobContext->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(count($bobContextBody['context']['traces']??[]) === 0, 'Bob could see Alice context traces');
 
     $crossOrigin = $app->handle(new HttpRequest(
         'POST',
