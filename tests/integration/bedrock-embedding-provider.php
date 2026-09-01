@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
 use MCMA\Connectors\Aws\BedrockTitanEmbeddingProvider;
+use MCMA\Core\Storage\AwsSigV4;
 
 function embedding256(): array
 {
@@ -45,6 +46,26 @@ $sigRequester = function (string $method, string $url, array $headers, string $b
     if (!str_starts_with($authorization, 'AWS4-HMAC-SHA256 ')) throw new RuntimeException('Bedrock SigV4 authorization missing');
     if (!str_contains($authorization, '/us-east-1/bedrock/aws4_request')) throw new RuntimeException('Bedrock SigV4 signing scope mismatch');
     if (!isset($headers['x-amz-content-sha256'], $headers['x-amz-date'])) throw new RuntimeException('Bedrock SigV4 headers missing');
+    $expected = AwsSigV4::sign(
+        'POST',
+        'bedrock-runtime.us-east-1.amazonaws.com',
+        '/model/amazon.titan-embed-text-v2%3A0/invoke',
+        [],
+        ['content-type'=>'application/json','accept'=>'application/json'],
+        $body,
+        'AKIDEXAMPLE',
+        'SECRETEXAMPLE',
+        'us-east-1',
+        'bedrock',
+        (string)$headers['x-amz-date'],
+        'SESSIONEXAMPLE'
+    );
+    if (($expected['headers']['authorization'] ?? null) !== $authorization) {
+        throw new RuntimeException('Bedrock embedding canonical path signing mismatch');
+    }
+    if (!str_contains((string)$expected['canonical_request'], '/model/amazon.titan-embed-text-v2%253A0/invoke')) {
+        throw new RuntimeException('Bedrock embedding canonical path was not double encoded');
+    }
     $sigSeen = true;
     return [200, json_encode(['embeddingsByType'=>['float'=>embedding256()],'inputTextTokenCount'=>5], JSON_THROW_ON_ERROR), []];
 };

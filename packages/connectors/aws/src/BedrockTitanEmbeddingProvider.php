@@ -85,7 +85,7 @@ final class BedrockTitanEmbeddingProvider implements EmbeddingProvider, UsageAwa
             $signed = AwsSigV4::sign(
                 'POST',
                 $host,
-                $rawPath,
+                $path,
                 [],
                 $headers,
                 $body,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
 use MCMA\Connectors\Aws\BedrockConverseGenerationProvider;
+use MCMA\Core\Storage\AwsSigV4;
 
 $bearerSeen = false;
 $bearerRequester = function (string $method, string $url, array $headers, string $body) use (&$bearerSeen): array {
@@ -49,7 +50,7 @@ if ($bearer->id() !== 'bedrock-converse:us.anthropic.claude-sonnet-4-6') throw n
 
 $sigSeen = false;
 $sigRequester = function (string $method, string $url, array $headers, string $body) use (&$sigSeen): array {
-    if (!str_contains($url, 'anthropic.claude-3-sonnet-20240229-v1%3A0/converse')) {
+    if (!str_contains($url, 'amazon.nova-micro-v1%3A0/converse')) {
         throw new RuntimeException('Bedrock Converse encoded model URL mismatch: ' . $url);
     }
     $authorization = (string)($headers['authorization'] ?? '');
@@ -57,6 +58,27 @@ $sigRequester = function (string $method, string $url, array $headers, string $b
     if (!str_contains($authorization, '/us-east-1/bedrock/aws4_request')) throw new RuntimeException('Bedrock Converse SigV4 scope mismatch');
     if (!isset($headers['x-amz-content-sha256'], $headers['x-amz-date'], $headers['x-amz-security-token'])) {
         throw new RuntimeException('Bedrock Converse SigV4 headers missing');
+    }
+
+    $expected = AwsSigV4::sign(
+        'POST',
+        'bedrock-runtime.us-east-1.amazonaws.com',
+        '/model/amazon.nova-micro-v1%3A0/converse',
+        [],
+        ['content-type'=>'application/json','accept'=>'application/json'],
+        $body,
+        'AKIDEXAMPLE',
+        'SECRETEXAMPLE',
+        'us-east-1',
+        'bedrock',
+        (string)$headers['x-amz-date'],
+        'SESSIONEXAMPLE'
+    );
+    if (($expected['headers']['authorization'] ?? null) !== $authorization) {
+        throw new RuntimeException('Bedrock Converse canonical path signing mismatch');
+    }
+    if (!str_contains((string)$expected['canonical_request'], '/model/amazon.nova-micro-v1%253A0/converse')) {
+        throw new RuntimeException('Bedrock Converse canonical path was not double encoded');
     }
 
     $sigSeen = true;
@@ -68,7 +90,7 @@ $sigRequester = function (string $method, string $url, array $headers, string $b
 
 $signed = new BedrockConverseGenerationProvider(
     'us-east-1',
-    'anthropic.claude-3-sonnet-20240229-v1:0',
+    'amazon.nova-micro-v1:0',
     256,
     0.0,
     null,

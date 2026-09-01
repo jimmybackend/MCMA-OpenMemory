@@ -102,7 +102,7 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
             $signed = AwsSigV4::sign(
                 'POST',
                 $host,
-                $rawPath,
+                $path,
                 [],
                 $headers,
                 $body,
