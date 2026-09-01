@@ -17,6 +17,13 @@
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
   const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null};
+  const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
+  const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
+  const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
+  const contextLastEmpty=$('contextLastEmpty'),contextLastContent=$('contextLastContent');
+  const contextLastQuestion=$('contextLastQuestion'),contextLastRoute=$('contextLastRoute'),contextLastProvider=$('contextLastProvider'),contextLastAt=$('contextLastAt');
+  const contextInjectedAnswer=$('contextInjectedAnswer'),contextInjectedMeta=$('contextInjectedMeta');
+  const contextGeneratedList=$('contextGeneratedList'),contextSystemList=$('contextSystemList'),contextTraceList=$('contextTraceList');
 
   async function api(path,options={}){
     const response=await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
@@ -26,6 +33,26 @@
   }
 
   const number=v=>new Intl.NumberFormat('es-MX').format(Number(v||0));
+
+  function routeLabel(route){
+    return ({
+      'memory-exact':'Memoria exacta',
+      'memory-semantic':'Memoria semántica',
+      'provider':'IA / proveedor',
+      'ask':'Sin proveedor'
+    })[route]||route||'—';
+  }
+
+  function activateTab(name){
+    for(const panel of tabPanels)panel.hidden=panel.dataset.tabPanel!==name;
+    for(const button of tabButtons){
+      const active=button.dataset.tabTarget===name;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-selected',active?'true':'false');
+    }
+    if(name==='memory'&&memoryState.items.length===0)loadMemories(1);
+    if(name==='context')loadContext();
+  }
 
   function setSessionState(state,text){
     status.classList.remove('active','pending','inactive');
@@ -348,6 +375,140 @@
     loadMemoryDetail(memoryState.items[next].id);
   }
 
+  function contextListItem(title,meta,click=null){
+    const el=document.createElement(click?'button':'div');
+    if(click)el.type='button';
+    el.className='context-list-item';
+    const strong=document.createElement('strong');
+    strong.textContent=title;
+    const small=document.createElement('small');
+    small.textContent=meta;
+    el.append(strong,small);
+    if(click)el.addEventListener('click',click);
+    return el;
+  }
+
+  function renderContextTrace(trace){
+    if(!trace){
+      contextLastEmpty.hidden=false;
+      contextLastContent.hidden=true;
+      return;
+    }
+    contextLastEmpty.hidden=true;
+    contextLastContent.hidden=false;
+    contextLastQuestion.textContent=trace.question||'—';
+    contextLastRoute.textContent=routeLabel(trace.route);
+    contextLastProvider.textContent=trace.provider_id||((trace.provider_called===false)?'No se llamó a IA':'—');
+    contextLastAt.textContent=memoryDate(trace.at);
+
+    const used=trace.context_used||{};
+    if(used.memory===true){
+      const value=used.answer?.value;
+      contextInjectedAnswer.textContent=typeof value==='string'?value:(value!==undefined?JSON.stringify(value,null,2):'Memoria usada, pero esta traza antigua no contiene el texto inyectado.');
+      contextInjectedMeta.replaceChildren(
+        memoryBadge('MCMA inyectada','route-badge route-ai-memory'),
+        memoryBadge(used.validation_state||'—'),
+        memoryBadge('Confianza '+Number(used.confidence||0).toFixed(2)),
+        memoryBadge(used.freshness_class||'—')
+      );
+    }else{
+      if(trace.route==='memory-exact'||trace.route==='memory-semantic'){
+        contextInjectedAnswer.textContent='No se inyectó memoria en un modelo: MCMA respondió directamente desde '+routeLabel(trace.route).toLowerCase()+'.';
+      }else{
+        contextInjectedAnswer.textContent='Ninguna memoria persistente fue inyectada al modelo en esta pregunta.';
+      }
+      contextInjectedMeta.replaceChildren(memoryBadge('Sin contexto inyectado'));
+    }
+
+    const billing=trace.billing||{};
+    const usage=billing.usage||{};
+    const total=Number(usage.total_tokens??usage.totalTokens??0);
+    contextInjectedMeta.append(
+      memoryBadge(number(total)+' tokens'),
+      memoryBadge(number(billing.credit_units_charged||0)+' créditos')
+    );
+
+    for(const node of contextTraceList.querySelectorAll('.context-list-item')){
+      node.classList.toggle('selected',node.dataset.traceId===trace.trace_id);
+    }
+  }
+
+  function openGeneratedMemory(item){
+    const match=String(item.logical_ref||'').match(/q-([0-9a-f]{64})$/);
+    if(!match)return;
+    activateTab('memory');
+    memoryQuery.value=item.question||'';
+    memoryTemperature.value='all';
+    memoryValidation.value='all';
+    loadMemories(1).then(()=>loadMemoryDetail(match[1]));
+  }
+
+  function renderContext(data){
+    const summary=data.summary||{};
+    const traces=Array.isArray(data.traces)?data.traces:[];
+    const generated=Array.isArray(data.generated_memories)?data.generated_memories:[];
+    const systemObjects=Array.isArray(data.system_objects)?data.system_objects:[];
+
+    contextPersistentTotal.textContent=number(summary.total||0);
+    contextReusableTotal.textContent=number(summary.reusable||0);
+    contextGeneratedTotal.textContent=number(summary.generated_by_model||0);
+    contextTraceTotal.textContent=number(traces.length);
+
+    contextGeneratedList.replaceChildren();
+    if(generated.length===0){
+      const empty=document.createElement('div');empty.className='context-empty';empty.textContent='Todavía no hay memorias persistentes generadas por IA.';contextGeneratedList.appendChild(empty);
+    }else{
+      for(const item of generated){
+        contextGeneratedList.appendChild(contextListItem(
+          item.question||'Memoria',
+          (item.provider_id||'modelo')+' · '+(item.validation_state||'—')+' · '+Number(item.confidence||0).toFixed(2)+' · '+(item.temperature||'—'),
+          ()=>openGeneratedMemory(item)
+        ));
+      }
+    }
+
+    contextSystemList.replaceChildren();
+    if(systemObjects.length===0){
+      const empty=document.createElement('div');empty.className='context-empty';empty.textContent='No hay objetos internos visibles.';contextSystemList.appendChild(empty);
+    }else{
+      for(const item of systemObjects){
+        const el=contextListItem(item.logical_ref||'memory://system',''+(item.cognitive_layer||'—')+' · '+(item.temperature||'—')+' · '+(item.scope||'—'));
+        el.querySelector('strong').classList.add('context-object-ref');
+        contextSystemList.appendChild(el);
+      }
+    }
+
+    contextTraceList.replaceChildren();
+    if(traces.length===0){
+      const empty=document.createElement('div');empty.className='context-empty';empty.textContent='Aún no hay preguntas trazadas.';contextTraceList.appendChild(empty);
+    }else{
+      for(const trace of traces){
+        const el=contextListItem(
+          trace.question||'Pregunta',
+          memoryDate(trace.at)+' · '+routeLabel(trace.route)+(trace.context_used?.memory===true?' · contexto MCMA':''),
+          ()=>renderContextTrace(trace)
+        );
+        el.dataset.traceId=trace.trace_id||'';
+        contextTraceList.appendChild(el);
+      }
+    }
+    renderContextTrace(traces[0]||null);
+  }
+
+  async function loadContext(){
+    contextRefresh.disabled=true;
+    try{
+      const data=await api('/mcma/v1/context',{method:'GET',headers:{}});
+      renderContext(data.context||{});
+    }catch(error){
+      contextLastEmpty.hidden=false;
+      contextLastContent.hidden=true;
+      contextLastEmpty.textContent='No se pudo leer el contexto: '+error.message;
+    }finally{
+      contextRefresh.disabled=false;
+    }
+  }
+
   async function detectAdmin(){
     try{await api('/mcma/v1/admin/users',{method:'GET',headers:{}});adminLink.hidden=false;}
     catch(e){adminLink.hidden=true;}
@@ -359,12 +520,13 @@
       const data=await api('/mcma/v1/me',{method:'GET',headers:{}});
       setSessionState('active','Sesión activa');
       showIdentity(data.identity||{});
-      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;memoryExplorer.hidden=false;
+      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;mainTabs.hidden=false;
       $('library').textContent=data.user.library_id;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
-      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadMemories(1)]);
+      activateTab('ask');
+      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin()]);
     }catch(error){
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;memoryExplorer.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
       const signedOut=new URLSearchParams(location.search).get('signed_out')==='1';
       if(error.status===401){
         setSessionState('inactive',signedOut?'Sesión cerrada':'Sin sesión');
@@ -439,7 +601,7 @@
     setSessionState('pending','Cerrando sesión…');
     try{
       await fetch('logout',{method:'POST',credentials:'same-origin'});
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;memoryExplorer.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
       setSessionState('inactive','Sesión cerrada');
       login.hidden=false;logout.hidden=true;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=true);
