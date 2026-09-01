@@ -72,6 +72,7 @@ jobs:
         run: |
           php tests/integration/web-oidc.php
           php tests/integration/web-application.php
+          php tests/integration/web-static-base-path.php
 
       - name: Billing and commercial API
         run: |

@@ -51,6 +51,27 @@ POST /mcma/v1/ask
 POST /logout
 ~~~
 
+## Hosting under a base path
+
+When `MCMA_WEB_BASE_PATH` is configured (for example `/mcma`), serve the static UI at the trailing-slash home (`/mcma/`) and route only the dynamic authentication/API endpoints to the PHP front controller. The bundled HTML uses relative asset/auth links so the same files work both at the origin root and under a base path.
+
+For a `/mcma` deployment, the intended split is:
+
+~~~text
+/mcma                  -> redirect to /mcma/
+/mcma/                 -> apps/web/public/index.html
+/mcma/app.css          -> static
+/mcma/app.js           -> static
+/mcma/admin.html       -> static
+/mcma/admin.js         -> static
+/mcma/login            -> PHP front controller
+/mcma/callback         -> PHP front controller
+/mcma/logout           -> PHP front controller
+/mcma/v1/*             -> PHP front controller
+~~~
+
+Legacy or provider-specific routes under other prefixes should remain in their own more-specific Nginx locations.
+
 ## Authentication
 
 The built-in first web authentication profile uses generic OpenID Connect Authorization Code flow with PKCE.

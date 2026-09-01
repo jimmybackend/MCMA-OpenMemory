@@ -128,6 +128,6 @@
     }catch(error){newKey.hidden=false;newKey.textContent=error.message;}
   });
 
-  logout.addEventListener('click',async()=>{await fetch('/logout',{method:'POST',credentials:'same-origin'});location.href='/';});
+  logout.addEventListener('click',async()=>{await fetch('logout',{method:'POST',credentials:'same-origin'});location.href='./';});
   loadMe();
 })();
