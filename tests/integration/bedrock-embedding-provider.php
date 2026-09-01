@@ -65,4 +65,32 @@ if (($signed->lastUsage()['inputTokens'] ?? null) !== 5) throw new RuntimeExcept
 
 if ($signed->id() !== 'bedrock:amazon.titan-embed-text-v2:0:dimensions=256:normalize=true') throw new RuntimeException('Bedrock provider id mismatch');
 
+$errorRequester = static function (): array {
+    return [403, json_encode([
+        'code' => 'AccessDeniedException',
+        'message' => 'Not authorized to invoke model.',
+        'credential' => 'must-not-leak',
+    ], JSON_THROW_ON_ERROR), []];
+};
+$errorProvider = new BedrockTitanEmbeddingProvider(
+    'us-east-1',
+    256,
+    'amazon.titan-embed-text-v2:0',
+    'test-bedrock-key',
+    null,
+    null,
+    null,
+    $errorRequester
+);
+try {
+    $errorProvider->embed('diagnostic test');
+    throw new RuntimeException('Expected Bedrock embedding diagnostic failure');
+} catch (RuntimeException $e) {
+    if ($e->getMessage() === 'Expected Bedrock embedding diagnostic failure') throw $e;
+    if (!str_contains($e->getMessage(), 'HTTP 403 - AccessDeniedException: Not authorized to invoke model.')) {
+        throw new RuntimeException('Bedrock embedding safe error detail missing: ' . $e->getMessage());
+    }
+    if (str_contains($e->getMessage(), 'must-not-leak')) throw new RuntimeException('Bedrock embedding diagnostic leaked unrelated response field');
+}
+
 echo "MCMA Bedrock Titan embedding provider simulation passed.\n";

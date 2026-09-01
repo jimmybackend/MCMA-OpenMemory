@@ -117,7 +117,10 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
         }
 
         [$status, $responseBody] = $this->request('POST', $url, $headers, $body);
-        if ($status !== 200) throw new RuntimeException('Bedrock Converse request failed: HTTP ' . $status);
+        if ($status !== 200) {
+            $detail = self::safeAwsErrorDetail($responseBody);
+            throw new RuntimeException('Bedrock Converse request failed: HTTP ' . $status . ($detail !== '' ? ' - ' . $detail : ''));
+        }
 
         try {
             $response = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
@@ -193,6 +196,27 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
         curl_close($ch);
 
         return [$status, (string)$responseBody, $responseHeaders];
+    }
+
+    private static function safeAwsErrorDetail(string $responseBody): string
+    {
+        try {
+            $decoded = json_decode($responseBody, true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return '';
+        }
+        if (!is_array($decoded)) return '';
+
+        $type = $decoded['__type'] ?? $decoded['code'] ?? $decoded['Code'] ?? null;
+        $message = $decoded['message'] ?? $decoded['Message'] ?? null;
+        $parts = [];
+        foreach ([$type, $message] as $part) {
+            if (!is_string($part) || trim($part) === '') continue;
+            $clean = preg_replace('/[\\x00-\\x1F\\x7F]+/u', ' ', trim($part));
+            if (!is_string($clean) || $clean === '') continue;
+            $parts[] = substr($clean, 0, 400);
+        }
+        return implode(': ', array_values(array_unique($parts)));
     }
 
     private static function firstEnv(array $names): ?string

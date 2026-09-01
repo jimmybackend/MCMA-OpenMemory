@@ -83,4 +83,34 @@ if (!$sigSeen || ($signedResult['text'] ?? null) !== 'Signed response.') {
     throw new RuntimeException('Bedrock Converse SigV4 simulation failed');
 }
 
+$errorRequester = static function (): array {
+    return [400, json_encode([
+        '__type' => 'ValidationException',
+        'message' => 'Invocation requires an inference profile.',
+        'secret' => 'must-not-leak',
+    ], JSON_THROW_ON_ERROR), []];
+};
+$errorProvider = new BedrockConverseGenerationProvider(
+    'us-east-1',
+    'example.model',
+    64,
+    0.0,
+    null,
+    'test-bedrock-key',
+    null,
+    null,
+    null,
+    $errorRequester
+);
+try {
+    $errorProvider->generate('diagnostic test');
+    throw new RuntimeException('Expected Bedrock Converse diagnostic failure');
+} catch (RuntimeException $e) {
+    if ($e->getMessage() === 'Expected Bedrock Converse diagnostic failure') throw $e;
+    if (!str_contains($e->getMessage(), 'HTTP 400 - ValidationException: Invocation requires an inference profile.')) {
+        throw new RuntimeException('Bedrock Converse safe error detail missing: ' . $e->getMessage());
+    }
+    if (str_contains($e->getMessage(), 'must-not-leak')) throw new RuntimeException('Bedrock Converse diagnostic leaked unrelated response field');
+}
+
 echo "MCMA Bedrock Converse generation provider simulation passed.\n";
