@@ -342,7 +342,7 @@ final class WebApplication
         $name=$claims['name']??null;
         if(is_string($name)&&trim($name)!==''&&strlen($name)<=256) $sessionData['name']=trim($name);
         $picture=$claims['picture']??null;
-        if(is_string($picture)&&strlen($picture)<=2048&&preg_match('#^https://#i',$picture)) $sessionData['picture']=$picture;
+        if(is_string($picture)&&strlen($picture)<=1024&&preg_match('#^https://#i',$picture)) $sessionData['picture']=$picture;
         if(is_bool($claims['email_verified']??null)) $sessionData['email_verified']=$claims['email_verified'];
         $session=$this->sessionCookieCipher->seal($sessionData);
         return HttpResponse::redirect($this->basePath===''?'/':$this->basePath,[
