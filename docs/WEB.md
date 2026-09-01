@@ -171,6 +171,35 @@ It cannot override:
 - credentials;
 - vault access.
 
+## Memory and context behavior
+
+The web application does not rely on an ever-growing plaintext chat transcript as its durable memory. A remembered answer is stored as an encrypted knowledge record keyed by normalized question intent.
+
+~~~text
+question
+  ↓
+normalized intent
+  ↓
+memory://knowledge/q-<sha256>
+  ↓
+answer + provenance + validation + confidence + freshness
+  ↓
+optional encrypted semantic index entry
+~~~
+
+The request order is exact-first:
+
+1. check the deterministic exact knowledge reference;
+2. if the record is reusable, return it without calling an AI provider;
+3. otherwise, when semantic retrieval is configured, embed the incoming question and search the encrypted semantic index;
+4. a semantically matched candidate must still pass permission, validation, confidence and freshness gates;
+5. only when memory cannot be reused does MCMA call the generation provider;
+6. when `remember=true`, a new generated answer can be captured through the Librarian and incrementally indexed.
+
+This distinction matters for tokens. Exact reusable memory costs zero provider tokens. Semantic retrieval can consume embedding tokens. Generation fallback consumes the provider tokens actually reported or conservatively estimated by the connector.
+
+Generated web captures default to `validation_state=unverified` and `confidence=0.5`. The default reuse threshold is `0.75`, and reusable knowledge normally must also be `supported` or `verified`. Therefore a repeated question does not automatically become zero-token merely because its previous generated answer was saved. The stored record is preserved, but it must pass the epistemic and freshness gates before direct reuse.
+
 Provider selection is server-side:
 
 ~~~text
@@ -261,7 +290,15 @@ CI contains:
 - cross-origin POST rejection;
 - assertion that raw provider subjects do not appear in stored MCMA bytes.
 
-The remaining operational milestone is a live EC2 + HTTPS + real OIDC provider smoke test.
+Live production verification completed on 2026-09-01:
+
+- `https://mailit.click/mcma/` serves the web application over HTTPS;
+- Google OIDC login and callback complete successfully;
+- registration resolves the authenticated identity to an isolated encrypted library;
+- the browser maintains an encrypted HttpOnly MCMA session cookie;
+- `GET /mcma/v1/health` returns HTTP 200 with `multi_user=true` and `billing_enabled=true`;
+- the application uses a dedicated PHP-FPM service/socket, separate from historical V1/V2 compatibility routes;
+- S3 storage, Titan embeddings and Nova Micro generation work end to end.
 
 
 ## Billing and external API
