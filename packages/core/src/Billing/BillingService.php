@@ -181,10 +181,12 @@ final class BillingService
         string $question,
         ?string $embeddingProviderId,
         ?string $generationProviderId,
-        int $maxOutputTokens
+        int $maxOutputTokens,
+        int $generationContextBytes = 0
     ): array {
         $components = [];
         $bytes = max(1, strlen($question));
+        $generationContextBytes=max(0,min(1_000_000,$generationContextBytes));
 
         if ($embeddingProviderId !== null) {
             // Reserve conservatively for semantic query plus a possible
@@ -201,7 +203,7 @@ final class BillingService
         if ($generationProviderId !== null) {
             $components[] = [
                 'provider_id'=>$generationProviderId,
-                'input_tokens'=>min(1_000_000_000,$bytes * 2),
+                'input_tokens'=>min(1_000_000_000,($bytes + $generationContextBytes) * 2),
                 'output_tokens'=>max(0,$maxOutputTokens),
                 'cached_tokens'=>0,
                 'embedding_tokens'=>0,
