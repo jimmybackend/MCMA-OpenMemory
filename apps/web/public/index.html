@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-2">
-  <link rel="stylesheet" href="app.css?v=20260901-2">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-3">
+  <link rel="stylesheet" href="app.css?v=20260901-3">
 </head>
 <body>
   <main class="shell">
@@ -54,6 +54,85 @@
       </div>
     </section>
 
+    <section id="memoryExplorer" class="card memory-explorer" hidden>
+      <div class="row between memory-title-row">
+        <div>
+          <h2>Mi memoria</h2>
+          <p>Navega y descifra tus recuerdos sin usar IA.</p>
+        </div>
+        <span id="memoryCount" class="zero-ai-badge">0 recuerdos · 0 tokens IA</span>
+      </div>
+
+      <form id="memorySearchForm" class="memory-controls">
+        <input id="memoryQuery" type="search" maxlength="256" placeholder="Buscar texto en preguntas y respuestas…">
+        <select id="memoryTemperature" aria-label="Filtrar por temperatura">
+          <option value="all">Todas las temperaturas</option>
+          <option value="hot">Hot</option>
+          <option value="warm">Warm</option>
+          <option value="cold">Cold</option>
+          <option value="frozen">Frozen</option>
+        </select>
+        <select id="memoryValidation" aria-label="Filtrar por validación">
+          <option value="all">Todos los estados</option>
+          <option value="unverified">Unverified</option>
+          <option value="plausible">Plausible</option>
+          <option value="supported">Supported</option>
+          <option value="verified">Verified</option>
+          <option value="disputed">Disputed</option>
+          <option value="retracted">Retracted</option>
+        </select>
+        <button type="submit">Buscar</button>
+        <button id="memoryReset" type="button" class="secondary-button">Limpiar</button>
+      </form>
+
+      <div class="memory-layout">
+        <aside class="memory-list-panel">
+          <div id="memoryList" class="memory-list">
+            <p class="memory-empty">Cargando memoria…</p>
+          </div>
+          <div class="memory-pagination">
+            <button id="memoryPagePrev" type="button" class="secondary-button">← Página</button>
+            <span id="memoryPageLabel">1 / 1</span>
+            <button id="memoryPageNext" type="button" class="secondary-button">Página →</button>
+          </div>
+        </aside>
+
+        <article id="memoryDetail" class="memory-detail">
+          <div id="memoryDetailEmpty" class="memory-detail-empty">
+            Selecciona una pregunta para ver su respuesta descifrada.
+          </div>
+
+          <div id="memoryDetailContent" hidden>
+            <div class="memory-detail-top">
+              <div id="memoryDetailBadges" class="answer-meta"></div>
+              <span class="zero-ai-badge">0 tokens IA</span>
+            </div>
+
+            <h3 id="memoryDetailQuestion"></h3>
+            <div class="memory-answer-label">Respuesta descifrada</div>
+            <pre id="memoryDetailAnswer" class="memory-answer"></pre>
+
+            <dl class="memory-metadata">
+              <div><dt>Estado</dt><dd id="memoryDetailValidation">—</dd></div>
+              <div><dt>Confianza</dt><dd id="memoryDetailConfidence">—</dd></div>
+              <div><dt>Temperatura</dt><dd id="memoryDetailTemperature">—</dd></div>
+              <div><dt>Frescura</dt><dd id="memoryDetailFreshness">—</dd></div>
+              <div><dt>Guardada</dt><dd id="memoryDetailCaptured">—</dd></div>
+              <div><dt>Reutilizable</dt><dd id="memoryDetailReusable">—</dd></div>
+            </dl>
+
+            <div class="memory-detail-actions">
+              <button id="memoryItemPrev" type="button" class="secondary-button">← Anterior</button>
+              <button id="memoryConfirm" type="button" class="confirm-button">✓ Confirmar</button>
+              <button id="memoryDiscard" type="button" class="danger-button">Descartar</button>
+              <button id="memoryItemNext" type="button" class="secondary-button">Siguiente →</button>
+            </div>
+            <p id="memoryValidationStatus" class="memory-validation-status"></p>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section id="registerBox" class="card" hidden>
       <p>Tu identidad está autenticada pero aún no tiene una biblioteca MCMA registrada.</p>
       <button id="register" type="button">Crear mi memoria</button>
@@ -98,6 +177,6 @@
       <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js?v=20260901-2" defer></script>
+  <script src="app.js?v=20260901-3" defer></script>
 </body>
 </html>
