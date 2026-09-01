@@ -256,6 +256,25 @@ final class KnowledgeService
         return $result;
     }
 
+    public static function logicalRefFromId(string $id): string
+    {
+        if (!preg_match('/^[0-9a-f]{64}$/', $id)) throw new RuntimeException('Invalid knowledge memory id');
+        return 'memory://knowledge/q-' . $id;
+    }
+
+    private static function containsText(string $haystack, string $needle): bool
+    {
+        if (function_exists('mb_stripos')) return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        return stripos($haystack, $needle) !== false;
+    }
+
+    private static function answerSearchText(mixed $answer): string
+    {
+        if (is_string($answer)) return $answer;
+        $encoded = json_encode($answer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return is_string($encoded) ? $encoded : '';
+    }
+
     private function hasVisibleRef(string $actor, string $logicalRef): bool
     {
         foreach ($this->library->listAs($actor) as $entry) {
