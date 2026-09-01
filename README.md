@@ -205,7 +205,8 @@ apps/web/public
 
 It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-user MCMA library resolution and a same-origin chat UI connected to `AskService`.
 
-The web UI is organized into three primary tabs:
+The web UI is organized into three primary tabs. Tab switching is handled client-side with delegated click/keyboard events, and mutable UI assets are configured to revalidate so an older cached `app.js` cannot leave newer tab markup non-interactive.
+
 
 - **Preguntar** — ask MCMA and see the answer route, tokens and credits;
 - **Mi memoria** — deterministically list, filter and decrypt the authenticated user's stored questions/answers without calling Titan, Nova or another AI provider;
