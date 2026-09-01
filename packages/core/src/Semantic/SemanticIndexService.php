@@ -333,7 +333,7 @@ final class SemanticIndexService
 
         $knowledge = new KnowledgeService($this->library);
         $exact = $knowledge->directAnswer($actor, $question, $currentRequired, $minConfidence);
-        if (($exact['found'] ?? false) === true) {
+        if (($exact['reusable'] ?? false) === true && isset($exact['answer'])) {
             $exact['route'] = 'exact';
             return $exact;
         }
