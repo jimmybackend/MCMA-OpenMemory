@@ -131,6 +131,9 @@
 - [x] origin checking for POST requests
 - [x] browser chat UI
 - [x] session status/profile chip, favicon and answer route/token badges
+- [x] zero-AI memory explorer with decrypted question/answer browsing
+- [x] memory text search, temperature/validation filters and pagination
+- [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
 - [x] no database dependency
 - [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
 
@@ -192,7 +195,7 @@
 - [x] guarded single-memory Context Builder for supported/verified revalidation candidates
 - [ ] recent-turn/session context policy without storing an unbounded plaintext transcript
 - [ ] token-budgeted RAG context assembly with provenance and freshness metadata
-- [ ] explicit validation/promotion workflow for newly generated remembered answers
+- [x] explicit owner validation/promotion/retraction workflow in web memory explorer
 - [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
 - [ ] real EC2 + Ollama end-to-end smoke test
 - [ ] real EC2 + llama.cpp end-to-end smoke test
