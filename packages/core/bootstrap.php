@@ -25,6 +25,7 @@ require_once __DIR__ . '/src/MultiUser/AuthenticatedIdentity.php';
 require_once __DIR__ . '/src/MultiUser/MultiUserService.php';
 require_once __DIR__ . '/src/Knowledge/KnowledgeRecord.php';
 require_once __DIR__ . '/src/Knowledge/KnowledgeService.php';
+require_once __DIR__ . '/src/Context/ContextTraceService.php';
 require_once __DIR__ . '/src/Semantic/EmbeddingProvider.php';
 require_once __DIR__ . '/src/Billing/UsageAwareEmbeddingProvider.php';
 require_once __DIR__ . '/src/Semantic/VectorMath.php';
