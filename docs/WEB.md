@@ -215,6 +215,36 @@ When a validation update changes the knowledge object's `storage_hash`, MCMA ref
 
 The explorer is web-session-only: an authenticated session resolves exactly one user library, and the endpoints do not accept a library id or arbitrary storage path from the browser.
 
+## Context transparency tab
+
+The authenticated web UI has three main tabs: `Preguntar`, `Mi memoria` and `Contexto MCMA`.
+
+After every `/mcma/v1/ask` request, MCMA writes a compact encrypted trace to:
+
+~~~text
+memory://system/context-traces
+~~~
+
+The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary and the exact validated memory context supplied to generation when one was injected. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
+
+Only the latest 50 traces are retained in this first implementation. The context-trace object is protected as owner-only system memory. Existing libraries are hardened on first use; new default permission policies include the restriction directly.
+
+The read-only transparency route is:
+
+~~~text
+GET /mcma/v1/context
+~~~
+
+It returns:
+
+- persistent knowledge counts and reuse counts;
+- validation/temperature summary;
+- recent knowledge records whose provenance says `source_type=model`;
+- internal `memory://system/*` object metadata;
+- the latest encrypted request-context traces.
+
+Opening this view does not invoke Titan, Nova or another model and reports zero AI tokens/credits. It may perform normal encrypted storage reads.
+
 ## Memory and context behavior
 
 The web application does not rely on an ever-growing plaintext chat transcript as its durable memory. A remembered answer is stored as an encrypted knowledge record keyed by normalized question intent.
