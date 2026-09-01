@@ -29,6 +29,7 @@ final class AskEmbeddingProvider implements EmbeddingProvider
             'brand new question' => [0.0, 0.0, 1.0],
             'validated alternate' => [0.01, 0.0, 0.99995],
             'no provider question' => [0.2, 0.2, 0.9591663047],
+            'context refresh question' => [0.4, 0.5, 0.7681145748],
             default => [0.33, 0.33, 0.34],
         };
     }
@@ -37,12 +38,14 @@ final class AskEmbeddingProvider implements EmbeddingProvider
 final class AskGenerationProvider implements GenerationProvider
 {
     public int $calls = 0;
+    public array $lastContext = [];
 
     public function id(): string { return 'test-generation:v1'; }
 
     public function generate(string $question, array $context = []): array
     {
         $this->calls++;
+        $this->lastContext=$context;
         if (!isset($context['memory_attempt']) || !is_array($context['memory_attempt'])) {
             throw new RuntimeException('Ask provider did not receive safe memory summary');
         }
@@ -173,6 +176,20 @@ try {
     ok_ask(($missing['decision'] ?? null) === 'provider-required', 'Ask without generation provider should request provider');
     ok_ask(($missing['provider_called'] ?? true) === false, 'Ask without generation provider marked provider call');
     ok_ask(!isset($missing['answer']), 'Ask provider-required result leaked an answer');
+
+    $librarian->remember('Context refresh question', 'Previously verified MCMA context.', [
+        'confidence' => 0.95,
+        'validation_state' => 'verified',
+        'provenance' => [['source_type'=>'working-test','reference'=>'ask-context-builder']],
+        'freshness_class' => 'stable',
+        'max_age_seconds' => 2592000,
+    ]);
+    $contextGenerated = $ask->ask('ai', 'Context refresh question', true, 0.75, 0.80, 5, false);
+    ok_ask(($contextGenerated['route'] ?? null) === 'provider', 'Current-data request should revalidate through provider');
+    ok_ask(($contextGenerated['context_used']['memory'] ?? false) === true, 'Validated memory context was not attached to generation');
+    ok_ask(($generator->lastContext['memory_context']['answer'] ?? null) === 'Previously verified MCMA context.', 'Context Builder did not pass the verified memory answer');
+    ok_ask(($generator->lastContext['memory_context']['validation_state'] ?? null) === 'verified', 'Context Builder lost validation metadata');
+    ok_ask(in_array('current-data-requested',$generator->lastContext['memory_context']['reasons']??[],true), 'Context Builder lost revalidation reason');
 
     ok_ask(($lib->verify()['ok'] ?? false) === true, 'Library verify failed after ask orchestration');
 
