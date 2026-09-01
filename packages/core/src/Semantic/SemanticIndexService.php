@@ -145,6 +145,73 @@ final class SemanticIndexService
         ];
     }
 
+    public function refreshStoredEntry(EmbeddingProvider $provider, string $logicalRef, string $actor = 'owner'): array
+    {
+        self::validateKnowledgeRef($logicalRef);
+        $stored = $this->library->readAs($actor, $logicalRef);
+        [$index, $exists] = $this->loadIndex($provider);
+
+        if (!$exists) {
+            return [
+                'provider_id' => $provider->id(),
+                'logical_ref' => self::indexRef($provider),
+                'knowledge_logical_ref' => $logicalRef,
+                'refreshed' => false,
+                'reason' => 'semantic-index-not-found',
+                'embedding_generated' => false,
+            ];
+        }
+
+        $position = self::entryPosition($index['entries'], $logicalRef);
+        if ($position === null) {
+            return [
+                'provider_id' => $provider->id(),
+                'logical_ref' => self::indexRef($provider),
+                'knowledge_logical_ref' => $logicalRef,
+                'refreshed' => false,
+                'reason' => 'semantic-entry-not-found',
+                'total_entries' => count($index['entries']),
+                'embedding_generated' => false,
+            ];
+        }
+
+        $existing = $index['entries'][$position];
+        if (
+            hash_equals((string)$existing['object_id'], (string)$stored['object_id']) &&
+            hash_equals((string)$existing['storage_hash'], (string)$stored['storage_hash'])
+        ) {
+            return [
+                'provider_id' => $provider->id(),
+                'logical_ref' => self::indexRef($provider),
+                'knowledge_logical_ref' => $logicalRef,
+                'refreshed' => false,
+                'unchanged' => true,
+                'total_entries' => count($index['entries']),
+                'embedding_generated' => false,
+            ];
+        }
+
+        // Validation/freshness metadata changed, but the normalized question did not.
+        // Preserve the existing vector and refresh only the identity/hash linkage.
+        $index['entries'][$position]['object_id'] = $stored['object_id'];
+        $index['entries'][$position]['storage_hash'] = $stored['storage_hash'];
+        $index['indexed_at'] = self::now();
+        self::validateIndex($index);
+
+        $persisted = $this->persistIndex($provider, $index, $actor, true);
+        return [
+            'provider_id' => $provider->id(),
+            'logical_ref' => self::indexRef($provider),
+            'knowledge_logical_ref' => $logicalRef,
+            'refreshed' => true,
+            'total_entries' => count($index['entries']),
+            'embedding_generated' => false,
+            'semantic_index_object_id' => $persisted['object_id'],
+            'semantic_index_storage_hash' => $persisted['storage_hash'],
+            'semantic_index_revision' => $persisted['revision'],
+        ];
+    }
+
     public function remove(EmbeddingProvider $provider, string $logicalRef, string $actor = 'librarian'): array
     {
         self::validateKnowledgeRef($logicalRef);
