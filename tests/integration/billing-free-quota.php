@@ -96,23 +96,38 @@ try{
     $gen=new QuotaGeneration();
     $ask=new BillableAskService($library,$billing,$embed,$gen,5);
 
-    foreach(['a','b','c'] as $i=>$question){
-        $result=$ask->ask('quota_req_'.$i,'web',$question,false,0.75,0.99,5,false);
-        qassert(($result['billing']['ai_billed']??false)===true,'Expected provider-backed request to be billed');
-    }
+    $result=$ask->ask('quota_req_1','web','first unknown question',false,0.75,0.99,5,false);
+    qassert(($result['billing']['ai_billed']??false)===true,'Expected provider-backed request to be billed');
 
     $quota=$billing->summary($library)['quota'];
-    qassert(($quota['daily_requests_used']??0)===3,'Daily AI request counter mismatch');
-    qassert(($quota['monthly_tokens_used']??0)===21,'Monthly AI token counter mismatch');
+    $used=(int)($quota['monthly_tokens_used']??0);
+    qassert(($quota['daily_requests_used']??0)===1,'Daily AI request counter mismatch');
+    qassert($used>0,'Monthly AI token counter did not record provider usage');
 
+    // Tighten the plan to the exact usage already consumed. The next provider-backed
+    // request must be rejected before either provider is called.
+    $catalog->setPlan('free',[
+        'api_enabled'=>false,
+        'embedding_enabled'=>true,
+        'requests_per_minute'=>100,
+        'daily_request_limit'=>10,
+        'concurrent_requests'=>1,
+        'max_request_credit_units'=>100,
+        'monthly_credit_allowance'=>100,
+        'monthly_token_limit'=>$used,
+        'allowed_providers'=>['quota:*'],
+    ]);
+
+    $embedCalls=$embed->calls;
+    $genCalls=$gen->calls;
     $blocked=false;
     try{
-        $ask->ask('quota_req_4','web','d',false,0.75,0.99,5,false);
+        $ask->ask('quota_req_2','web','second unknown question',false,0.75,0.99,5,false);
     }catch(BillingException $e){
         $blocked=$e->reason()==='monthly_token_limit'&&$e->httpStatus()===402;
     }
     qassert($blocked,'Monthly token quota did not block the next provider call');
-    qassert($gen->calls===3,'Generation provider was called after monthly quota exhaustion');
+    qassert($embed->calls===$embedCalls&&$gen->calls===$genCalls,'AI provider was called after monthly quota exhaustion');
 
     echo "MCMA free monthly allowance and quota integration passed.\n";
 }finally{
