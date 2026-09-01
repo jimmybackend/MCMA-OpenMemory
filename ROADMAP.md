@@ -188,6 +188,10 @@
 - [x] minimal executable/bootstrap entrypoints only
 
 ## Next
+- [ ] Context Builder: inject permission-filtered reusable memory snippets into generation prompts
+- [ ] recent-turn/session context policy without storing an unbounded plaintext transcript
+- [ ] token-budgeted RAG context assembly with provenance and freshness metadata
+- [ ] explicit validation/promotion workflow for newly generated remembered answers
 - [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
 - [ ] real EC2 + Ollama end-to-end smoke test
 - [ ] real EC2 + llama.cpp end-to-end smoke test
