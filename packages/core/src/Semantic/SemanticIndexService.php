@@ -362,15 +362,19 @@ final class SemanticIndexService
             ];
         }
 
-        $top = null;
-        foreach ($ranked['candidates'] as $candidate) {
-            if (($candidate['reusable'] ?? false) !== true) continue;
-            $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
-            $rerankPass = $minRerankScore !== null
-                && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
-            if ($similarityPass || $rerankPass) {
-                $top = $candidate;
-                break;
+        $hybridSelection = $candidateSimilarity !== null || $minRerankScore !== null;
+        $top = $hybridSelection ? null : $ranked['candidates'][0];
+
+        if ($hybridSelection) {
+            foreach ($ranked['candidates'] as $candidate) {
+                if (($candidate['reusable'] ?? false) !== true) continue;
+                $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
+                $rerankPass = $minRerankScore !== null
+                    && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
+                if ($similarityPass || $rerankPass) {
+                    $top = $candidate;
+                    break;
+                }
             }
         }
 
