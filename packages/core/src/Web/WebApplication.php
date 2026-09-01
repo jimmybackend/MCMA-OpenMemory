@@ -92,6 +92,9 @@ final class WebApplication
         if($method==='GET'&&$path==='/mcma/v1/me'){
             $principal=$this->requestPrincipal($request);
             $payload=['ok'=>true,'user'=>$this->users->infoUserId($principal['user_id'])];
+            if(($principal['kind']??null)==='web'&&isset($principal['identity'])&&is_array($principal['identity'])){
+                $payload['identity']=$principal['identity'];
+            }
             if($this->billing!==null) $payload['billing']=$this->billing->summary($principal['library']);
             return HttpResponse::json($payload);
         }
@@ -293,12 +296,14 @@ final class WebApplication
 
     private function sessionPrincipal(HttpRequest $request): array
     {
-        [$issuer,$subject]=$this->sessionIdentity($request);
+        $session=$this->sessionData($request);
+        $issuer=(string)$session['iss'];$subject=(string)$session['sub'];
         $this->ensureRegistered($issuer,$subject);
         $info=$this->users->info($issuer,$subject);
         return [
             'kind'=>'web','user_id'=>(string)$info['user_id'],
             'issuer'=>$issuer,'subject'=>$subject,
+            'identity'=>self::publicIdentity($session),
             'library'=>$this->users->resolve($issuer,$subject),
         ];
     }
@@ -330,7 +335,16 @@ final class WebApplication
         }
 
         $expiresAt=min((int)$identity['expires_at'],$now+$this->sessionTtl);
-        $session=$this->sessionCookieCipher->seal(['v'=>1,'iss'=>$identity['issuer'],'sub'=>$identity['subject'],'iat'=>$now,'exp'=>$expiresAt]);
+        $sessionData=['v'=>1,'iss'=>$identity['issuer'],'sub'=>$identity['subject'],'iat'=>$now,'exp'=>$expiresAt];
+        $claims=is_array($identity['claims']??null)?$identity['claims']:[];
+        $email=$claims['email']??null;
+        if(is_string($email)&&$email!==''&&strlen($email)<=320) $sessionData['email']=$email;
+        $name=$claims['name']??null;
+        if(is_string($name)&&trim($name)!==''&&strlen($name)<=256) $sessionData['name']=trim($name);
+        $picture=$claims['picture']??null;
+        if(is_string($picture)&&strlen($picture)<=2048&&preg_match('#^https://#i',$picture)) $sessionData['picture']=$picture;
+        if(is_bool($claims['email_verified']??null)) $sessionData['email_verified']=$claims['email_verified'];
+        $session=$this->sessionCookieCipher->seal($sessionData);
         return HttpResponse::redirect($this->basePath===''?'/':$this->basePath,[
             'set-cookie'=>[
                 $this->cookie(self::SESSION_COOKIE,$session,max(1,$expiresAt-$now),'Strict'),
@@ -341,6 +355,12 @@ final class WebApplication
 
     private function sessionIdentity(HttpRequest $request): array
     {
+        $session=$this->sessionData($request);
+        return [(string)$session['iss'],(string)$session['sub']];
+    }
+
+    private function sessionData(HttpRequest $request): array
+    {
         $cookie=$request->cookie(self::SESSION_COOKIE);
         if($cookie===null) throw new WebException(401,'authentication_required','Authentication required');
         $session=$this->sessionCookieCipher->open($cookie);
@@ -349,7 +369,18 @@ final class WebApplication
         if(!is_int($exp)||$exp<time()) throw new WebException(401,'session_expired','Web session expired');
         $issuer=$session['iss']??null;$subject=$session['sub']??null;
         if(!is_string($issuer)||$issuer===''||!is_string($subject)||$subject==='') throw new WebException(401,'invalid_session','Web session identity is invalid');
-        return [$issuer,$subject];
+        return $session;
+    }
+
+    private static function publicIdentity(array $session): array
+    {
+        $identity=[];
+        foreach(['email','name','picture'] as $field){
+            $value=$session[$field]??null;
+            if(is_string($value)&&$value!=='') $identity[$field]=$value;
+        }
+        if(is_bool($session['email_verified']??null)) $identity['email_verified']=$session['email_verified'];
+        return $identity;
     }
 
     private function ensureRegistered(string $issuer,string $subject): void
