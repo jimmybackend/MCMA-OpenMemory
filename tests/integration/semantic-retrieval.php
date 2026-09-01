@@ -12,10 +12,13 @@ use MCMA\Core\Storage\LocalFilesystemAdapter;
 
 final class TestSemanticProvider implements EmbeddingProvider
 {
+    public int $calls = 0;
+
     public function id(): string { return 'test:semantic-v1:dimensions=3'; }
 
     public function embed(string $text): array
     {
+        $this->calls++;
         $text = KnowledgeRecord::normalizeIntent($text);
         return match ($text) {
             '¿qué es mcma?' => [1.0, 0.0, 0.0],
@@ -142,6 +145,16 @@ try {
 
     $staleIndexResult = $semantic->answer('owner', 'Explica el archivo modular de memoria cognitiva', $provider, false, 0.75, 0.80);
     ok_semantic(($staleIndexResult['decision'] ?? null) !== 'reuse', 'Stale semantic vector reused revised knowledge');
+
+    $callsBeforeRefresh = $provider->calls;
+    $refreshed = $semantic->refreshStoredEntry($provider, KnowledgeRecord::logicalRef('¿Qué es MCMA?'), 'owner');
+    ok_semantic(($refreshed['refreshed'] ?? false) === true, 'Semantic hash refresh did not update stale entry');
+    ok_semantic(($refreshed['embedding_generated'] ?? true) === false, 'Semantic hash refresh regenerated an embedding');
+    ok_semantic($provider->calls === $callsBeforeRefresh, 'Semantic hash refresh called embedding provider');
+
+    $freshAfterRefresh = $semantic->answer('owner', 'Explica el archivo modular de memoria cognitiva', $provider, false, 0.75, 0.80);
+    ok_semantic(($freshAfterRefresh['decision'] ?? null) === 'reuse', 'Semantic entry was not reusable after zero-AI hash refresh');
+    ok_semantic(($freshAfterRefresh['answer']['value'] ?? null) === 'MCMA conserva memoria cifrada propiedad del usuario.', 'Refreshed semantic answer mismatch');
 
     ok_semantic(($lib->verify()['ok'] ?? false) === true, 'Library verify failed after semantic operations');
 
