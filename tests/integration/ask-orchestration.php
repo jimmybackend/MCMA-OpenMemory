@@ -27,6 +27,7 @@ final class AskEmbeddingProvider implements EmbeddingProvider
             'what is semantic memory?' => [1.0, 0.0, 0.0],
             'explain semantic memory differently' => [0.99, 0.01, 0.0],
             'brand new question' => [0.0, 0.0, 1.0],
+            'validated alternate' => [0.01, 0.0, 0.99995],
             'no provider question' => [0.2, 0.2, 0.9591663047],
             default => [0.33, 0.33, 0.34],
         };
@@ -135,6 +136,20 @@ try {
     ok_ask($generator->calls === 2, 'Generation provider was not called for unverified exact record');
     $preserved = $knowledge->inspect('owner', 'Brand new question');
     ok_ask(hash_equals($firstGeneratedHash, $preserved['storage_hash']), 'Ask overwrote preserved exact record');
+
+    $librarian->remember('Validated alternate', 'Trusted semantic fallback answer.', [
+        'confidence' => 0.96,
+        'validation_state' => 'verified',
+        'provenance' => [['source_type'=>'working-test','reference'=>'ask-semantic-fallback']],
+        'freshness_class' => 'immutable',
+        'max_age_seconds' => null,
+    ]);
+    $fallback = $ask->ask('ai', 'Brand new question', false, 0.75, 0.80, 5, true);
+    ok_ask(($fallback['route'] ?? null) === 'memory-semantic', 'Non-reusable exact memory blocked semantic fallback');
+    ok_ask(($fallback['matched_question'] ?? null) === 'Validated alternate', 'Semantic fallback selected wrong knowledge');
+    ok_ask(($fallback['answer']['value'] ?? null) === 'Trusted semantic fallback answer.', 'Semantic fallback answer mismatch');
+    ok_ask(($fallback['provider_called'] ?? true) === false, 'Generation provider called despite reusable semantic fallback');
+    ok_ask($generator->calls === 2, 'Generation provider call count changed during semantic fallback');
 
     $librarian->validate('Brand new question', 'verified', 0.95, 'Validated for ask reuse test');
     $reused = $ask->ask('ai', 'Brand new question', false, 0.75, 0.80, 5, true);

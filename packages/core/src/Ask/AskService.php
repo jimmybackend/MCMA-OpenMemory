@@ -44,7 +44,7 @@ final class AskService
         }
 
         $memoryAttempt = $exact;
-        if (($exact['found'] ?? false) !== true && $this->semantic !== null && $this->embeddingProvider !== null) {
+        if (($exact['reusable'] ?? false) !== true && $this->semantic !== null && $this->embeddingProvider !== null) {
             $memoryAttempt = $this->semantic->answer(
                 $actor,
                 $question,
