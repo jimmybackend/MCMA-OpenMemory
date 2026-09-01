@@ -111,6 +111,10 @@ try {
         'v'=>1,
         'iss'=>'https://id.example.test',
         'sub'=>'alice-provider-subject',
+        'email'=>'alice@example.test',
+        'name'=>'Alice Example',
+        'picture'=>'https://images.example.test/alice.png',
+        'email_verified'=>true,
         'iat'=>$now,
         'exp'=>$now + 3600,
     ]);
@@ -133,6 +137,10 @@ try {
     $aliceBody = json_decode($aliceMe->body(), true, 64, JSON_THROW_ON_ERROR);
     $aliceLibrary = $aliceBody['user']['library_id'] ?? null;
     assert_web_app(is_string($aliceLibrary), 'Alice library id missing');
+    assert_web_app(($aliceBody['identity']['email']??null)==='alice@example.test','OIDC email was not exposed from encrypted session');
+    assert_web_app(($aliceBody['identity']['name']??null)==='Alice Example','OIDC name was not exposed from encrypted session');
+    assert_web_app(($aliceBody['identity']['picture']??null)==='https://images.example.test/alice.png','OIDC picture was not exposed from encrypted session');
+    assert_web_app(($aliceBody['identity']['email_verified']??null)===true,'OIDC email verification flag missing');
 
     $bobMe = $app->handle(new HttpRequest(
         'GET',
@@ -174,6 +182,8 @@ try {
         $storageBytes .= $root->get($locator)['bytes'];
     }
     assert_web_app(!str_contains($storageBytes, 'alice-provider-subject'), 'Alice subject leaked into storage');
+    assert_web_app(!str_contains($storageBytes, 'alice@example.test'), 'Alice email leaked into MCMA storage');
+    assert_web_app(!str_contains($storageBytes, 'Alice Example'), 'Alice profile name leaked into MCMA storage');
     assert_web_app(!str_contains($storageBytes, 'bob-provider-subject'), 'Bob subject leaked into storage');
 
     echo "MCMA web multi-user session and ask routing passed.\n";
