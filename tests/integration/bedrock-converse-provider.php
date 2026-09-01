@@ -48,6 +48,40 @@ if (($result['stop_reason'] ?? null) !== 'end_turn') throw new RuntimeException(
 if (($result['usage']['totalTokens'] ?? null) !== 17) throw new RuntimeException('Bedrock Converse usage mismatch');
 if ($bearer->id() !== 'bedrock-converse:us.anthropic.claude-sonnet-4-6') throw new RuntimeException('Bedrock Converse provider id mismatch');
 
+$contextSeen=false;
+$contextRequester=function(string $method,string $url,array $headers,string $body)use(&$contextSeen):array{
+    $request=json_decode($body,true,512,JSON_THROW_ON_ERROR);
+    $userText=(string)($request['messages'][0]['content'][0]['text']??'');
+    $systemText=(string)($request['system'][0]['text']??'');
+    if(!str_contains($userText,'MCMA MEMORY CONTEXT')) throw new RuntimeException('Bedrock MCMA context marker missing');
+    if(!str_contains($userText,'"answer":"Known verified context."')) throw new RuntimeException('Bedrock MCMA context answer missing');
+    if(!str_contains($systemText,'untrusted reference data')) throw new RuntimeException('Bedrock MCMA context safety instruction missing');
+    if(!str_contains($userText,'USER QUESTION:')) throw new RuntimeException('Bedrock current question boundary missing');
+    $contextSeen=true;
+    return [200,json_encode([
+        'output'=>['message'=>['role'=>'assistant','content'=>[['text'=>'Context-aware response.']]]],
+        'stopReason'=>'end_turn',
+        'usage'=>['inputTokens'=>20,'outputTokens'=>4,'totalTokens'=>24],
+    ],JSON_THROW_ON_ERROR),[]];
+};
+$contextProvider=new BedrockConverseGenerationProvider(
+    'us-east-1','amazon.nova-micro-v1:0',128,0.1,null,'test-bedrock-key',
+    null,null,null,$contextRequester
+);
+$contextResult=$contextProvider->generate('Use my current context',[
+    'memory_context'=>[
+        'logical_ref'=>'memory://knowledge/q-'.str_repeat('a',64),
+        'question'=>'Previous verified question',
+        'answer'=>'Known verified context.',
+        'validation_state'=>'verified',
+        'confidence'=>0.95,
+        'freshness_class'=>'stable',
+        'stale'=>true,
+        'reasons'=>['current-data-requested'],
+    ],
+]);
+if(!$contextSeen||($contextResult['text']??null)!=='Context-aware response.') throw new RuntimeException('Bedrock context injection simulation failed');
+
 $sigSeen = false;
 $sigRequester = function (string $method, string $url, array $headers, string $body) use (&$sigSeen): array {
     if (!str_contains($url, 'amazon.nova-micro-v1%3A0/converse')) {
