@@ -9,6 +9,16 @@
 
 MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is optional.
 
+## Try MCMA OpenMemory live
+
+A public MCMA-OpenMemory deployment is available at:
+
+**https://mailit.click/mcma/**
+
+Sign in with Google to create or open an isolated encrypted user library and test the web system. The current public Free plan includes the configured AI allowance, while browsing/decrypting already stored memory through **Mi memoria** does not call an AI model.
+
+MCMA-OpenMemory is free/open-source software released under the **MIT License**. The live deployment is a running instance of the same open repository; storage/provider credentials and server secrets are not part of the repository.
+
 
 ## Production status — 2026-09-01
 
@@ -194,6 +204,8 @@ apps/web/public
 ~~~
 
 It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-user MCMA library resolution and a same-origin chat UI connected to `AskService`.
+
+The web UI also includes **Mi memoria**, a deterministic explorer for listing, filtering and decrypting the authenticated user's stored questions/answers without calling Titan, Nova or another AI provider. The owner can confirm a memory as `verified` or discard it as `retracted`; semantic index hash linkage is refreshed without regenerating the embedding vector.
 
 ~~~text
 GET  /login
