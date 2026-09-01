@@ -174,6 +174,109 @@ final class WebApplication
             return HttpResponse::json(['ok'=>true,'key'=>$this->apiKeys->revoke($principal['user_id'],$m[1])]);
         }
 
+        if($method==='GET'&&$path==='/mcma/v1/memories'){
+            $principal=$this->sessionPrincipal($request);
+            $query=trim((string)($request->query('q')??''));
+            if(strlen($query)>256) throw new WebException(400,'invalid_memory_query','Memory search query must be <= 256 bytes');
+
+            $temperature=$request->query('temperature');
+            if($temperature===''||$temperature==='all') $temperature=null;
+            if($temperature!==null&&!in_array($temperature,['hot','warm','cold','frozen'],true)){
+                throw new WebException(400,'invalid_memory_temperature','Invalid memory temperature filter');
+            }
+
+            $validation=$request->query('validation');
+            if($validation===''||$validation==='all') $validation=null;
+            if($validation!==null&&!in_array($validation,\MCMA\Core\Knowledge\KnowledgeRecord::VALIDATION_STATES,true)){
+                throw new WebException(400,'invalid_memory_validation','Invalid memory validation filter');
+            }
+
+            $pageRaw=$request->query('page')??'1';
+            $limitRaw=$request->query('limit')??'25';
+            if(!ctype_digit($pageRaw)||!ctype_digit($limitRaw)){
+                throw new WebException(400,'invalid_memory_pagination','Memory page and limit must be positive integers');
+            }
+            $page=(int)$pageRaw;$limit=(int)$limitRaw;
+            if($page<1||$limit<1||$limit>100){
+                throw new WebException(400,'invalid_memory_pagination','Memory page must be >= 1 and limit must be between 1 and 100');
+            }
+
+            $knowledge=new KnowledgeService($principal['library']);
+            return HttpResponse::json([
+                'ok'=>true,
+                'memory'=>$knowledge->browse(
+                    'owner',$query,$temperature,$validation,$page,$limit,
+                    (float)($this->providerOptions['min-confidence']??0.75)
+                ),
+            ]);
+        }
+
+        if($method==='GET'&&preg_match('#^/mcma/v1/memories/([0-9a-f]{64})$#',$path,$m)){
+            $principal=$this->sessionPrincipal($request);
+            $knowledge=new KnowledgeService($principal['library']);
+            return HttpResponse::json([
+                'ok'=>true,
+                'memory'=>$knowledge->inspectId(
+                    'owner',$m[1],(float)($this->providerOptions['min-confidence']??0.75)
+                ),
+            ]);
+        }
+
+        if($method==='POST'&&preg_match('#^/mcma/v1/memories/([0-9a-f]{64})/validation$#',$path,$m)){
+            $this->assertOrigin($request);
+            $principal=$this->sessionPrincipal($request);
+            $input=$request->json(8192);
+            $action=(string)($input['action']??'');
+            if(!in_array($action,['confirm','discard'],true)){
+                throw new WebException(400,'invalid_memory_validation_action','action must be confirm or discard');
+            }
+
+            $knowledge=new KnowledgeService($principal['library']);
+            $before=$knowledge->inspectId(
+                'owner',$m[1],(float)($this->providerOptions['min-confidence']??0.75)
+            );
+            $targetState=$action==='confirm'?'verified':'retracted';
+            $targetConfidence=$action==='confirm'?0.95:0.0;
+            $unchanged=($before['validation_state']??null)===$targetState
+                && abs((float)($before['confidence']??-1)-$targetConfidence)<1e-12;
+
+            $semanticSync=null;
+            if(!$unchanged){
+                $knowledge->validateId(
+                    'owner',$m[1],$targetState,$targetConfidence,
+                    $action==='confirm'?'user-confirmed-in-memory-explorer':'user-discarded-in-memory-explorer',
+                    [[
+                        'source_type'=>'user',
+                        'reference'=>'web-memory-explorer',
+                        'note'=>$action==='confirm'?'Confirmed by library owner':'Discarded by library owner',
+                    ]]
+                );
+
+                $embedding=$this->providers->embedding($this->providerOptions,true);
+                if($embedding!==null){
+                    $semantic=new SemanticIndexService($principal['library']);
+                    $semanticSync=$semantic->refreshStoredEntry(
+                        $embedding,KnowledgeService::logicalRefFromId($m[1]),'owner'
+                    );
+                }
+            }
+
+            $after=$knowledge->inspectId(
+                'owner',$m[1],(float)($this->providerOptions['min-confidence']??0.75)
+            );
+            return HttpResponse::json([
+                'ok'=>true,
+                'memory'=>$after,
+                'validation'=>[
+                    'action'=>$action,
+                    'unchanged'=>$unchanged,
+                    'semantic_sync'=>$semanticSync,
+                    'ai_tokens_used'=>0,
+                    'credit_units_charged'=>0,
+                ],
+            ]);
+        }
+
         if($method==='POST'&&$path==='/mcma/v1/ask') return $this->ask($request);
 
         if(str_starts_with($path,'/mcma/v1/admin/')) return $this->adminRoute($request,$method,$path);
