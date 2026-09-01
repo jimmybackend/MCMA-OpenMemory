@@ -200,6 +200,15 @@ This distinction matters for tokens. Exact reusable memory costs zero provider t
 
 Generated web captures default to `validation_state=unverified` and `confidence=0.5`. The default reuse threshold is `0.75`, and reusable knowledge normally must also be `supported` or `verified`. Therefore a repeated question does not automatically become zero-token merely because its previous generated answer was saved. The stored record is preserved, but it must pass the epistemic and freshness gates before direct reuse.
 
+
+### Current context-generation boundary
+
+As of 2026-09-01, MCMA retrieval and generation are deliberately separate. `AskService` can identify an exact or semantic memory candidate, but the current Amazon Bedrock Converse connector sends Nova the user question plus the optional server-side system prompt; it does not yet serialize retrieved memory records into the generation prompt.
+
+Therefore the current production behavior is best described as **memory-first reuse with generation fallback**, not full retrieval-augmented generation (RAG). A reusable memory answer bypasses generation entirely. A non-reusable memory candidate can influence routing/diagnostics, but its answer text is not yet injected into Nova as conversational context.
+
+A future Context Builder should assemble a permission-filtered, validation-aware, token-budgeted set of memory snippets and recent-turn context for generation providers without weakening the existing reuse gates.
+
 Provider selection is server-side:
 
 ~~~text
