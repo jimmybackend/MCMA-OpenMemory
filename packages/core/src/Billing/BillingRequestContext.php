@@ -7,6 +7,7 @@ use MCMA\Core\Library;
 
 final class BillingRequestContext
 {
+    private const GENERATION_CONTEXT_RESERVE_BYTES=16384;
     private readonly UsageCollector $collector;
     private ?array $reservation = null;
     private bool $closed = false;
@@ -34,11 +35,16 @@ final class BillingRequestContext
         if($this->closed) throw new BillingException('Billing request is already closed','billing_request_closed',409);
         if($this->reservation!==null) return;
 
+        $estimateQuestion=$kind==='generation'?$input:$this->question;
+        $contextReserve=($kind!=='generation'&&$this->generationProviderId!==null)
+            ?self::GENERATION_CONTEXT_RESERVE_BYTES
+            :0;
         $estimate=$this->billing->estimateReservation(
-            $this->question,
+            $estimateQuestion,
             $this->embeddingProviderId,
             $this->generationProviderId,
-            $this->maxOutputTokens
+            $this->maxOutputTokens,
+            $contextReserve
         );
         $providers=array_values(array_filter([
             $this->embeddingProviderId,
