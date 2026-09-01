@@ -205,7 +205,13 @@ apps/web/public
 
 It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-user MCMA library resolution and a same-origin chat UI connected to `AskService`.
 
-The web UI also includes **Mi memoria**, a deterministic explorer for listing, filtering and decrypting the authenticated user's stored questions/answers without calling Titan, Nova or another AI provider. The owner can confirm a memory as `verified` or discard it as `retracted`; semantic index hash linkage is refreshed without regenerating the embedding vector.
+The web UI is organized into three primary tabs:
+
+- **Preguntar** — ask MCMA and see the answer route, tokens and credits;
+- **Mi memoria** — deterministically list, filter and decrypt the authenticated user's stored questions/answers without calling Titan, Nova or another AI provider;
+- **Contexto MCMA** — inspect encrypted per-request context traces, persistent-memory counts, model-generated memories and internal derived system objects.
+
+The owner can confirm a memory as `verified` or discard it as `retracted`; semantic index hash linkage is refreshed without regenerating the embedding vector. Context traces are stored encrypted inside the user's own library, capped to the latest 50 requests and protected as owner-only system memory. When a validated MCMA memory is injected into generation, the trace preserves the exact memory text and metadata that was supplied to the provider so the behavior is auditable.
 
 ~~~text
 GET  /login
