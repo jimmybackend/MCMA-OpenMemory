@@ -219,6 +219,10 @@ The explorer is web-session-only: an authenticated session resolves exactly one 
 
 The authenticated web UI has three main tabs: `Preguntar`, `Mi memoria` and `Contexto MCMA`.
 
+Tab navigation uses one delegated click listener on the tablist plus ArrowLeft/ArrowRight/Home/End keyboard navigation. Each tab exposes ARIA tab/tabpanel relationships. This avoids per-button listener drift and makes the navigation resilient when panels are expanded later.
+
+A deployment can otherwise show new tab markup with an older cached JavaScript file. The Nginx example therefore marks mutable `index.html`, `app.js` and `app.css` as `no-cache, no-store, must-revalidate`. CDN deployments should invalidate `/mcma/*` after a UI release when the CDN cache policy can ignore query strings.
+
 After every `/mcma/v1/ask` request, MCMA writes a compact encrypted trace to:
 
 ~~~text
