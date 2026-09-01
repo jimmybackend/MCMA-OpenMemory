@@ -54,6 +54,8 @@ encrypted daily ledger
 
 Exact reusable memory never triggers an AI reservation.
 
+"Repeated question" and "zero-token answer" are not synonyms. Zero-token reuse occurs only when the exact stored record passes its validation, confidence, freshness and reuse-policy gates. If exact memory is present but not reusable, MCMA may continue to semantic retrieval and generation. Semantic retrieval itself can consume embedding tokens because the incoming query must be embedded.
+
 A suspended/cancelled account is blocked before any answer is served.
 
 ## Token counts
@@ -285,6 +287,44 @@ Subscription behavior:
 Paid invoices additionally verify the configured Stripe Price, package fingerprint, currency and expected package amount before granting credits.
 
 PayPal and Mercado Pago remain recorded-payment types until their own live checkout/webhook connectors are implemented.
+
+## Live production verification — 2026-09-01
+
+The EC2 web deployment was verified with billing enabled against encrypted S3-backed catalogs and ledgers.
+
+Active Free-plan policy:
+
+~~~text
+daily AI-backed requests: 20
+monthly AI tokens:        100000
+monthly credit top-up:    100000
+concurrent requests:      1
+external API on Free:     disabled
+embeddings:               enabled
+~~~
+
+The production Free provider allow-list is limited to:
+
+~~~text
+bedrock-converse:amazon.nova-micro-v1:0
+bedrock:amazon.titan-embed-text-v2:0:dimensions=256:normalize=true
+~~~
+
+The encrypted pricing catalog uses one MCMA credit per metered provider token for these providers. The verified request produced:
+
+~~~text
+Nova input tokens:       20
+Nova output tokens:      69
+Titan embedding tokens:  28
+total provider tokens:  117
+credits charged:        117
+recorded cost:           13 USD micros
+balance:             100000 -> 99883
+daily requests:           0 -> 1
+monthly tokens:           0 -> 117
+~~~
+
+The result confirms reservation, provider usage collection, settlement, quota accounting and encrypted per-user ledger persistence end to end.
 
 ## Important configuration
 
