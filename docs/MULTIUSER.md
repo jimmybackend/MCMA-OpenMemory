@@ -225,6 +225,32 @@ The user prefix is based on the HMAC-derived ID.
 
 Tests explicitly verify that issuer and subject strings do not appear in stored MCMA bytes.
 
+## Live deployment verification — 2026-09-01
+
+The multi-user web path has been verified in production on EC2 at `https://mailit.click/mcma/`.
+
+The deployed flow is:
+
+~~~text
+Google OIDC
+  ↓
+verified issuer + subject
+  ↓
+encrypted HttpOnly MCMA session
+  ↓
+HMAC-derived usr_<digest>
+  ↓
+encrypted user registry
+  ↓
+distinct user library_id + per-library key
+  ↓
+S3-backed encrypted MCMA library
+~~~
+
+The OpenMemory web runtime uses its own PHP-FPM service/socket and a dedicated KeyStore configuration. Historical V1/V2 compatibility endpoints remain on their separate legacy runtime and can continue using their historical configuration without introducing a shared master key into OpenMemory multi-user mode.
+
+A live registered user was resolved successfully to an isolated library, and its billing/account state was read and updated without SQL.
+
 ## Current lifecycle
 
 Implemented:
