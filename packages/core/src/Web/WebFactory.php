@@ -22,6 +22,7 @@ final class WebFactory
     {
         $storageLocation=self::required('MCMA_WEB_STORAGE_LOCATION');
         $publicOrigin=rtrim(self::required('MCMA_WEB_PUBLIC_ORIGIN'),'/');
+        $basePath=self::basePath(self::optional('MCMA_WEB_BASE_PATH')??'');
         $sessionSecret=self::required('MCMA_WEB_SESSION_SECRET');
         $issuer=rtrim(self::required('MCMA_OIDC_ISSUER'),'/');
         $clientId=self::required('MCMA_OIDC_CLIENT_ID');
@@ -63,11 +64,12 @@ final class WebFactory
                 StripePackageCatalog::fromJson($stripePackages),
                 $users,
                 $billing,
-                $publicOrigin
+                $publicOrigin,
+                $basePath
             );
         }
 
-        $oidc=new OidcClient($issuer,$clientId,$clientSecret,$publicOrigin.'/callback',$scope);
+        $oidc=new OidcClient($issuer,$clientId,$clientSecret,$publicOrigin.($basePath===''?'/callback':$basePath.'/callback'),$scope);
 
         $generationProvider=self::optional('MCMA_WEB_GENERATION_PROVIDER')??'none';
         $options=[
@@ -82,6 +84,11 @@ final class WebFactory
             'capture-max-age'=>(int)(self::optional('MCMA_WEB_CAPTURE_MAX_AGE')??'2592000'),
             'capture-reuse'=>self::optional('MCMA_WEB_CAPTURE_REUSE')??'reuse-unless-stale',
         ];
+        $candidateSimilarity=self::optional('MCMA_WEB_CANDIDATE_SIMILARITY');
+        if($candidateSimilarity!==null) $options['candidate-similarity']=(float)$candidateSimilarity;
+        $minRerankScore=self::optional('MCMA_WEB_MIN_RERANK_SCORE');
+        if($minRerankScore!==null) $options['min-rerank-score']=(float)$minRerankScore;
+
         $dimensions=self::optional('MCMA_WEB_EMBEDDING_DIMENSIONS');
         if($dimensions!==null) $options['dimensions']=(int)$dimensions;
 
@@ -103,8 +110,20 @@ final class WebFactory
             $admin,
             self::boolEnv('MCMA_BILLING_ENABLED',false),
             $maxOutput,
-            $stripe
+            $stripe,
+            $basePath
         );
+    }
+
+    private static function basePath(string $value): string
+    {
+        $value=trim($value);
+        if($value===''||$value==='/') return '';
+        $value='/'.trim($value,'/');
+        if(!preg_match('#^/[A-Za-z0-9._/-]+$#',$value)||str_contains($value,'..')) {
+            throw new RuntimeException('MCMA_WEB_BASE_PATH must be an absolute URL path');
+        }
+        return $value;
     }
 
     private static function providerMaxTokens(string $provider): string

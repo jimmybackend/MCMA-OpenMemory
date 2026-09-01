@@ -15,9 +15,13 @@ final class StripeCheckoutService
         private readonly StripePackageCatalog $packages,
         private readonly MultiUserService $users,
         private readonly BillingService $billing,
-        private readonly string $publicOrigin
+        private readonly string $publicOrigin,
+        private readonly string $basePath=''
     ){
         if(!preg_match('#^https://[^/]+$#',$this->publicOrigin)) throw new RuntimeException('Stripe public origin must be HTTPS without a path');
+        if($this->basePath!==''&&(!preg_match('#^/[A-Za-z0-9._/-]+$#',$this->basePath)||str_ends_with($this->basePath,'/')||str_contains($this->basePath,'..'))) {
+            throw new RuntimeException('Stripe base path must be empty or an absolute path without trailing slash');
+        }
     }
 
     public function packages(): array
@@ -38,8 +42,8 @@ final class StripeCheckoutService
         ];
         $params=[
             'mode'=>$package['billing_mode'],
-            'success_url'=>$this->publicOrigin.'/?stripe=success&session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url'=>$this->publicOrigin.'/?stripe=cancel',
+            'success_url'=>$this->publicOrigin.($this->basePath===''?'/?':$this->basePath.'/?').'stripe=success&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url'=>$this->publicOrigin.($this->basePath===''?'/?':$this->basePath.'/?').'stripe=cancel',
             'client_reference_id'=>$userId,
             'line_items'=>[[
                 'price'=>$package['price_id'],

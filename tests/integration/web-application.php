@@ -62,8 +62,33 @@ try {
             'min-similarity'=>0.78,
             'top-k'=>5,
         ],
-        3600
+        3600,
+        null,
+        null,
+        null,
+        false,
+        1024,
+        null,
+        '/mcma'
     );
+
+    $home = $app->handle(new HttpRequest('GET', '/mcma'));
+    assert_web_app($home->status() === 302, 'Base path did not redirect to login');
+    assert_web_app(($home->headers()['location'] ?? null) === '/mcma/login', 'Base path login redirect mismatch');
+
+    $legacyRootLogin = $app->handle(new HttpRequest('GET', '/login'));
+    assert_web_app($legacyRootLogin->status() === 404, 'Base-path web unexpectedly exposed root /login');
+
+    $login = $app->handle(new HttpRequest('GET', '/mcma/login'));
+    assert_web_app($login->status() === 302, 'Base-path login route failed');
+    $loginCookies = $login->headers()['set-cookie'] ?? [];
+    assert_web_app(is_array($loginCookies) && isset($loginCookies[0]) && str_contains($loginCookies[0], 'Path=/mcma;'), 'Base-path OIDC cookie scope mismatch');
+
+    $callback = $app->handle(new HttpRequest('GET', '/mcma/callback'));
+    assert_web_app($callback->status() === 400, 'Base-path callback route was not recognized');
+
+    $legacyV2 = $app->handle(new HttpRequest('GET', '/mcma/v2/memory'));
+    assert_web_app($legacyV2->status() === 404, 'New web app captured legacy /mcma/v2 route');
 
     $health = $app->handle(new HttpRequest('GET', '/mcma/v1/health'));
     assert_web_app($health->status() === 200, 'Health route failed');

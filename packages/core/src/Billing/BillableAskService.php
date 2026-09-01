@@ -33,7 +33,9 @@ final class BillableAskService
         int $topK=5,
         bool $rememberGenerated=true,
         array $captureOptions=[],
-        array $billingMetadata=[]
+        array $billingMetadata=[],
+        ?float $candidateSimilarity=null,
+        ?float $minRerankScore=null
     ): array {
         $this->billing->authorizeChannel($this->library,$origin);
 
@@ -73,7 +75,9 @@ final class BillableAskService
                 $minSimilarity,
                 $topK,
                 $rememberGenerated,
-                $captureOptions
+                $captureOptions,
+                $candidateSimilarity,
+                $minRerankScore
             );
             $result['billing']=$context->settle('success',[
                 'route'=>(string)($result['route']??'unknown'),

@@ -40,9 +40,13 @@ final class WebApplication
         private readonly ?AdminService $admin=null,
         private readonly bool $billingEnabled=false,
         private readonly int $billingMaxOutputTokens=1024,
-        private readonly ?StripeCheckoutService $stripe=null
+        private readonly ?StripeCheckoutService $stripe=null,
+        private readonly string $basePath=''
     ){
         if(!preg_match('#^https://[^/]+$#',$this->publicOrigin)) throw new RuntimeException('MCMA web public origin must be an HTTPS origin without a path');
+        if($this->basePath!==''&&(!preg_match('#^/[A-Za-z0-9._/-]+$#',$this->basePath)||str_ends_with($this->basePath,'/')||str_contains($this->basePath,'..'))) {
+            throw new RuntimeException('MCMA web base path must be empty or an absolute path without trailing slash');
+        }
         if($this->sessionTtl<300||$this->sessionTtl>604800) throw new RuntimeException('MCMA web session TTL must be between 300 and 604800 seconds');
         if($this->billingMaxOutputTokens<1||$this->billingMaxOutputTokens>200000) throw new RuntimeException('Invalid billing max output tokens');
     }
@@ -64,6 +68,13 @@ final class WebApplication
         $method=$request->method();
         $path=rtrim($request->path(),'/')?:'/';
 
+        $home=$this->basePath===''?'/':$this->basePath;
+        $loginPath=$home==='/'?'/login':$home.'/login';
+        $callbackPath=$home==='/'?'/callback':$home.'/callback';
+        $logoutPath=$home==='/'?'/logout':$home.'/logout';
+
+        if($method==='GET'&&$path===$home) return HttpResponse::redirect($loginPath,[],302);
+
         if($method==='GET'&&$path==='/mcma/v1/health'){
             return HttpResponse::json([
                 'ok'=>true,'service'=>'mcma-web','version'=>'1.0','multi_user'=>true,
@@ -71,11 +82,11 @@ final class WebApplication
                 'stripe_enabled'=>$this->billingEnabled&&$this->stripe!==null,
             ]);
         }
-        if($method==='GET'&&$path==='/login') return $this->login();
-        if($method==='GET'&&$path==='/callback') return $this->callback($request);
-        if($method==='POST'&&$path==='/logout'){
+        if($method==='GET'&&$path===$loginPath) return $this->login();
+        if($method==='GET'&&$path===$callbackPath) return $this->callback($request);
+        if($method==='POST'&&$path===$logoutPath){
             $this->assertOrigin($request);
-            return HttpResponse::redirect('/',['set-cookie'=>[$this->clearCookie(self::SESSION_COOKIE)]],303);
+            return HttpResponse::redirect($home,['set-cookie'=>[$this->clearCookie(self::SESSION_COOKIE)]],303);
         }
 
         if($method==='GET'&&$path==='/mcma/v1/me'){
@@ -203,7 +214,9 @@ final class WebApplication
                 (float)($this->providerOptions['min-similarity']??0.78),
                 (int)($this->providerOptions['top-k']??5),
                 $remember,$capture,
-                array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null)
+                array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
+                isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
+                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null
             );
         }else{
             $knowledge=new KnowledgeService($principal['library']);
@@ -215,7 +228,9 @@ final class WebApplication
                 (float)($this->providerOptions['min-confidence']??0.75),
                 (float)($this->providerOptions['min-similarity']??0.78),
                 (int)($this->providerOptions['top-k']??5),
-                $remember,$capture
+                $remember,$capture,
+                isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
+                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null
             );
         }
 
@@ -316,7 +331,7 @@ final class WebApplication
 
         $expiresAt=min((int)$identity['expires_at'],$now+$this->sessionTtl);
         $session=$this->sessionCookieCipher->seal(['v'=>1,'iss'=>$identity['issuer'],'sub'=>$identity['subject'],'iat'=>$now,'exp'=>$expiresAt]);
-        return HttpResponse::redirect('/',[
+        return HttpResponse::redirect($this->basePath===''?'/':$this->basePath,[
             'set-cookie'=>[
                 $this->cookie(self::SESSION_COOKIE,$session,max(1,$expiresAt-$now),'Strict'),
                 $this->clearCookie(self::STATE_COOKIE),
@@ -363,9 +378,10 @@ final class WebApplication
 
     private function cookie(string $name,string $value,int $maxAge,string $sameSite): string
     {
-        return $name.'='.rawurlencode($value).'; Path=/; Max-Age='.$maxAge.'; Secure; HttpOnly; SameSite='.$sameSite;
+        return $name.'='.rawurlencode($value).'; Path='.$this->cookiePath().'; Max-Age='.$maxAge.'; Secure; HttpOnly; SameSite='.$sameSite;
     }
-    private function clearCookie(string $name): string { return $name.'=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax'; }
+    private function clearCookie(string $name): string { return $name.'=; Path='.$this->cookiePath().'; Max-Age=0; Secure; HttpOnly; SameSite=Lax'; }
+    private function cookiePath(): string { return $this->basePath===''?'/':$this->basePath; }
 
     private function secure(HttpResponse $response): HttpResponse
     {
