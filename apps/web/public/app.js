@@ -23,8 +23,15 @@
       $('balance').textContent=number(data.billing.available_units);
       $('tokens').textContent=number(data.totals.total_tokens);
       $('spent').textContent=number(data.totals.credit_units_charged);
+      const quota=data.billing.quota||{};
+      const dailyLimit=Number(quota.daily_requests_limit||0);
+      const monthlyLimit=Number(quota.monthly_tokens_limit||0);
+      $('requestsToday').textContent=number(quota.daily_requests_used)+' / '+(dailyLimit>0?number(dailyLimit):'∞');
+      $('tokensMonth').textContent=number(quota.monthly_tokens_used)+' / '+(monthlyLimit>0?number(monthlyLimit):'∞');
+      $('quotaReset').textContent=quota.next_reset_at?new Date(quota.next_reset_at).toLocaleDateString():'—';
     }catch(e){
       $('plan').textContent='—';$('service').textContent='—';$('balance').textContent='—';
+      $('requestsToday').textContent='—';$('tokensMonth').textContent='—';$('quotaReset').textContent='—';
     }
   }
 

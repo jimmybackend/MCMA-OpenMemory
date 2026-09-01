@@ -76,6 +76,7 @@ jobs:
 
       - name: Billing and commercial API
         run: |
+          php tests/integration/billing-free-quota.php
           php tests/integration/billing-metering-admin.php
           php tests/integration/web-billing-api.php
           php tests/integration/stripe-checkout-webhook.php

@@ -50,7 +50,8 @@ final class BillingRequestContext
             $this->requestId,
             $this->origin,
             $providers,
-            (int)$estimate['credit_units']
+            (int)$estimate['credit_units'],
+            (int)($estimate['estimated_tokens']??0)
         );
     }
 

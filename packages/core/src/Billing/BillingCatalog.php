@@ -41,7 +41,7 @@ final class BillingCatalog
         $plans = $this->plans();
         $plan = $plans[$planId] ?? null;
         if (!is_array($plan)) throw new BillingException('Unknown billing plan: '.$planId, 'unknown_plan', 403);
-        return $plan;
+        return self::validatePlan($planId,$plan);
     }
 
     public function setPlan(string $planId, array $plan): array
@@ -249,22 +249,26 @@ final class BillingCatalog
         return [
             'free'=>self::validatePlan('free',[
                 'api_enabled'=>false,'embedding_enabled'=>true,'requests_per_minute'=>10,
-                'daily_request_limit'=>100,'concurrent_requests'=>1,'max_request_credit_units'=>100000,
+                'daily_request_limit'=>20,'concurrent_requests'=>1,'max_request_credit_units'=>100000,
+                'monthly_credit_allowance'=>100000,'monthly_token_limit'=>100000,
                 'allowed_providers'=>['*'],
             ]),
             'starter'=>self::validatePlan('starter',[
                 'api_enabled'=>true,'embedding_enabled'=>true,'requests_per_minute'=>30,
                 'daily_request_limit'=>2000,'concurrent_requests'=>2,'max_request_credit_units'=>1000000,
+                'monthly_credit_allowance'=>0,'monthly_token_limit'=>0,
                 'allowed_providers'=>['*'],
             ]),
             'pro'=>self::validatePlan('pro',[
                 'api_enabled'=>true,'embedding_enabled'=>true,'requests_per_minute'=>120,
                 'daily_request_limit'=>20000,'concurrent_requests'=>8,'max_request_credit_units'=>10000000,
+                'monthly_credit_allowance'=>0,'monthly_token_limit'=>0,
                 'allowed_providers'=>['*'],
             ]),
             'business'=>self::validatePlan('business',[
                 'api_enabled'=>true,'embedding_enabled'=>true,'requests_per_minute'=>600,
                 'daily_request_limit'=>100000,'concurrent_requests'=>32,'max_request_credit_units'=>100000000,
+                'monthly_credit_allowance'=>0,'monthly_token_limit'=>0,
                 'allowed_providers'=>['*'],
             ]),
         ];
@@ -283,6 +287,8 @@ final class BillingCatalog
             'daily_request_limit'=>self::boundedInt($plan,'daily_request_limit',1,100000000),
             'concurrent_requests'=>self::boundedInt($plan,'concurrent_requests',1,10000),
             'max_request_credit_units'=>self::boundedInt($plan,'max_request_credit_units',0,PHP_INT_MAX),
+            'monthly_credit_allowance'=>self::boundedInt($plan,'monthly_credit_allowance',0,PHP_INT_MAX),
+            'monthly_token_limit'=>self::boundedInt($plan,'monthly_token_limit',0,PHP_INT_MAX),
             'allowed_providers'=>array_values(array_unique($providers)),
             'updated_at'=>self::now(),
         ];

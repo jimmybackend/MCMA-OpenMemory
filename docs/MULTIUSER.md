@@ -28,6 +28,22 @@ ROOT
 
 The registry is itself an encrypted MCMA library.
 
+### Why S3 shows folders such as `00/`, `0b/`, `14/`
+
+Those folders are **not users**. MCMA objects are content-addressed by SHA-256 and physically sharded as:
+
+~~~text
+objects/<first-2-hex>/<next-2-hex>/<full-sha256>.mcma
+~~~
+
+This keeps one portable storage layout across S3, local filesystems, WebDAV and other adapters. In the S3 console, the user boundary is one level above `objects/`:
+
+~~~text
+memory/memories/usr_<hmac-sha256>/
+~~~
+
+So each `usr_...` prefix is one registered user's isolated library. The two-character object folders inside it are hash shards and should not be renamed or manually reorganized.
+
 Every user library has:
 
 - a distinct `library_id`;

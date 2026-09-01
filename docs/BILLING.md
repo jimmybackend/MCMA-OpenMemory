@@ -131,10 +131,16 @@ Plans control:
 - API enabled;
 - embeddings enabled metadata;
 - requests per minute;
-- daily requests;
+- daily AI requests;
 - concurrent requests;
 - max credit units per request;
+- optional monthly credit allowance;
+- optional monthly AI token limit;
 - allowed providers.
+
+The built-in Free plan defaults to 20 AI-backed requests per day, 100,000 AI tokens per UTC month and a 100,000-credit monthly target balance. The allowance is a top-up, not an additive grant: unused Free credits do not stack month after month. A plan value of 0 for a monthly allowance/limit means that specific monthly rule is disabled.
+
+Quota accounting is lazy and database-free. The first billing summary or AI-backed request in a UTC month records an idempotent encrypted allowance event in that user's daily billing ledger. Exact reusable memory that makes no provider call creates no billing reservation, so it does not consume the daily AI-request quota or monthly AI-token quota.
 
 The encrypted plan catalog can be changed by SuperAdmin.
 

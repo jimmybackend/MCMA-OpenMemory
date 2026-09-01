@@ -113,15 +113,18 @@ final class BillingService
     public function summary(Library $library): array
     {
         $account=$this->ensureAccount($library);
+        $plan=$this->catalog->plan((string)$account['plan_id']);
+        $allowance=$this->ensureMonthlyAllowanceForPlan($library,$account,$plan);
         $state=$this->state($library);
         return [
             'account'=>$account,
-            'plan'=>$this->catalog->plan((string)$account['plan_id']),
+            'plan'=>$plan,
             'balance_units'=>(int)$state['balance_units'],
             'reserved_units'=>(int)$state['reserved_units'],
             'available_units'=>(int)$state['balance_units']-(int)$state['reserved_units'],
             'active_requests'=>count($state['active_reservations']??[]),
             'last_ledger_ref'=>$state['last_ledger_ref']??null,
+            'quota'=>$this->quotaSnapshot($library,$plan,$allowance),
         ];
     }
 
@@ -205,7 +208,15 @@ final class BillingService
             ];
         }
 
-        return $this->catalog->calculate($components);
+        $estimatedTokens=0;
+        foreach($components as $component){
+            if(!is_array($component)) continue;
+            $estimatedTokens+=max(0,(int)($component['input_tokens']??0))
+                +max(0,(int)($component['output_tokens']??0))
+                +max(0,(int)($component['embedding_tokens']??0));
+        }
+
+        return $this->catalog->calculate($components)+['estimated_tokens'=>$estimatedTokens];
     }
 
     public function reserve(
@@ -213,11 +224,13 @@ final class BillingService
         string $requestId,
         string $origin,
         array $providerIds,
-        int $estimatedCreditUnits
+        int $estimatedCreditUnits,
+        int $estimatedTokens=0
     ): array {
         $authorization=$this->authorizeChannel($library,$origin);
         $account=$authorization['account'];
         $plan=$authorization['plan'];
+        $this->ensureMonthlyAllowanceForPlan($library,$account,$plan);
 
         foreach($providerIds as $providerId){
             if(!$this->providerAllowed((string)$providerId,$plan['allowed_providers']??[])) throw new BillingException('Provider is not allowed by plan','provider_not_allowed',403);
@@ -225,7 +238,17 @@ final class BillingService
         }
 
         if($estimatedCreditUnits<0) throw new RuntimeException('Estimated credits cannot be negative');
+        if($estimatedTokens<0) throw new RuntimeException('Estimated tokens cannot be negative');
         if($estimatedCreditUnits>(int)$plan['max_request_credit_units']) throw new BillingException('Request exceeds plan credit limit','request_credit_limit',402);
+
+        $monthlyTokenLimit=(int)($plan['monthly_token_limit']??0);
+        if($monthlyTokenLimit>0){
+            $month=$this->monthlyUsage($library,gmdate('Y-m'));
+            $used=(int)($month['summary']['total_tokens']??0);
+            if($used>=$monthlyTokenLimit||$estimatedTokens>$monthlyTokenLimit-$used){
+                throw new BillingException('Monthly AI token allowance exhausted','monthly_token_limit',402);
+            }
+        }
 
         $state=$this->state($library);
         $active=$state['active_reservations']??[];
@@ -406,6 +429,115 @@ final class BillingService
         $content=$library->read($ref)['payload']['content']??null;
         if(!is_array($content)) throw new RuntimeException('Malformed billing ledger');
         return $content;
+    }
+
+    public function monthlyUsage(Library $library,string $period): array
+    {
+        if(!preg_match('/^\d{4}-\d{2}$/',$period)) throw new RuntimeException('Period must be YYYY-MM');
+        $library->refresh();
+        $summary=self::emptyUsageSummary();
+        $reservations=0;
+        $prefix='memory://billing/ledger/'.str_replace('-','/',$period).'/';
+
+        foreach($this->ledgerRefs($library) as $ref){
+            if(!str_starts_with($ref,$prefix)) continue;
+            $content=$library->read($ref)['payload']['content']??null;
+            if(!is_array($content)) throw new RuntimeException('Malformed billing ledger');
+            $daily=is_array($content['summary']??null)?$content['summary']:[];
+            foreach(['requests','input_tokens','output_tokens','cached_tokens','embedding_tokens','total_tokens','model_calls','duration_ms','credit_units_charged','cost_micros'] as $field){
+                $summary[$field]=(int)($summary[$field]??0)+(int)($daily[$field]??0);
+            }
+            foreach(($content['events']??[]) as $event){
+                if(is_array($event)&&($event['type']??null)==='reservation') $reservations++;
+            }
+        }
+
+        return ['period'=>$period,'reservations'=>$reservations,'summary'=>$summary];
+    }
+
+
+    private function ensureMonthlyAllowanceForPlan(Library $library,array $account,array $plan): array
+    {
+        $period=gmdate('Y-m');
+        $target=(int)($plan['monthly_credit_allowance']??0);
+        $planId=(string)($account['plan_id']??$plan['id']??'');
+
+        if($target<=0){
+            return [
+                'period'=>$period,'plan_id'=>$planId,'target_credit_units'=>0,
+                'granted_credit_units'=>0,'applied'=>false,
+            ];
+        }
+
+        $existing=$this->findMonthlyAllowanceEvent($library,$period,$planId);
+        if($existing!==null){
+            return [
+                'period'=>$period,'plan_id'=>$planId,
+                'target_credit_units'=>(int)($existing['target_credit_units']??$target),
+                'granted_credit_units'=>(int)($existing['granted_credit_units']??0),
+                'applied'=>true,
+            ];
+        }
+
+        $state=$this->state($library);
+        $available=(int)($state['balance_units']??0)-(int)($state['reserved_units']??0);
+        $grant=max(0,$target-$available);
+        $event=[
+            'event_id'=>'allowance_'.substr(hash('sha256',$library->libraryId().'|'.$period.'|'.$planId),0,32),
+            'type'=>'allowance',
+            'occurred_at'=>self::now(),
+            'source'=>'plan-monthly-allowance',
+            'plan_id'=>$planId,
+            'allowance_period'=>$period,
+            'target_credit_units'=>$target,
+            'granted_credit_units'=>$grant,
+            'balance_delta_units'=>$grant,
+            'reserved_delta_units'=>0,
+        ];
+        $this->appendEvent($library,$event);
+
+        return [
+            'period'=>$period,'plan_id'=>$planId,'target_credit_units'=>$target,
+            'granted_credit_units'=>$grant,'applied'=>true,
+        ];
+    }
+
+    private function findMonthlyAllowanceEvent(Library $library,string $period,string $planId): ?array
+    {
+        $prefix='memory://billing/ledger/'.str_replace('-','/',$period).'/';
+        foreach($this->ledgerRefs($library) as $ref){
+            if(!str_starts_with($ref,$prefix)) continue;
+            $content=$library->read($ref)['payload']['content']??null;
+            if(!is_array($content)) continue;
+            foreach(($content['events']??[]) as $event){
+                if(!is_array($event)||($event['type']??null)!=='allowance') continue;
+                if(($event['allowance_period']??null)===$period&&($event['plan_id']??null)===$planId) return $event;
+            }
+        }
+        return null;
+    }
+
+    private function quotaSnapshot(Library $library,array $plan,array $allowance): array
+    {
+        $period=gmdate('Y-m');
+        $month=$this->monthlyUsage($library,$period);
+        $today=$this->dailyUsage($library,gmdate('Y-m-d'));
+        $dailyReservations=0;
+        foreach(($today['events']??[]) as $event){
+            if(is_array($event)&&($event['type']??null)==='reservation') $dailyReservations++;
+        }
+
+        $next=strtotime($period.'-01 00:00:00 UTC +1 month');
+        return [
+            'period'=>$period,
+            'daily_requests_used'=>$dailyReservations,
+            'daily_requests_limit'=>(int)($plan['daily_request_limit']??0),
+            'monthly_tokens_used'=>(int)($month['summary']['total_tokens']??0),
+            'monthly_tokens_limit'=>(int)($plan['monthly_token_limit']??0),
+            'monthly_credit_allowance'=>(int)($plan['monthly_credit_allowance']??0),
+            'monthly_allowance_granted'=>(int)($allowance['granted_credit_units']??0),
+            'next_reset_at'=>$next===false?null:gmdate('Y-m-d\TH:i:s\Z',$next),
+        ];
     }
 
     private function appendEvent(Library $library,array $event): array
