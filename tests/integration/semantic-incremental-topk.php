@@ -24,6 +24,8 @@ final class IncrementalSemanticProvider implements EmbeddingProvider
             'alpha fact' => [1.0, 0.0, 0.0],
             'beta fact' => [0.96, 0.04, 0.0],
             'semantic query' => [0.999, 0.001, 0.0],
+            'hybrid fact' => [0.0, 1.0, 0.0],
+            'hybrid query' => [0.0, 0.7, 0.714142842854285],
             default => [0.0, 0.0, 1.0],
         };
     }
@@ -129,6 +131,28 @@ try {
     $betaEntries = array_values(array_filter($indexPayload['entries'], static fn(array $entry): bool => $entry['logical_ref'] === $betaRef));
     ok_semantic_incremental(count($betaEntries) === 1, 'Incremental index duplicated revised knowledge');
     ok_semantic_incremental(hash_equals($betaEntries[0]['storage_hash'], $afterRevision['storage_hash']), 'Incremental vector is not bound to latest storage_hash');
+
+    $librarian->remember('Hybrid fact', 'Hybrid trusted answer.', [
+        'confidence' => 0.97,
+        'validation_state' => 'verified',
+        'provenance' => [['source_type'=>'working-test','reference'=>'hybrid']],
+        'freshness_class' => 'immutable',
+        'max_age_seconds' => null,
+    ]);
+
+    $hybridTop = $semantic->topK('ai', 'Hybrid query', $provider, false, 0.75, 0.80, 5, null, 0.60);
+    ok_semantic_incremental(($hybridTop['candidate_similarity'] ?? null) === 0.60, 'Hybrid candidate floor missing');
+    $hybridCandidates = array_values(array_filter(
+        $hybridTop['candidates'],
+        static fn(array $candidate): bool => ($candidate['matched_question'] ?? null) === 'Hybrid fact'
+    ));
+    ok_semantic_incremental(count($hybridCandidates) === 1, 'Hybrid candidate below legacy min similarity was not admitted');
+    ok_semantic_incremental(($hybridCandidates[0]['similarity'] ?? 1.0) < 0.80, 'Hybrid test candidate unexpectedly passed legacy similarity gate');
+
+    $hybridAnswer = $semantic->answer('ai', 'Hybrid query', $provider, false, 0.75, 0.80, 5, 0.60, 0.85);
+    ok_semantic_incremental(($hybridAnswer['matched_question'] ?? null) === 'Hybrid fact', 'Hybrid rerank gate did not select trusted lower-similarity knowledge');
+    ok_semantic_incremental(($hybridAnswer['selection_gate'] ?? null) === 'rerank', 'Hybrid answer did not report rerank selection');
+    ok_semantic_incremental(($hybridAnswer['answer']['value'] ?? null) === 'Hybrid trusted answer.', 'Hybrid rerank answer payload mismatch');
 
     $policy = $lib->permissions('owner');
     $policy['resources'][] = [

@@ -201,9 +201,12 @@ final class SemanticIndexService
         float $minConfidence = 0.75,
         float $minSimilarity = 0.78,
         int $topK = 5,
-        ?DeterministicReranker $reranker = null
+        ?DeterministicReranker $reranker = null,
+        ?float $candidateSimilarity = null
     ): array {
         self::validateSearchOptions($minConfidence, $minSimilarity, $topK);
+        self::validateHybridThresholds($minSimilarity, $candidateSimilarity, null);
+        $candidateThreshold = $candidateSimilarity ?? $minSimilarity;
 
         [$semanticIndex, $exists] = $this->loadIndex($provider);
         if (!$exists) {
@@ -263,7 +266,7 @@ final class SemanticIndexService
 
             $similarity = VectorMath::cosine($queryVector, $entry['vector']);
             if ($bestSimilarity === null || $similarity > $bestSimilarity) $bestSimilarity = $similarity;
-            if ($similarity < $minSimilarity) continue;
+            if ($similarity < $candidateThreshold) continue;
 
             $stored = $this->library->readAs($actor, $ref);
             $record = $stored['payload']['content'] ?? null;
@@ -313,6 +316,7 @@ final class SemanticIndexService
             'provider_id' => $provider->id(),
             'top_k' => $topK,
             'min_similarity' => $minSimilarity,
+            'candidate_similarity' => $candidateThreshold,
             'min_confidence' => $minConfidence,
             'best_similarity' => $bestSimilarity,
             'stale_index_entries' => $staleEntries,
@@ -327,9 +331,12 @@ final class SemanticIndexService
         bool $currentRequired = false,
         float $minConfidence = 0.75,
         float $minSimilarity = 0.78,
-        int $topK = 5
+        int $topK = 5,
+        ?float $candidateSimilarity = null,
+        ?float $minRerankScore = null
     ): array {
         self::validateSearchOptions($minConfidence, $minSimilarity, $topK);
+        self::validateHybridThresholds($minSimilarity, $candidateSimilarity, $minRerankScore);
 
         $knowledge = new KnowledgeService($this->library);
         $exact = $knowledge->directAnswer($actor, $question, $currentRequired, $minConfidence);
@@ -338,7 +345,7 @@ final class SemanticIndexService
             return $exact;
         }
 
-        $ranked = $this->topK($actor, $question, $provider, $currentRequired, $minConfidence, $minSimilarity, $topK);
+        $ranked = $this->topK($actor, $question, $provider, $currentRequired, $minConfidence, $minSimilarity, $topK, null, $candidateSimilarity);
         if (($ranked['found'] ?? false) !== true) {
             return [
                 'found' => false,
@@ -349,11 +356,40 @@ final class SemanticIndexService
                 'stale_index_entries' => $ranked['stale_index_entries'] ?? 0,
                 'best_similarity' => $ranked['best_similarity'] ?? null,
                 'min_similarity' => $minSimilarity,
+                'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+                'min_rerank_score' => $minRerankScore,
                 'logical_ref' => KnowledgeRecord::logicalRef($question),
             ];
         }
 
-        $top = $ranked['candidates'][0];
+        $top = null;
+        foreach ($ranked['candidates'] as $candidate) {
+            if (($candidate['reusable'] ?? false) !== true) continue;
+            $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
+            $rerankPass = $minRerankScore !== null
+                && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
+            if ($similarityPass || $rerankPass) {
+                $top = $candidate;
+                break;
+            }
+        }
+
+        if ($top === null) {
+            return [
+                'found' => false,
+                'reusable' => false,
+                'decision' => 'miss',
+                'route' => 'semantic',
+                'reasons' => ['no-reusable-candidate-passed-selection-gates'],
+                'stale_index_entries' => $ranked['stale_index_entries'] ?? 0,
+                'best_similarity' => $ranked['best_similarity'] ?? null,
+                'min_similarity' => $minSimilarity,
+                'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+                'min_rerank_score' => $minRerankScore,
+                'logical_ref' => KnowledgeRecord::logicalRef($question),
+            ];
+        }
+
         $result = [
             'found' => true,
             'route' => 'semantic',
@@ -365,6 +401,9 @@ final class SemanticIndexService
             'similarity' => $top['similarity'],
             'rerank_score' => $top['rerank_score'],
             'min_similarity' => $minSimilarity,
+            'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+            'min_rerank_score' => $minRerankScore,
+            'selection_gate' => $top['similarity'] >= $minSimilarity ? 'similarity' : 'rerank',
             'reusable' => $top['reusable'],
             'decision' => $top['decision'],
             'reasons' => $top['reasons'],
@@ -478,6 +517,24 @@ final class SemanticIndexService
     {
         if (!preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#', $logicalRef)) {
             throw new RuntimeException('Incremental semantic indexing requires a canonical knowledge logical reference');
+        }
+    }
+
+    private static function validateHybridThresholds(
+        float $minSimilarity,
+        ?float $candidateSimilarity,
+        ?float $minRerankScore
+    ): void {
+        if ($candidateSimilarity !== null) {
+            if (!is_finite($candidateSimilarity) || $candidateSimilarity < -1.0 || $candidateSimilarity > 1.0) {
+                throw new RuntimeException('Candidate similarity must be between -1 and 1');
+            }
+            if ($candidateSimilarity > $minSimilarity) {
+                throw new RuntimeException('Candidate similarity must not exceed min similarity');
+            }
+        }
+        if ($minRerankScore !== null && (!is_finite($minRerankScore) || $minRerankScore < 0.0 || $minRerankScore > 1.0)) {
+            throw new RuntimeException('Minimum rerank score must be between 0 and 1');
         }
     }
 

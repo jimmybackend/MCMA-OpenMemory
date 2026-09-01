@@ -32,7 +32,9 @@ final class AskService
         float $minSimilarity = 0.78,
         int $topK = 5,
         bool $rememberGenerated = true,
-        array $captureOptions = []
+        array $captureOptions = [],
+        ?float $candidateSimilarity = null,
+        ?float $minRerankScore = null
     ): array {
         $normalized = KnowledgeRecord::normalizeIntent($question);
 
@@ -52,7 +54,9 @@ final class AskService
                 $currentRequired,
                 $minConfidence,
                 $minSimilarity,
-                $topK
+                $topK,
+                $candidateSimilarity,
+                $minRerankScore
             );
 
             if (($memoryAttempt['reusable'] ?? false) === true && isset($memoryAttempt['answer'])) {

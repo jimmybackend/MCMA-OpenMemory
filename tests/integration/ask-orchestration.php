@@ -144,6 +144,13 @@ try {
         'freshness_class' => 'immutable',
         'max_age_seconds' => null,
     ]);
+    $hybridFallback = $ask->ask('ai', 'Brand new question', false, 0.75, 0.99999, 5, true, [], 0.80, 0.85);
+    ok_ask(($hybridFallback['route'] ?? null) === 'memory-semantic', 'Hybrid ask did not use semantic fallback');
+    ok_ask(($hybridFallback['matched_question'] ?? null) === 'Validated alternate', 'Hybrid ask selected wrong fallback');
+    ok_ask(($hybridFallback['selection_gate'] ?? null) === 'rerank', 'Hybrid ask did not report rerank selection');
+    ok_ask(($hybridFallback['provider_called'] ?? true) === false, 'Hybrid ask called generation provider');
+    ok_ask($generator->calls === 2, 'Generation provider call count changed during hybrid ask');
+
     $fallback = $ask->ask('ai', 'Brand new question', false, 0.75, 0.80, 5, true);
     ok_ask(($fallback['route'] ?? null) === 'memory-semantic', 'Non-reusable exact memory blocked semantic fallback');
     ok_ask(($fallback['matched_question'] ?? null) === 'Validated alternate', 'Semantic fallback selected wrong knowledge');

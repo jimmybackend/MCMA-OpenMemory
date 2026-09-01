@@ -169,7 +169,9 @@ final class CliApplication
                 $this->yesNo($opts,'current',false),
                 (float)($opts['min-confidence']??0.75),
                 (float)($opts['min-similarity']??0.78),
-                (int)($opts['top-k']??5)
+                (int)($opts['top-k']??5),
+                isset($opts['candidate-similarity']) ? (float)$opts['candidate-similarity'] : null,
+                isset($opts['min-rerank-score']) ? (float)$opts['min-rerank-score'] : null
             )).PHP_EOL;
             break;
         }
@@ -183,7 +185,9 @@ final class CliApplication
                 $this->yesNo($opts,'current',false),
                 (float)($opts['min-confidence']??0.75),
                 (float)($opts['min-similarity']??0.78),
-                (int)($opts['top-k']??5)
+                (int)($opts['top-k']??5),
+                null,
+                isset($opts['candidate-similarity']) ? (float)$opts['candidate-similarity'] : null
             )).PHP_EOL;
             break;
         }
@@ -214,7 +218,9 @@ final class CliApplication
                     'max_age_seconds'=>$captureMaxAge,
                     'reuse_policy'=>$opts['capture-reuse']??'reuse-unless-stale',
                     'provenance'=>$captureProvenance,
-                ]
+                ],
+                isset($opts['candidate-similarity']) ? (float)$opts['candidate-similarity'] : null,
+                isset($opts['min-rerank-score']) ? (float)$opts['min-rerank-score'] : null
             )).PHP_EOL;
             break;
         }
@@ -365,6 +371,8 @@ knowledge / semantic options:
   --current=yes|no
   --min-confidence=0.0..1.0
   --min-similarity=-1.0..1.0
+  --candidate-similarity=-1.0..1.0
+  --min-rerank-score=0.0..1.0
   --top-k=1..100
   --dimensions=256|512|1024
   --embedding-provider=bedrock-titan-v2|ollama|llamacpp
@@ -373,6 +381,8 @@ ask options:
   --actor=ai
   --embedding-provider=none|bedrock-titan-v2|ollama|llamacpp
   --generation-provider=none|bedrock-converse|ollama|llamacpp
+  --candidate-similarity=-1.0..1.0
+  --min-rerank-score=0.0..1.0
   --remember=yes|no
   --capture-confidence=0.0..1.0
   --capture-validation=unverified|plausible|supported|verified|disputed|retracted
