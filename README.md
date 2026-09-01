@@ -9,6 +9,28 @@
 
 MCMA is an open, portable, encrypted, file-first memory archive controlled by the user. AI is optional.
 
+
+## Production status — 2026-09-01
+
+A live MCMA-OpenMemory web deployment is operational at `https://mailit.click/mcma/`.
+
+Verified end to end on EC2:
+
+- HTTPS web UI behind Nginx/CloudFront;
+- Google OpenID Connect login with Authorization Code + PKCE;
+- encrypted HttpOnly session cookies and automatic user registration;
+- isolated per-user MCMA libraries stored encrypted in Amazon S3;
+- per-library KeyStore keys with no shared `MCMA_MASTER_KEY_B64` in multi-user mode;
+- Amazon Titan Text Embeddings V2 for semantic memory;
+- Amazon Nova Micro through Bedrock Converse for generation;
+- Free billing plan active with 20 AI-backed requests/day, 100,000 AI tokens/month and a 100,000-credit monthly top-up;
+- encrypted billing plan/pricing catalogs and per-user daily ledgers.
+
+A live billing request was measured successfully: 117 provider tokens, 117 credits charged and 13 USD micros recorded, with the account balance moving from 100,000 to 99,883.
+
+The production web runtime is isolated from the historical V1/V2 compatibility endpoints by a dedicated PHP-FPM service/socket.
+
+
 ## Core model
 
 ~~~text
@@ -57,6 +79,14 @@ reuse / revalidate / reject / miss
 Only reuse returns the remembered answer.
 
 Exact intent remains the first route. When it misses, MCMA can optionally use an encrypted semantic index and an EmbeddingProvider to discover a paraphrased candidate. The candidate still has to pass permissions, validation, confidence and freshness before its answer is returned.
+
+Token behavior follows the route:
+
+- exact reusable memory: no embedding or generation provider call, so no AI tokens are consumed;
+- semantic lookup: an embedding provider is called for the new query, so embedding tokens may be consumed even when generation is avoided;
+- generation fallback: the configured providers are metered and the generated result may be captured as knowledge.
+
+A newly generated answer is intentionally stored as `unverified` with confidence `0.5` by default. With the default reuse threshold of `0.75`, merely checking "remember" does not make that answer immediately reusable as trusted exact memory; it must later satisfy validation/confidence/freshness policy.
 
 ## Deterministic agents
 
