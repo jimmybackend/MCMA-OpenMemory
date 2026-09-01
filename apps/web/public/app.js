@@ -7,6 +7,16 @@
   const answerMeta=$('answerMeta'),answerSource=$('answerSource'),answerTokens=$('answerTokens'),answerCredits=$('answerCredits'),answerRemembered=$('answerRemembered');
   const apiKeysBox=$('apiKeysBox'),createKey=$('createKey'),keyList=$('keyList'),newKey=$('newKey');
   const stripeBox=$('stripeBox'),stripePackages=$('stripePackages'),stripeStatus=$('stripeStatus');
+  const memoryExplorer=$('memoryExplorer'),memorySearchForm=$('memorySearchForm'),memoryQuery=$('memoryQuery');
+  const memoryTemperature=$('memoryTemperature'),memoryValidation=$('memoryValidation'),memoryReset=$('memoryReset');
+  const memoryCount=$('memoryCount'),memoryList=$('memoryList'),memoryPagePrev=$('memoryPagePrev'),memoryPageNext=$('memoryPageNext'),memoryPageLabel=$('memoryPageLabel');
+  const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
+  const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
+  const memoryDetailValidation=$('memoryDetailValidation'),memoryDetailConfidence=$('memoryDetailConfidence');
+  const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
+  const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
+  const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
+  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null};
 
   async function api(path,options={}){
     const response=await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
@@ -170,6 +180,173 @@
     }catch(e){stripeBox.hidden=true;}
   }
 
+  function memoryDate(value){
+    if(!value)return '—';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '—';
+    return new Intl.DateTimeFormat('es-MX',{
+      timeZone:'UTC',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'
+    }).format(date)+' UTC';
+  }
+
+  function clearMemoryDetail(){
+    memoryState.selectedId=null;
+    memoryDetailContent.hidden=true;
+    memoryDetailEmpty.hidden=false;
+    memoryValidationStatus.textContent='';
+    for(const node of memoryList.querySelectorAll('.memory-list-item'))node.classList.remove('selected');
+  }
+
+  function memoryBadge(text,className='metric-badge'){
+    const span=document.createElement('span');
+    span.className=className;
+    span.textContent=text;
+    return span;
+  }
+
+  function renderMemoryList(){
+    memoryList.replaceChildren();
+    if(memoryState.items.length===0){
+      const empty=document.createElement('p');
+      empty.className='memory-empty';
+      empty.textContent=memoryState.total===0?'No hay recuerdos que coincidan con estos filtros.':'No hay recuerdos en esta página.';
+      memoryList.appendChild(empty);
+    }else{
+      for(const item of memoryState.items){
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='memory-list-item';
+        if(item.id===memoryState.selectedId)button.classList.add('selected');
+
+        const title=document.createElement('strong');
+        title.textContent=item.question;
+
+        const meta=document.createElement('span');
+        meta.className='memory-list-meta';
+        for(const value of [
+          item.validation_state,
+          Number(item.confidence||0).toFixed(2),
+          item.temperature,
+          item.reusable?'reutilizable':'requiere revisión'
+        ]){
+          const tag=document.createElement('span');
+          tag.textContent=value;
+          meta.appendChild(tag);
+        }
+
+        button.append(title,meta);
+        button.addEventListener('click',()=>loadMemoryDetail(item.id));
+        memoryList.appendChild(button);
+      }
+    }
+
+    memoryCount.textContent=number(memoryState.total)+' recuerdos · 0 tokens IA';
+    memoryPageLabel.textContent=number(memoryState.page)+' / '+number(memoryState.pages);
+    memoryPagePrev.disabled=memoryState.page<=1;
+    memoryPageNext.disabled=memoryState.page>=memoryState.pages;
+  }
+
+  async function loadMemories(page=1){
+    const params=new URLSearchParams({
+      page:String(page),
+      limit:String(memoryState.limit),
+      q:memoryQuery.value.trim(),
+      temperature:memoryTemperature.value,
+      validation:memoryValidation.value
+    });
+    memoryCount.textContent='Descifrando índice… · 0 tokens IA';
+    try{
+      const data=await api('/mcma/v1/memories?'+params.toString(),{method:'GET',headers:{}});
+      const result=data.memory||{};
+      memoryState.page=Number(result.page||1);
+      memoryState.pages=Math.max(1,Number(result.pages||1));
+      memoryState.total=Number(result.total||0);
+      memoryState.items=Array.isArray(result.items)?result.items:[];
+      if(memoryState.selectedId&&!memoryState.items.some(item=>item.id===memoryState.selectedId)){
+        clearMemoryDetail();
+      }
+      renderMemoryList();
+    }catch(error){
+      memoryList.replaceChildren();
+      const failed=document.createElement('p');
+      failed.className='memory-empty';
+      failed.textContent='No se pudo abrir la memoria: '+error.message;
+      memoryList.appendChild(failed);
+      memoryCount.textContent='Error al leer memoria';
+    }
+  }
+
+  function renderMemoryDetail(memory){
+    memoryState.selectedId=memory.id;
+    memoryDetailEmpty.hidden=true;
+    memoryDetailContent.hidden=false;
+    memoryValidationStatus.textContent='';
+
+    for(const node of memoryList.querySelectorAll('.memory-list-item')){
+      node.classList.toggle('selected',memoryState.items.some(item=>item.id===memory.id&&node.querySelector('strong')?.textContent===item.question));
+    }
+
+    memoryDetailQuestion.textContent=memory.question||'—';
+    const value=memory.answer?.value;
+    memoryDetailAnswer.textContent=typeof value==='string'?value:JSON.stringify(value,null,2);
+    memoryDetailValidation.textContent=memory.validation_state||'—';
+    memoryDetailConfidence.textContent=Number(memory.confidence||0).toFixed(2);
+    memoryDetailTemperature.textContent=memory.temperature||'—';
+    memoryDetailFreshness.textContent=(memory.freshness_class||'—')+(memory.stale?' · vencida':'');
+    memoryDetailCaptured.textContent=memoryDate(memory.captured_at);
+    memoryDetailReusable.textContent=memory.reusable?'Sí · 0 tokens en coincidencia exacta':'No todavía';
+
+    memoryDetailBadges.replaceChildren(
+      memoryBadge(memory.validation_state||'—','route-badge '+(memory.validation_state==='verified'?'route-exact':'')),
+      memoryBadge('Confianza '+Number(memory.confidence||0).toFixed(2)),
+      memoryBadge(memory.temperature||'—'),
+      memoryBadge(memory.reusable?'Reutilizable':'Revisión necesaria')
+    );
+
+    memoryConfirm.disabled=memory.validation_state==='verified'&&Number(memory.confidence||0)>=0.95;
+    memoryDiscard.disabled=memory.validation_state==='retracted';
+
+    const index=memoryState.items.findIndex(item=>item.id===memory.id);
+    memoryItemPrev.disabled=index<=0;
+    memoryItemNext.disabled=index<0||index>=memoryState.items.length-1;
+  }
+
+  async function loadMemoryDetail(id){
+    memoryValidationStatus.textContent='Descifrando respuesta…';
+    try{
+      const data=await api('/mcma/v1/memories/'+id,{method:'GET',headers:{}});
+      renderMemoryDetail(data.memory||{});
+    }catch(error){
+      memoryValidationStatus.textContent='No se pudo descifrar: '+error.message;
+    }
+  }
+
+  async function validateMemory(action){
+    if(!memoryState.selectedId)return;
+    const button=action==='confirm'?memoryConfirm:memoryDiscard;
+    button.disabled=true;
+    memoryValidationStatus.textContent=action==='confirm'?'Confirmando sin IA…':'Descartando sin IA…';
+    try{
+      const data=await api('/mcma/v1/memories/'+memoryState.selectedId+'/validation',{
+        method:'POST',
+        body:JSON.stringify({action})
+      });
+      renderMemoryDetail(data.memory||{});
+      memoryValidationStatus.textContent=(data.validation?.unchanged?'Sin cambios':'Memoria actualizada')+' · 0 tokens IA · 0 créditos';
+      await loadMemories(memoryState.page);
+    }catch(error){
+      memoryValidationStatus.textContent=error.message;
+      button.disabled=false;
+    }
+  }
+
+  function selectMemoryRelative(delta){
+    const index=memoryState.items.findIndex(item=>item.id===memoryState.selectedId);
+    const next=index+delta;
+    if(index<0||next<0||next>=memoryState.items.length)return;
+    loadMemoryDetail(memoryState.items[next].id);
+  }
+
   async function detectAdmin(){
     try{await api('/mcma/v1/admin/users',{method:'GET',headers:{}});adminLink.hidden=false;}
     catch(e){adminLink.hidden=true;}
@@ -181,12 +358,12 @@
       const data=await api('/mcma/v1/me',{method:'GET',headers:{}});
       setSessionState('active','Sesión activa');
       showIdentity(data.identity||{});
-      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;
+      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;memoryExplorer.hidden=false;
       $('library').textContent=data.user.library_id;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
-      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin()]);
+      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadMemories(1)]);
     }catch(error){
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;memoryExplorer.hidden=true;adminLink.hidden=true;clearIdentity();
       const signedOut=new URLSearchParams(location.search).get('signed_out')==='1';
       if(error.status===401){
         setSessionState('inactive',signedOut?'Sesión cerrada':'Sin sesión');
@@ -212,6 +389,7 @@
       answer.textContent=result.answer?.value ?? JSON.stringify(result,null,2);
       renderAnswerMeta(result);
       await loadBilling();
+      if(result.stored===true)await loadMemories(1);
     }catch(error){answer.textContent=error.message;answerMeta.hidden=true;}
     finally{send.disabled=false;}
   });
@@ -234,12 +412,33 @@
     }catch(error){newKey.hidden=false;newKey.textContent=error.message;}
   });
 
+  memorySearchForm.addEventListener('submit',event=>{
+    event.preventDefault();
+    clearMemoryDetail();
+    loadMemories(1);
+  });
+  memoryReset.addEventListener('click',()=>{
+    memoryQuery.value='';
+    memoryTemperature.value='all';
+    memoryValidation.value='all';
+    clearMemoryDetail();
+    loadMemories(1);
+  });
+  memoryTemperature.addEventListener('change',()=>{clearMemoryDetail();loadMemories(1);});
+  memoryValidation.addEventListener('change',()=>{clearMemoryDetail();loadMemories(1);});
+  memoryPagePrev.addEventListener('click',()=>{if(memoryState.page>1){clearMemoryDetail();loadMemories(memoryState.page-1);}});
+  memoryPageNext.addEventListener('click',()=>{if(memoryState.page<memoryState.pages){clearMemoryDetail();loadMemories(memoryState.page+1);}});
+  memoryItemPrev.addEventListener('click',()=>selectMemoryRelative(-1));
+  memoryItemNext.addEventListener('click',()=>selectMemoryRelative(1));
+  memoryConfirm.addEventListener('click',()=>validateMemory('confirm'));
+  memoryDiscard.addEventListener('click',()=>validateMemory('discard'));
+
   logout.addEventListener('click',async()=>{
     logout.disabled=true;logout.textContent='Saliendo…';
     setSessionState('pending','Cerrando sesión…');
     try{
       await fetch('logout',{method:'POST',credentials:'same-origin'});
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;memoryExplorer.hidden=true;adminLink.hidden=true;clearIdentity();
       setSessionState('inactive','Sesión cerrada');
       login.hidden=false;logout.hidden=true;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=true);
