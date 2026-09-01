@@ -67,7 +67,7 @@ try{
         'concurrent_requests'=>1,
         'max_request_credit_units'=>100,
         'monthly_credit_allowance'=>100,
-        'monthly_token_limit'=>25,
+        'monthly_token_limit'=>1000,
         'allowed_providers'=>['quota:*'],
     ]);
     $catalog->setPricing('quota:embed:v1',[
@@ -87,7 +87,7 @@ try{
     $first=$billing->summary($library);
     qassert(($first['available_units']??0)===100,'Free monthly allowance was not granted');
     qassert(($first['quota']['monthly_credit_allowance']??0)===100,'Free allowance target missing');
-    qassert(($first['quota']['monthly_tokens_limit']??0)===25,'Monthly token limit missing');
+    qassert(($first['quota']['monthly_tokens_limit']??0)===1000,'Monthly token limit missing');
 
     $second=$billing->summary($library);
     qassert(($second['available_units']??0)===100,'Monthly allowance stacked on repeated summary');
