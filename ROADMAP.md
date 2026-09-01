@@ -130,6 +130,7 @@
 - [x] server-only AI/storage/provider selection
 - [x] origin checking for POST requests
 - [x] browser chat UI
+- [x] session status/profile chip, favicon and answer route/token badges
 - [x] no database dependency
 - [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
 
@@ -188,7 +189,7 @@
 - [x] minimal executable/bootstrap entrypoints only
 
 ## Next
-- [ ] Context Builder: inject permission-filtered reusable memory snippets into generation prompts
+- [x] guarded single-memory Context Builder for supported/verified revalidation candidates
 - [ ] recent-turn/session context policy without storing an unbounded plaintext transcript
 - [ ] token-budgeted RAG context assembly with provenance and freshness metadata
 - [ ] explicit validation/promotion workflow for newly generated remembered answers
