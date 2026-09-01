@@ -126,6 +126,14 @@ Cookies are:
 
 The session cookie is opaque and carries the verified issuer/subject only inside authenticated encryption.
 
+When the OIDC provider returns standard `email`, `name` and `picture` claims, MCMA may also keep those whitelisted display claims inside the encrypted session cookie and expose them through `GET /mcma/v1/me` for the account chip. They are not used to derive storage paths and are not copied into the encrypted user registry or user knowledge library.
+
+For Google login, request the standard scopes:
+
+~~~text
+MCMA_OIDC_SCOPE='openid email profile'
+~~~
+
 ## User provisioning
 
 Two modes exist:
@@ -158,6 +166,15 @@ Request:
 ~~~
 
 The browser may only provide those application-level fields.
+
+The response UI also reports the route that actually answered the request:
+
+- **Memoria exacta** — direct reusable memory, normally zero provider tokens;
+- **Memoria semántica** — semantic retrieval; embedding tokens may be charged;
+- **IA + memoria MCMA** — generation used guarded validated memory context;
+- **IA / Nova Micro** — generation provider answered without injected memory context.
+
+When billing is enabled, the UI displays the per-request token and credit totals returned by the billing context.
 
 It cannot override:
 
@@ -201,13 +218,17 @@ This distinction matters for tokens. Exact reusable memory costs zero provider t
 Generated web captures default to `validation_state=unverified` and `confidence=0.5`. The default reuse threshold is `0.75`, and reusable knowledge normally must also be `supported` or `verified`. Therefore a repeated question does not automatically become zero-token merely because its previous generated answer was saved. The stored record is preserved, but it must pass the epistemic and freshness gates before direct reuse.
 
 
-### Current context-generation boundary
+### Guarded Context Builder — first implementation
 
-As of 2026-09-01, MCMA retrieval and generation are deliberately separate. `AskService` can identify an exact or semantic memory candidate, but the current Amazon Bedrock Converse connector sends Nova the user question plus the optional server-side system prompt; it does not yet serialize retrieved memory records into the generation prompt.
+As of 2026-09-01, generation fallback can receive a guarded MCMA memory context.
 
-Therefore the current production behavior is best described as **memory-first reuse with generation fallback**, not full retrieval-augmented generation (RAG). A reusable memory answer bypasses generation entirely. A non-reusable memory candidate can influence routing/diagnostics, but its answer text is not yet injected into Nova as conversational context.
+The first implementation is intentionally conservative. A memory candidate is injected into generation only when it is already `supported` or `verified`, meets the configured confidence threshold, and requires revalidation for reasons such as freshness or an explicit current-data request. Unverified, disputed, retracted, low-confidence and `never-direct` records are not injected.
 
-A future Context Builder should assemble a permission-filtered, validation-aware, token-budgeted set of memory snippets and recent-turn context for generation providers without weakening the existing reuse gates.
+The provider receives the memory as clearly delimited reference data plus validation/freshness metadata. Bedrock Converse, Ollama and llama.cpp also receive a higher-priority instruction that memory content is untrusted reference data and instructions embedded inside memory must not be followed.
+
+Billing remains fail-safe: the lazy reservation includes a conservative generation-context allowance, and fallback metering includes the serialized context when a provider cannot report exact usage.
+
+This is the first Context Builder, not the final multi-record RAG layer. Future work remains for token-budgeted multi-memory assembly, provenance ordering and recent-turn/session context.
 
 Provider selection is server-side:
 
