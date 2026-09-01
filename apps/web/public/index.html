@@ -4,26 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="app.css">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-2">
+  <link rel="stylesheet" href="app.css?v=20260901-2">
 </head>
 <body>
   <main class="shell">
-    <header>
-      <div class="brand"><h1><span class="brand-mark">M</span> MCMA OpenMemory</h1><p>Memoria cifrada, multiusuario y portable.</p></div>
-      <div class="actions account-actions">
+    <header class="topbar">
+      <div class="brand">
+        <h1>MCMA OpenMemory</h1>
+        <p>Memoria cifrada, multiusuario y portable.</p>
+      </div>
+
+      <div class="account-area">
         <div id="identity" class="identity-chip" hidden>
-          <span id="avatarFallback" class="avatar-fallback" aria-hidden="true">M</span>
-          <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+          <span class="avatar-shell">
+            <span id="avatarFallback" class="avatar-fallback" aria-hidden="true">M</span>
+            <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+          </span>
           <span class="identity-text">
             <strong id="identityName">Usuario</strong>
             <small id="identityEmail"></small>
           </span>
         </div>
-        <span id="status" class="session-pill pending"><span class="session-dot"></span><span id="statusText">Comprobando sesión…</span></span>
-        <a id="adminLink" href="admin.html" hidden>Administrar</a>
-        <a id="login" href="login" hidden>Iniciar sesión</a>
-        <button id="logout" type="button" hidden>Salir</button>
+
+        <div class="session-actions">
+          <span id="status" class="session-pill pending">
+            <span class="session-dot"></span>
+            <span id="statusText">Comprobando sesión…</span>
+          </span>
+          <a id="adminLink" href="admin.html" hidden>Administrar</a>
+          <a id="login" href="login" hidden>Iniciar sesión</a>
+          <button id="logout" type="button" hidden>Salir</button>
+        </div>
       </div>
     </header>
 
@@ -86,6 +98,6 @@
       <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=20260901-2" defer></script>
 </body>
 </html>
