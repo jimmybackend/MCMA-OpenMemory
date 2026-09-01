@@ -80,7 +80,8 @@ final class AskService
             ];
         }
 
-        $memoryContext = $this->generationMemoryContext($actor, $question, $memoryAttempt, $minConfidence);
+        $contextAttempt=(($memoryAttempt['found']??false)===true)?$memoryAttempt:$exact;
+        $memoryContext = $this->generationMemoryContext($actor, $question, $contextAttempt, $minConfidence);
         $generationContext = [
             'actor' => $actor,
             'current_required' => $currentRequired,
