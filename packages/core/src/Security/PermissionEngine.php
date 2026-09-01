@@ -43,6 +43,16 @@ final class PermissionEngine
                     'allow' => ['vault_metadata','use_secret'],
                 ],
                 [
+                    'resource' => 'memory://system/context-traces',
+                    'subject' => '*',
+                    'deny' => ['*'],
+                ],
+                [
+                    'resource' => 'memory://system/context-traces',
+                    'subject' => 'owner',
+                    'allow' => ['read','write','update','delete'],
+                ],
+                [
                     'resource' => 'memory://system/semantic-index/*',
                     'subject' => '*',
                     'deny' => ['read','write','update','delete','share','decrypt'],
