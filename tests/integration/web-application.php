@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
 use MCMA\Core\Cli\ProviderFactory;
+use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Storage\LocalFilesystemAdapter;
 use MCMA\Core\Web\EncryptedCookie;
@@ -153,6 +154,104 @@ try {
     $bobBody = json_decode($bobMe->body(), true, 64, JSON_THROW_ON_ERROR);
     $bobLibrary = $bobBody['user']['library_id'] ?? null;
     assert_web_app(is_string($bobLibrary) && $bobLibrary !== $aliceLibrary, 'Web users share library');
+
+    $aliceKnowledge = new KnowledgeService($users->resolve('https://id.example.test','alice-provider-subject'));
+    $seed = $aliceKnowledge->capture(
+        'librarian',
+        'Saved explorer question',
+        'Saved explorer answer.',
+        'text',
+        0.5,
+        'unverified',
+        [['source_type'=>'working-test','reference'=>'web-memory-explorer-seed']],
+        'stable',
+        86400,
+        'reuse-unless-stale'
+    );
+    $memoryId = substr((string)$seed['logical_ref'], strlen('memory://knowledge/q-'));
+
+    $memoryList = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memories',
+        [],
+        ['q'=>'explorer','page'=>'1','limit'=>'25'],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($memoryList->status() === 200, 'Memory explorer list failed');
+    $memoryListBody = json_decode($memoryList->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($memoryListBody['memory']['total']??0) === 1, 'Memory explorer list count mismatch');
+    assert_web_app(($memoryListBody['memory']['items'][0]['question']??null) === 'Saved explorer question', 'Memory explorer question missing');
+    assert_web_app(($memoryListBody['memory']['ai_tokens_used']??-1) === 0, 'Memory explorer list used AI tokens');
+
+    $memoryDetail = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memories/'.$memoryId,
+        [],
+        [],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($memoryDetail->status() === 200, 'Memory explorer detail failed');
+    $memoryDetailBody = json_decode($memoryDetail->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($memoryDetailBody['memory']['answer']['value']??null) === 'Saved explorer answer.', 'Memory explorer did not decrypt answer');
+    assert_web_app(($memoryDetailBody['memory']['ai_tokens_used']??-1) === 0, 'Memory explorer detail used AI tokens');
+
+    $bobMemoryList = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memories',
+        [],
+        ['page'=>'1','limit'=>'25'],
+        ['mcma_session'=>$bobCookie]
+    ));
+    $bobMemoryListBody = json_decode($bobMemoryList->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($bobMemoryListBody['memory']['total']??-1) === 0, 'Bob could browse Alice memory');
+
+    $confirmMemory = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/memories/'.$memoryId.'/validation',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['action'=>'confirm'], JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($confirmMemory->status() === 200, 'Memory confirmation failed');
+    $confirmBody = json_decode($confirmMemory->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($confirmBody['memory']['validation_state']??null) === 'verified', 'Memory confirmation did not verify record');
+    assert_web_app(abs((float)($confirmBody['memory']['confidence']??0)-0.95) < 1e-12, 'Memory confirmation confidence mismatch');
+    assert_web_app(($confirmBody['validation']['ai_tokens_used']??-1) === 0, 'Memory confirmation used AI tokens');
+    assert_web_app(($confirmBody['validation']['credit_units_charged']??-1) === 0, 'Memory confirmation charged credits');
+
+    $confirmAgain = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/memories/'.$memoryId.'/validation',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['action'=>'confirm'], JSON_THROW_ON_ERROR)
+    ));
+    $confirmAgainBody = json_decode($confirmAgain->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($confirmAgainBody['validation']['unchanged']??false) === true, 'Repeated memory confirmation was not idempotent');
+
+    $crossOriginValidation = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/memories/'.$memoryId.'/validation',
+        ['origin'=>'https://evil.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['action'=>'discard'], JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($crossOriginValidation->status() === 403, 'Cross-origin memory validation was accepted');
+
+    $discardMemory = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/memories/'.$memoryId.'/validation',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['action'=>'discard'], JSON_THROW_ON_ERROR)
+    ));
+    $discardBody = json_decode($discardMemory->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($discardBody['memory']['validation_state']??null) === 'retracted', 'Memory discard did not retract record');
+    assert_web_app(($discardBody['validation']['ai_tokens_used']??-1) === 0, 'Memory discard used AI tokens');
 
     $ask = $app->handle(new HttpRequest(
         'POST',
