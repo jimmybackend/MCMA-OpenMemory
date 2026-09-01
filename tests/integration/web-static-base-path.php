@@ -12,11 +12,11 @@ $app=file_get_contents($root.'/app.js');
 $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
-check(str_contains($index,'href="favicon.svg"'),'favicon is base-path relative');
-check(str_contains($index,'href="app.css"'),'index stylesheet is base-path relative');
+check(str_contains($index,'href="favicon.svg?v=20260901-2"'),'favicon is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260901-2"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js"'),'app script is base-path relative');
+check(str_contains($index,'src="app.js?v=20260901-2"'),'app script is base-path relative and cache-busted');
 
 check(is_string($app),'app.js readable');
 check(str_contains($app,"fetch('logout'"),'logout endpoint is base-path relative');
