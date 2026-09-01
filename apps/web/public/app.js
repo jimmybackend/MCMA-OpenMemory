@@ -1,8 +1,10 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const status=$('status'),login=$('login'),logout=$('logout'),adminLink=$('adminLink');
+  const status=$('status'),statusText=$('statusText'),login=$('login'),logout=$('logout'),adminLink=$('adminLink');
+  const identity=$('identity'),avatar=$('avatar'),avatarFallback=$('avatarFallback'),identityName=$('identityName'),identityEmail=$('identityEmail');
   const account=$('account'),registerBox=$('registerBox'),register=$('register');
   const form=$('askForm'),send=$('send'),answer=$('answer');
+  const answerMeta=$('answerMeta'),answerSource=$('answerSource'),answerTokens=$('answerTokens'),answerCredits=$('answerCredits'),answerRemembered=$('answerRemembered');
   const apiKeysBox=$('apiKeysBox'),createKey=$('createKey'),keyList=$('keyList'),newKey=$('newKey');
   const stripeBox=$('stripeBox'),stripePackages=$('stripePackages'),stripeStatus=$('stripeStatus');
 
@@ -13,13 +15,98 @@
     return data;
   }
 
-  const number=v=>new Intl.NumberFormat().format(Number(v||0));
+  const number=v=>new Intl.NumberFormat('es-MX').format(Number(v||0));
+
+  function setSessionState(state,text){
+    status.classList.remove('active','pending','inactive');
+    status.classList.add(state);
+    statusText.textContent=text;
+  }
+
+  function clearIdentity(){
+    identity.hidden=true;
+    avatar.hidden=true;
+    avatar.removeAttribute('src');
+    avatarFallback.hidden=false;
+    identityName.textContent='Usuario';
+    identityEmail.textContent='';
+  }
+
+  function showIdentity(profile={}){
+    const email=typeof profile.email==='string'?profile.email:'';
+    const name=typeof profile.name==='string'&&profile.name.trim()!==''?profile.name.trim():(email||'Cuenta Google');
+    const picture=typeof profile.picture==='string'?profile.picture:'';
+    identityName.textContent=name;
+    identityEmail.textContent=email;
+    const source=(name||email||'M').trim();
+    avatarFallback.textContent=(source[0]||'M').toUpperCase();
+    avatarFallback.hidden=false;
+    avatar.hidden=true;
+    if(picture){
+      avatar.onload=()=>{avatar.hidden=false;avatarFallback.hidden=true;};
+      avatar.onerror=()=>{avatar.hidden=true;avatarFallback.hidden=false;};
+      avatar.src=picture;
+      avatar.alt=name;
+    }
+    identity.hidden=false;
+  }
+
+  function resetDate(value){
+    if(!value)return '—';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '—';
+    return new Intl.DateTimeFormat('es-MX',{
+      timeZone:'UTC',day:'numeric',month:'short',year:'numeric'
+    }).format(date)+' UTC';
+  }
+
+  function setServiceState(value){
+    const el=$('service');
+    el.textContent=value||'—';
+    el.classList.remove('state-active','state-inactive');
+    if(value==='active')el.classList.add('state-active');
+    else if(value&&value!=='—')el.classList.add('state-inactive');
+  }
+
+  function renderAnswerMeta(result){
+    const route=result.route||'';
+    const billing=result.billing||{};
+    const usage=billing.usage||result.usage||{};
+    const tokens=Number(usage.total_tokens ?? usage.totalTokens ?? 0);
+    const credits=Number(billing.credit_units_charged ?? 0);
+    const memoryContext=result.context_used?.memory===true;
+
+    answerSource.className='route-badge';
+    if(route==='memory-exact'){
+      answerSource.textContent='Memoria exacta';
+      answerSource.classList.add('route-exact');
+    }else if(route==='memory-semantic'){
+      answerSource.textContent='Memoria semántica';
+      answerSource.classList.add('route-semantic');
+    }else if(route==='provider'&&memoryContext){
+      answerSource.textContent='IA + memoria MCMA';
+      answerSource.classList.add('route-ai-memory');
+    }else if(route==='provider'){
+      const provider=String(result.provider_id||'');
+      answerSource.textContent=provider.includes('nova-micro')?'IA · Nova Micro':'IA';
+      answerSource.classList.add('route-ai');
+    }else{
+      answerSource.textContent=route||'Respuesta';
+    }
+
+    answerTokens.textContent=number(tokens)+' tokens';
+    answerCredits.textContent=number(credits)+' créditos';
+    answerTokens.className='metric-badge '+(tokens===0?'zero':'charged');
+    answerCredits.className='metric-badge '+(credits===0?'zero':'charged');
+    answerRemembered.hidden=result.stored!==true;
+    answerMeta.hidden=false;
+  }
 
   async function loadBilling(){
     try{
       const data=await api('/mcma/v1/billing',{method:'GET',headers:{}});
       $('plan').textContent=data.billing.account.plan_id;
-      $('service').textContent=data.billing.account.service_status;
+      setServiceState(data.billing.account.service_status);
       $('balance').textContent=number(data.billing.available_units);
       $('tokens').textContent=number(data.totals.total_tokens);
       $('spent').textContent=number(data.totals.credit_units_charged);
@@ -28,9 +115,9 @@
       const monthlyLimit=Number(quota.monthly_tokens_limit||0);
       $('requestsToday').textContent=number(quota.daily_requests_used)+' / '+(dailyLimit>0?number(dailyLimit):'∞');
       $('tokensMonth').textContent=number(quota.monthly_tokens_used)+' / '+(monthlyLimit>0?number(monthlyLimit):'∞');
-      $('quotaReset').textContent=quota.next_reset_at?new Date(quota.next_reset_at).toLocaleDateString():'—';
+      $('quotaReset').textContent=resetDate(quota.next_reset_at);
     }catch(e){
-      $('plan').textContent='—';$('service').textContent='—';$('balance').textContent='—';
+      $('plan').textContent='—';setServiceState('—');$('balance').textContent='—';
       $('requestsToday').textContent='—';$('tokensMonth').textContent='—';$('quotaReset').textContent='—';
     }
   }
@@ -89,38 +176,50 @@
   }
 
   async function loadMe(){
+    setSessionState('pending','Comprobando sesión…');
     try{
       const data=await api('/mcma/v1/me',{method:'GET',headers:{}});
-      status.textContent='Sesión activa';login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;
+      setSessionState('active','Sesión activa');
+      showIdentity(data.identity||{});
+      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;
       $('library').textContent=data.user.library_id;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
       await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin()]);
     }catch(error){
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;
-      if(error.status===401){status.textContent='Sin sesión';login.hidden=false;logout.hidden=true;registerBox.hidden=true;}
-      else if(error.code==='user_not_registered'){status.textContent='Usuario autenticado, memoria no registrada';login.hidden=true;logout.hidden=false;registerBox.hidden=false;}
-      else status.textContent=error.message;
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;clearIdentity();
+      const signedOut=new URLSearchParams(location.search).get('signed_out')==='1';
+      if(error.status===401){
+        setSessionState('inactive',signedOut?'Sesión cerrada':'Sin sesión');
+        login.hidden=false;logout.hidden=true;registerBox.hidden=true;
+        if(signedOut)history.replaceState({},'',location.pathname);
+      }else if(error.code==='user_not_registered'){
+        setSessionState('pending','Usuario autenticado, memoria no registrada');
+        login.hidden=true;logout.hidden=false;registerBox.hidden=false;
+      }else{
+        setSessionState('inactive',error.message);
+      }
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=true);
     }
   }
 
   form.addEventListener('submit',async event=>{
-    event.preventDefault();send.disabled=true;answer.textContent='Procesando…';
+    event.preventDefault();send.disabled=true;answer.textContent='Procesando…';answerMeta.hidden=true;
     try{
       const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
         question:$('question').value,current:$('current').checked,remember:$('remember').checked
       })});
       const result=data.result||{};
       answer.textContent=result.answer?.value ?? JSON.stringify(result,null,2);
+      renderAnswerMeta(result);
       await loadBilling();
-    }catch(error){answer.textContent=error.message;}
+    }catch(error){answer.textContent=error.message;answerMeta.hidden=true;}
     finally{send.disabled=false;}
   });
 
   register.addEventListener('click',async()=>{
     register.disabled=true;
     try{await api('/mcma/v1/register',{method:'POST',body:'{}'});await loadMe();}
-    catch(error){status.textContent=error.message;}
+    catch(error){setSessionState('inactive',error.message);}
     finally{register.disabled=false;}
   });
 
@@ -135,6 +234,21 @@
     }catch(error){newKey.hidden=false;newKey.textContent=error.message;}
   });
 
-  logout.addEventListener('click',async()=>{await fetch('logout',{method:'POST',credentials:'same-origin'});location.href='./';});
+  logout.addEventListener('click',async()=>{
+    logout.disabled=true;logout.textContent='Saliendo…';
+    setSessionState('pending','Cerrando sesión…');
+    try{
+      await fetch('logout',{method:'POST',credentials:'same-origin'});
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;adminLink.hidden=true;clearIdentity();
+      setSessionState('inactive','Sesión cerrada');
+      login.hidden=false;logout.hidden=true;
+      form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=true);
+      setTimeout(()=>location.replace('./?signed_out=1'),120);
+    }catch(error){
+      setSessionState('inactive','No se pudo cerrar la sesión');
+      logout.disabled=false;logout.textContent='Salir';
+    }
+  });
+
   loadMe();
 })();
