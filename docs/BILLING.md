@@ -117,6 +117,8 @@ payment
 
 A request reserves credits before the first paid AI call and settles against actual usage afterward.
 
+When generation may include guarded MCMA memory context, the reservation includes a conservative context-byte allowance. If generation is the first model call, the metering wrapper can use the actual serialized context size for the estimate. Final settlement always uses provider-reported usage when available; the conservative reservation is released down to actual usage.
+
 ## Plans
 
 Built-in initial plan definitions:
