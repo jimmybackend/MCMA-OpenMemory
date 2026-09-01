@@ -12,6 +12,7 @@ use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
+use MCMA\Core\Context\ContextTraceService;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\MultiUser\MultiUserService;
@@ -174,6 +175,15 @@ final class WebApplication
             return HttpResponse::json(['ok'=>true,'key'=>$this->apiKeys->revoke($principal['user_id'],$m[1])]);
         }
 
+        if($method==='GET'&&$path==='/mcma/v1/context'){
+            $principal=$this->sessionPrincipal($request);
+            $context=new ContextTraceService($principal['library']);
+            return HttpResponse::json([
+                'ok'=>true,
+                'context'=>$context->snapshot((float)($this->providerOptions['min-confidence']??0.75)),
+            ]);
+        }
+
         if($method==='GET'&&$path==='/mcma/v1/memories'){
             $principal=$this->sessionPrincipal($request);
             $query=trim((string)($request->query('q')??''));
@@ -306,6 +316,8 @@ final class WebApplication
             'provenance'=>[],
         ];
 
+        $requestId='req_'.bin2hex(random_bytes(16));
+
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
             $this->billing->ensureAccount($principal['library']);
@@ -313,7 +325,7 @@ final class WebApplication
                 $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens
             );
             $result=$service->ask(
-                'req_'.bin2hex(random_bytes(16)),
+                $requestId,
                 $principal['kind'],
                 $question,$current,
                 (float)($this->providerOptions['min-confidence']??0.75),
@@ -338,6 +350,20 @@ final class WebApplication
                 isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
                 isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null
             );
+        }
+
+        try{
+            $trace=(new ContextTraceService($principal['library']))->record(
+                $requestId,$question,$current,$remember,$result
+            );
+            $result['context_trace']=[
+                'recorded'=>true,
+                'trace_id'=>$trace['trace_id'],
+                'at'=>$trace['at'],
+            ];
+        }catch(Throwable $e){
+            error_log('MCMA context trace error: '.$e->getMessage());
+            $result['context_trace']=['recorded'=>false];
         }
 
         return HttpResponse::json(['ok'=>true,'result'=>$result]);
