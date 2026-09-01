@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-3">
-  <link rel="stylesheet" href="app.css?v=20260901-3">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-4">
+  <link rel="stylesheet" href="app.css?v=20260901-4">
 </head>
 <body>
   <main class="shell">
@@ -54,7 +54,13 @@
       </div>
     </section>
 
-    <section id="memoryExplorer" class="card memory-explorer" hidden>
+    <nav id="mainTabs" class="main-tabs" aria-label="Secciones de MCMA" hidden>
+      <button type="button" class="tab-button active" data-tab-target="ask" aria-selected="true">Preguntar</button>
+      <button type="button" class="tab-button" data-tab-target="memory" aria-selected="false">Mi memoria</button>
+      <button type="button" class="tab-button" data-tab-target="context" aria-selected="false">Contexto MCMA</button>
+    </nav>
+
+    <section id="memoryExplorer" class="card memory-explorer tab-panel" data-tab-panel="memory" hidden>
       <div class="row between memory-title-row">
         <div>
           <h2>Mi memoria</h2>
@@ -133,6 +139,71 @@
       </div>
     </section>
 
+    <section id="contextPanel" class="card context-panel tab-panel" data-tab-panel="context" hidden>
+      <div class="row between context-title-row">
+        <div>
+          <h2>Contexto MCMA</h2>
+          <p>Transparencia de la memoria persistente y del contexto usado en cada pregunta.</p>
+        </div>
+        <span class="zero-ai-badge">Lectura · 0 tokens IA</span>
+      </div>
+
+      <div id="contextSummary" class="stats context-stats">
+        <div><small>Memorias persistentes</small><strong id="contextPersistentTotal">—</strong></div>
+        <div><small>Reutilizables</small><strong id="contextReusableTotal">—</strong></div>
+        <div><small>Generadas por IA</small><strong id="contextGeneratedTotal">—</strong></div>
+        <div><small>Trazas recientes</small><strong id="contextTraceTotal">—</strong></div>
+      </div>
+
+      <div class="context-grid">
+        <article class="context-box context-last">
+          <div class="row between">
+            <div>
+              <h3>Última pregunta y contexto inyectado</h3>
+              <p>Lo que MCMA entregó realmente al modelo en la petición más reciente.</p>
+            </div>
+            <button id="contextRefresh" type="button" class="secondary-button">Actualizar</button>
+          </div>
+          <div id="contextLastEmpty" class="context-empty">Aún no hay trazas de preguntas.</div>
+          <div id="contextLastContent" hidden>
+            <dl class="memory-metadata">
+              <div><dt>Pregunta</dt><dd id="contextLastQuestion">—</dd></div>
+              <div><dt>Ruta</dt><dd id="contextLastRoute">—</dd></div>
+              <div><dt>Proveedor</dt><dd id="contextLastProvider">—</dd></div>
+              <div><dt>Fecha</dt><dd id="contextLastAt">—</dd></div>
+            </dl>
+            <div class="memory-answer-label">Memoria inyectada al modelo</div>
+            <pre id="contextInjectedAnswer" class="context-code">Ninguna memoria fue inyectada.</pre>
+            <div id="contextInjectedMeta" class="answer-meta"></div>
+          </div>
+        </article>
+
+        <article class="context-box">
+          <h3>Memorias generadas por IA</h3>
+          <p>Conocimiento persistente creado por un proveedor y guardado por MCMA.</p>
+          <div id="contextGeneratedList" class="context-list">
+            <div class="context-empty">Cargando…</div>
+          </div>
+        </article>
+
+        <article class="context-box">
+          <h3>Objetos internos del sistema</h3>
+          <p>Índices y trazas cifradas que MCMA mantiene dentro de tu biblioteca.</p>
+          <div id="contextSystemList" class="context-list">
+            <div class="context-empty">Cargando…</div>
+          </div>
+        </article>
+
+        <article class="context-box">
+          <h3>Historial de contexto por pregunta</h3>
+          <p>Últimas 50 trazas cifradas. No guarda credenciales ni claves.</p>
+          <div id="contextTraceList" class="context-list trace-list">
+            <div class="context-empty">Cargando…</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section id="registerBox" class="card" hidden>
       <p>Tu identidad está autenticada pero aún no tiene una biblioteca MCMA registrada.</p>
       <button id="register" type="button">Crear mi memoria</button>
@@ -155,7 +226,7 @@
       <div id="keyList"></div>
     </section>
 
-    <section class="card">
+    <section id="askPanel" class="card tab-panel" data-tab-panel="ask">
       <form id="askForm">
         <label for="question">Pregunta</label>
         <textarea id="question" maxlength="32768" required placeholder="Escribe una pregunta…"></textarea>
@@ -167,7 +238,7 @@
       </form>
     </section>
 
-    <section class="card answer-card">
+    <section id="answerPanel" class="card answer-card tab-panel" data-tab-panel="ask">
       <div id="answerMeta" class="answer-meta" hidden>
         <span id="answerSource" class="route-badge">—</span>
         <span id="answerTokens" class="metric-badge">0 tokens</span>
@@ -177,6 +248,6 @@
       <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js?v=20260901-3" defer></script>
+  <script src="app.js?v=20260901-4" defer></script>
 </body>
 </html>
