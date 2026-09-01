@@ -165,6 +165,10 @@ final class AskService
                 'memory' => true,
                 'logical_ref' => $memoryContext['logical_ref'],
                 'matched_question' => $memoryContext['question'],
+                'answer' => [
+                    'format' => $memoryContext['answer_format'],
+                    'value' => $memoryContext['answer'],
+                ],
                 'validation_state' => $memoryContext['validation_state'],
                 'confidence' => $memoryContext['confidence'],
                 'freshness_class' => $memoryContext['freshness_class'],
