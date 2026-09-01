@@ -131,7 +131,7 @@
 - [x] origin checking for POST requests
 - [x] browser chat UI
 - [x] no database dependency
-- [ ] real EC2 HTTPS + live OIDC smoke test
+- [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
 
 ## Metering + Billing + Commercial API — first implementation complete
 - [x] encrypted daily usage ledger per user
@@ -161,6 +161,7 @@
 - [x] Stripe subscription lifecycle tracking (active / past_due / canceled / unpaid / paused)
 - [x] paid-plan downgrade to Free when the Stripe subscription ends
 - [x] Stripe retry-safe renewal handling by invoice id
+- [x] live Free-plan billing settlement on EC2 (117 tokens -> 117 credits, encrypted S3 ledger)
 - [ ] Stripe Customer Portal / self-service cancellation UI
 - [ ] live PayPal / Mercado Pago checkout-webhook connectors
 
@@ -187,7 +188,7 @@
 - [x] minimal executable/bootstrap entrypoints only
 
 ## Next
-- [ ] real EC2 + Bedrock end-to-end smoke test
+- [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
 - [ ] real EC2 + Ollama end-to-end smoke test
 - [ ] real EC2 + llama.cpp end-to-end smoke test
 - [ ] additional provider AI connectors outside core
