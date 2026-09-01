@@ -23,6 +23,7 @@ check(str_contains($app,"fetch('logout'"),'logout endpoint is base-path relative
 check(str_contains($app,"location.replace('./?signed_out=1')"),'logout refresh is base-path relative');
 
 check(is_string($admin),'admin.html readable');
+check(str_contains($admin,'href="favicon.svg"'),'admin favicon is base-path relative');
 check(str_contains($admin,'href="app.css"'),'admin stylesheet is base-path relative');
 check(str_contains($admin,'href="./"'),'admin back link is base-path relative');
 check(str_contains($admin,'src="admin.js"'),'admin script is base-path relative');
