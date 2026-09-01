@@ -123,6 +123,8 @@ Embedding connectors include Amazon Titan Text Embeddings V2 on Bedrock, local O
 
 Generation connectors include Amazon Bedrock Converse, local Ollama and local llama.cpp. Fresh generated answers are returned to the caller but, when captured, default to unverified knowledge until an explicit validation workflow promotes them for reuse.
 
+A first guarded Context Builder can pass a previously validated `supported/verified` memory into generation when direct reuse is blocked by freshness/current-data requirements. The context is marked as untrusted reference data, preserves validation/freshness metadata, and is included in billing reservation/metering. Unverified or low-confidence memory is not injected.
+
 
 ## Local AI
 
