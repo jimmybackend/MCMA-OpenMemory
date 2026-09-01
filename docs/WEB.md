@@ -188,6 +188,33 @@ It cannot override:
 - credentials;
 - vault access.
 
+## Zero-AI memory explorer
+
+Authenticated web users can browse and decrypt their own stored knowledge without invoking an embedding or generation model:
+
+~~~text
+GET  /mcma/v1/memories
+GET  /mcma/v1/memories/{knowledge_id}
+POST /mcma/v1/memories/{knowledge_id}/validation
+~~~
+
+The list route supports deterministic text search over decrypted questions/answers, temperature filters, validation-state filters and pagination. The detail route returns the selected question, answer and epistemic/freshness metadata from the user's isolated MCMA library.
+
+Validation accepts only:
+
+~~~json
+{"action":"confirm"}
+{"action":"discard"}
+~~~
+
+`confirm` promotes the owner-confirmed memory to `verified` with confidence `0.95`. `discard` marks it `retracted` with confidence `0.0`. Repeating the same action is idempotent.
+
+These browser operations report zero AI tokens and zero AI credits because they use only authenticated Library reads/decryption and deterministic metadata updates. Storage requests (for example S3 GET/PUT operations) still occur and are not the same thing as model-token usage.
+
+When a validation update changes the knowledge object's `storage_hash`, MCMA refreshes the existing semantic-index entry's object/hash linkage while preserving its existing vector. No new embedding is generated for that metadata-only update.
+
+The explorer is web-session-only: an authenticated session resolves exactly one user library, and the endpoints do not accept a library id or arbitrary storage path from the browser.
+
 ## Memory and context behavior
 
 The web application does not rely on an ever-growing plaintext chat transcript as its durable memory. A remembered answer is stored as an encrypted knowledge record keyed by normalized question intent.
