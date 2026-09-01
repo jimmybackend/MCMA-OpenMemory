@@ -4,14 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <main class="shell">
     <header>
-      <div><h1>MCMA OpenMemory</h1><p>Memoria cifrada, multiusuario y portable.</p></div>
-      <div class="actions">
-        <span id="status">Comprobando sesión…</span>
+      <div class="brand"><h1><span class="brand-mark">M</span> MCMA OpenMemory</h1><p>Memoria cifrada, multiusuario y portable.</p></div>
+      <div class="actions account-actions">
+        <div id="identity" class="identity-chip" hidden>
+          <span id="avatarFallback" class="avatar-fallback" aria-hidden="true">M</span>
+          <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+          <span class="identity-text">
+            <strong id="identityName">Usuario</strong>
+            <small id="identityEmail"></small>
+          </span>
+        </div>
+        <span id="status" class="session-pill pending"><span class="session-dot"></span><span id="statusText">Comprobando sesión…</span></span>
         <a id="adminLink" href="admin.html" hidden>Administrar</a>
         <a id="login" href="login" hidden>Iniciar sesión</a>
         <button id="logout" type="button" hidden>Salir</button>
@@ -67,7 +76,15 @@
       </form>
     </section>
 
-    <section class="card"><pre id="answer">La respuesta aparecerá aquí.</pre></section>
+    <section class="card answer-card">
+      <div id="answerMeta" class="answer-meta" hidden>
+        <span id="answerSource" class="route-badge">—</span>
+        <span id="answerTokens" class="metric-badge">0 tokens</span>
+        <span id="answerCredits" class="metric-badge">0 créditos</span>
+        <span id="answerRemembered" class="metric-badge" hidden>Memoria guardada</span>
+      </div>
+      <pre id="answer">La respuesta aparecerá aquí.</pre>
+    </section>
   </main>
   <script src="app.js" defer></script>
 </body>
