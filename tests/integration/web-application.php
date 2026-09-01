@@ -43,7 +43,17 @@ try {
         null,
         'https://memory.example.test/callback',
         'openid',
-        static fn(string $method, string $url, array $headers, string $body): array => [500, '', []]
+        static function(string $method, string $url, array $headers, string $body): array {
+            if($method==='GET'&&$url==='https://id.example.test/.well-known/openid-configuration'){
+                return [200,json_encode([
+                    'issuer'=>'https://id.example.test',
+                    'authorization_endpoint'=>'https://id.example.test/authorize',
+                    'token_endpoint'=>'https://id.example.test/token',
+                    'jwks_uri'=>'https://id.example.test/jwks',
+                ],JSON_THROW_ON_ERROR),[]];
+            }
+            return [500,'',[]];
+        }
     );
 
     $app = new WebApplication(
