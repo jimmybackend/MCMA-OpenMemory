@@ -134,6 +134,10 @@
 - [x] zero-AI memory explorer with decrypted question/answer browsing
 - [x] memory text search, temperature/validation filters and pagination
 - [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
+- [x] Preguntar / Mi memoria / Contexto MCMA primary tab navigation
+- [x] encrypted per-user context traces for the latest 50 questions
+- [x] exact injected-memory transparency for generation requests
+- [x] owner-only context trace policy and zero-AI context inspection
 - [x] no database dependency
 - [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
 
