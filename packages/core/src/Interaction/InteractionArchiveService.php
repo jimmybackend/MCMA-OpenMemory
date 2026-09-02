@@ -157,7 +157,9 @@ final class InteractionArchiveService
             $knowledgeSync=$this->approveKnowledge($actor,$logicalRef,$interaction,$embeddingProvider);
             if(is_string($knowledgeSync['logical_ref']??null)) $interaction['knowledge_ref']=$knowledgeSync['logical_ref'];
         }elseif(($interaction['route']??null)!=='memory-capture'){
-            $knowledgeSync=$this->retractRelatedKnowledge($actor,$interaction,$embeddingProvider);
+            // Retraction is enforced by KnowledgeRecord validation gates; no
+            // embedding refresh is required, so discard remains zero-AI.
+            $knowledgeSync=$this->retractRelatedKnowledge($actor,$interaction,null);
         }
 
         $interaction['validation']['state']=$target;
