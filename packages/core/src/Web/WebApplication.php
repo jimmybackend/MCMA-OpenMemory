@@ -385,6 +385,11 @@ final class WebApplication
         $embedding=$this->providers->embedding($this->providerOptions,true);
         $generator=$this->providers->generation($this->providerOptions);
 
+        if(ExplicitMemoryService::isExplicitSaveRequest($text)
+            && preg_match('/^(?:(?:mira|oye|por\\s+favor|please)\\s*[,.:;-]?\\s*)?(?:(?:guarda|guardame|guárdame|guardalo|guárdalo|recuerda|memoriza|almacena|conserva)(?:\\s+(?:esto|esta\\s+informaci[oó]n|estos\\s+datos|lo\\s+siguiente|en\\s+(?:mi\\s+)?memoria))?|(?:remember|save|store|memorize|keep)\\s+(?:this|the\\s+following|this\\s+information))\\s*[:.;-]?\\s*$/iu',$text)===1){
+            throw new WebException(400,'empty_memory_text','The save instruction has no memory content');
+        }
+
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
             $this->billing->ensureAccount($principal['library']);
