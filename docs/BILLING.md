@@ -367,5 +367,7 @@ Conversation-history navigation is intentionally outside AI charging: `GET /mcma
 
 When a new question requires generation, the bounded conversation selector itself is deterministic and makes no extra embedding/model call. Only the selected historical material that is actually sent to generation contributes to generation input usage/credits.
 
+Multi-memory RAG follows the same principle. The semantic query embedding is performed once and reused for direct selection plus RAG candidate discovery. RAG ranking/packing itself is deterministic and adds no model call. When embedding reserves credits before generation, the reservation includes both the configured conversation-context budget and the configured multi-memory RAG budget. Final generation metering serializes `memory_context`, `multi_memory_context` and `conversation_context` actually supplied to the provider.
+
 Stripe Checkout creation and the cancel-return path have been exercised on the live deployment without completing a charge. A successful live/test paid Checkout plus webhook fulfillment remains a separate payment smoke test; the one-time/subscription implementation and automated tests are already complete.
 
