@@ -7,6 +7,7 @@ use MCMA\Core\Agent\Librarian;
 use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
 use MCMA\Core\Context\ConversationContextBuilder;
+use MCMA\Core\Context\MultiMemoryContextBuilder;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\Semantic\EmbeddingProvider;
@@ -21,7 +22,8 @@ final class BillableAskService
         private readonly ?EmbeddingProvider $embeddingProvider,
         private readonly ?GenerationProvider $generationProvider,
         private readonly int $maxOutputTokens = 1024,
-        private readonly ?ConversationContextBuilder $conversationContextBuilder = null
+        private readonly ?ConversationContextBuilder $conversationContextBuilder = null,
+        private readonly ?MultiMemoryContextBuilder $multiMemoryContextBuilder = null
     ) {
     }
 
@@ -51,7 +53,8 @@ final class BillableAskService
             $this->embeddingProvider?->id(),
             $this->generationProvider?->id(),
             $this->maxOutputTokens,
-            $this->conversationContextBuilder?->tokenBudgetUpperBound()??0
+            ($this->conversationContextBuilder?->tokenBudgetUpperBound()??0)
+                +($this->multiMemoryContextBuilder?->tokenBudgetUpperBound()??0)
         );
 
         $before=fn(string $kind,string $providerId,string $input)=>$context->beforeModelCall($kind,$providerId,$input);
@@ -68,7 +71,10 @@ final class BillableAskService
             ? new Librarian($knowledge,$semantic,$embedding)
             : new Librarian($knowledge);
 
-        $ask=new AskService($knowledge,$semantic,$embedding,$generation,$librarian,$this->conversationContextBuilder);
+        $ask=new AskService(
+            $knowledge,$semantic,$embedding,$generation,$librarian,
+            $this->conversationContextBuilder,$this->multiMemoryContextBuilder
+        );
 
         try{
             $result=$ask->ask(
