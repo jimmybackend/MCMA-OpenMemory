@@ -143,15 +143,8 @@ final class ExplicitMemoryService
             $provenance = [[
                 'source_type' => 'user',
                 'reference' => $logicalRef,
-                'note' => 'Explicit user memory requested for durable storage',
+                'note' => 'Owner-authored explicit memory; model organization, when used, is recorded on the canonical object',
             ]];
-            if ($organization['provider_id'] !== null && $organization['model_output_valid']) {
-                $provenance[] = [
-                    'source_type' => 'model',
-                    'reference' => $organization['provider_id'],
-                    'note' => 'Model normalized and classified the memory; the canonical object preserves the user source text',
-                ];
-            }
 
             $knowledge = new KnowledgeService($this->library);
             $mirror = $knowledge->capture(
