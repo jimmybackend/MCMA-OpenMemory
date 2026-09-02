@@ -281,6 +281,71 @@ try {
     assert_web_app(($explicitEndpointBody['result']['route']??null) === 'memory-capture', 'Explicit /memory route mismatch');
     assert_web_app(($explicitEndpointBody['result']['stored']??false) === true, 'Explicit /memory endpoint did not store memory');
 
+    $canonicalTreeRef=(string)($explicitEndpointBody['result']['logical_ref']??'');
+    assert_web_app(str_starts_with($canonicalTreeRef,'memory://user/'),'Explicit memory did not create a canonical user-tree reference');
+
+    $memoryTree = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memory-tree',
+        [],
+        [],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($memoryTree->status() === 200, 'User memory tree route failed');
+    $memoryTreeBody = json_decode($memoryTree->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($memoryTreeBody['memory']['root']??null) === 'memory://user', 'Memory tree root mismatch');
+    assert_web_app(($memoryTreeBody['memory']['total']??0) >= 2, 'Memory tree did not include explicit user memories');
+    assert_web_app(($memoryTreeBody['memory']['ai_tokens_used']??-1) === 0, 'Memory tree used AI tokens');
+    assert_web_app(($memoryTreeBody['memory']['credit_units_charged']??-1) === 0, 'Memory tree charged credits');
+    assert_web_app(!array_key_exists('access',$memoryTreeBody['memory']['tree']??[]), 'Memory tree exposed access/vault branch');
+    assert_web_app(!array_key_exists('system',$memoryTreeBody['memory']['tree']??[]), 'Memory tree exposed system branch');
+    assert_web_app(!array_key_exists('knowledge',$memoryTreeBody['memory']['tree']??[]) || str_contains($canonicalTreeRef,'memory://user/knowledge/'), 'Unexpected non-user knowledge branch leaked into tree');
+
+    $memoryObject = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memory-object',
+        [],
+        ['ref'=>$canonicalTreeRef],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($memoryObject->status() === 200, 'Canonical memory tree object route failed');
+    $memoryObjectBody = json_decode($memoryObject->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($memoryObjectBody['memory']['logical_ref']??null) === $canonicalTreeRef, 'Canonical memory object ref mismatch');
+    assert_web_app(($memoryObjectBody['memory']['ai_tokens_used']??-1) === 0, 'Canonical memory object read used AI tokens');
+    assert_web_app(($memoryObjectBody['memory']['credit_units_charged']??-1) === 0, 'Canonical memory object read charged credits');
+    assert_web_app(
+        ($memoryObjectBody['memory']['content']['source']['original']??null) === 'Las decisiones de despliegue de MCMA deben documentarse.',
+        'Canonical memory tree object was not decrypted correctly'
+    );
+
+    $bobMemoryTree = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memory-tree',
+        [],
+        [],
+        ['mcma_session'=>$bobCookie]
+    ));
+    $bobMemoryTreeBody = json_decode($bobMemoryTree->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($bobMemoryTreeBody['memory']['total']??-1) === 0, 'Bob could see Alice canonical user memory tree');
+
+    $blockedInternalObject = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memory-object',
+        [],
+        ['ref'=>'memory://access/vault'],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($blockedInternalObject->status() === 400, 'Memory tree object endpoint accepted Vault reference');
+
+    $blockedKnowledgeObject = $app->handle(new HttpRequest(
+        'GET',
+        '/mcma/v1/memory-object',
+        [],
+        ['ref'=>$seed['logical_ref']],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($blockedKnowledgeObject->status() === 400, 'Memory tree object endpoint accepted internal knowledge reference');
+
     $ask = $app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/ask',
