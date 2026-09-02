@@ -232,6 +232,7 @@ try{
     );
     explicit_memory_ok(($recipeAnswer['reusable']??false)===true,'Recipe was not semantically recoverable');
     explicit_memory_ok(str_contains((string)($recipeAnswer['answer']['value']??''),'Receta de la abuela'),'Recipe semantic recovery returned wrong memory');
+    explicit_memory_ok(($recipeAnswer['canonical_memory_ref']??null)===$recipe['logical_ref'],'Recipe recovery did not expose canonical thematic route');
 
     $nginxRequest="Guarda esta configuración de nginx del EC2 mailit.click:\nserver {\n    listen 80;\n    server_name mailit.click www.mailit.click;\n    root /var/www/html;\n}";
     $nginx=$service->capture('owner',$nginxRequest);
@@ -260,6 +261,7 @@ try{
     );
     explicit_memory_ok(($nginxAnswer['reusable']??false)===true,'Nginx configuration was not semantically recoverable');
     explicit_memory_ok(str_contains((string)($nginxAnswer['answer']['value']??''),'server_name mailit.click'),'Nginx semantic recovery returned wrong memory');
+    explicit_memory_ok(($nginxAnswer['canonical_memory_ref']??null)===$nginx['logical_ref'],'Nginx recovery did not expose canonical thematic route');
 
     $firstObject=(string)$result['storage']['object_id'];
     $firstHash=(string)$result['storage']['storage_hash'];
