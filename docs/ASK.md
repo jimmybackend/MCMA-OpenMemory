@@ -195,7 +195,21 @@ new request keeps same conversation_id
 AskService still follows exact → semantic → guarded generation rules
 ~~~
 
-MCMA does not silently concatenate the full prior transcript into every model request. The current guarded Context Builder remains knowledge/revalidation oriented. Future recent-turn context must be selected explicitly under permission, relevance and token-budget controls and metered as generation context when used.
+MCMA does not silently concatenate the full prior transcript into every model request. When generation fallback is required and a valid `conversation_id` is present, `ConversationContextBuilder` performs a bounded deterministic selection:
 
-Reading the conversation list or opening archived turns makes no generation/embedding call and therefore uses zero AI tokens/credits.
+1. use the private encrypted conversation index only to discover a recent candidate window;
+2. re-read every candidate through the requesting `ai` actor so resource permissions are enforced;
+3. reject `retracted` and `disputed` episodic turns;
+4. keep a small number of latest continuity anchors;
+5. add older turns only when lexical overlap with the current question meets the configured relevance threshold;
+6. rank candidates by relevance plus recency;
+7. stop at both a maximum turn count and a conservative context budget.
+
+Default web values are 12 candidates, 6 selected turns, 2 recent anchors, minimum lexical relevance `0.08` and a 6000-unit conservative budget. The budget uses MCMA's existing `estimated-bytes-upper-bound` policy when an exact provider tokenizer is not available. This is intentionally conservative rather than pretending to know exact provider tokenization before the request.
+
+Conversation turns are episodic continuity data, not automatically verified Knowledge. Their validation state and confidence travel with the selected context, and Bedrock/Ollama/llama.cpp receive the material as untrusted reference data. Instructions embedded inside historical turns must not be followed.
+
+The existing validated-memory Context Builder remains separate and may be present in the same generation request. Therefore a generation request can contain validated MCMA memory context, bounded conversation context, both, or neither.
+
+Reading the conversation list or opening archived turns makes no generation/embedding call and therefore uses zero AI tokens/credits. Once selected conversation context is actually passed to a generation provider, its serialized input is included in metering/billing.
 

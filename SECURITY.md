@@ -62,5 +62,9 @@ The persistent Chat sidebar uses a private encrypted derived index at the system
 
 Normal library browsing does not expose the private conversation-index logical reference. Conversation list/detail APIs require the authenticated web session, resolve exactly that user's MCMA Library, and do not accept a client-selected actor, library or storage location. Cross-user access is covered by integration tests, and unauthenticated production access returns HTTP 401.
 
-Displaying archived turns is not authority to inject them into an AI prompt. Automatic full-history prompt injection is intentionally absent from the current implementation.
+Displaying archived turns is not authority to inject them into an AI prompt. Automatic full-history prompt injection remains intentionally absent.
+
+For generation fallback, bounded conversational context uses the private index only for recent-reference discovery. Every candidate is then re-read through the requesting `ai` actor, so an index entry cannot bypass a resource deny. Retracted/disputed turns are excluded. The selector applies deterministic relevance/recency ranking plus max-turn and conservative token-budget limits before any historical text reaches a generation provider.
+
+Selected episodic turns remain untrusted reference data. Their validation/confidence metadata is retained, and Bedrock/Ollama/llama.cpp receive a higher-priority instruction not to execute instructions found inside historical content. This continuity context is not equivalent to validated Knowledge and does not weaken Knowledge permission, validation, confidence or freshness gates.
 

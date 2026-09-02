@@ -202,11 +202,15 @@ MCMA now includes a same-origin web application under `apps/web/public`.
 
 It provides OIDC Authorization Code + PKCE login, RS256/JWKS ID-token validation, encrypted HttpOnly sessions, multi-user library resolution, `/mcma/v1/me`, `/mcma/v1/ask`, optional registration, logout and a browser chat UI.
 
-The primary **Chat** view now includes a conversation sidebar, search, temporal grouping, project filters, persistent message history and a stable composer. Persistent turns remain canonical under `memory://interactions/...`; a private encrypted derived index stores conversation summaries and canonical references for zero-AI navigation. `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` list/open that archive without model calls. Opening history does not automatically inject those turns into a model prompt.
+The primary **Chat** view now includes a conversation sidebar, search, temporal grouping, project filters, persistent message history and a stable composer. Persistent turns remain canonical under `memory://interactions/...`; a private encrypted derived index stores conversation summaries and canonical references for zero-AI navigation. `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` list/open that archive without model calls.
+
+The current development branch also implements bounded conversational context for generation fallback. It never injects the complete transcript automatically. A small recent candidate window is discovered from the encrypted index, canonical turns are re-read through `ai` permissions, retracted/disputed turns are excluded, recent continuity anchors are combined with deterministic lexical relevance, and selection is capped by both max turns and a conservative context budget. Selected context is passed provider-neutrally to Bedrock/Ollama/llama.cpp and included in billing/Contexto MCMA transparency.
 
 The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
 
 The live EC2 HTTPS + Google OIDC flow is verified. The 2026-09-02 deployment additionally verifies the persistent Chat assets, conversation-index API protection and focused integration coverage. Manual browser UX verification of creating/reopening multiple conversations remains an operational check, not a missing backend implementation.
+
+The bounded conversational Context Builder described above is implemented and covered by the full **PHP Core Tests** suite in PR #7 (run #143 passed). It is **not yet claimed as deployed on the live EC2 instance**. Production remains on the previously verified Chat deployment until the merged commit is pulled to `/var/www/memory`, tested and restarted.
 
 
 ## Metering and billing

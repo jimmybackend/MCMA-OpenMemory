@@ -20,8 +20,12 @@ final class BillingRequestContext
         private readonly string $question,
         private readonly ?string $embeddingProviderId,
         private readonly ?string $generationProviderId,
-        private readonly int $maxOutputTokens
+        private readonly int $maxOutputTokens,
+        private readonly int $additionalGenerationContextReserveBytes = 0
     ) {
+        if($this->additionalGenerationContextReserveBytes<0||$this->additionalGenerationContextReserveBytes>65536){
+            throw new BillingException('Invalid additional generation context reserve','invalid_context_reserve',500);
+        }
         $this->collector = new UsageCollector();
     }
 
@@ -37,7 +41,7 @@ final class BillingRequestContext
 
         $estimateQuestion=$kind==='generation'?$input:$this->question;
         $contextReserve=($kind!=='generation'&&$this->generationProviderId!==null)
-            ?self::GENERATION_CONTEXT_RESERVE_BYTES
+            ?self::GENERATION_CONTEXT_RESERVE_BYTES+$this->additionalGenerationContextReserveBytes
             :0;
         $estimate=$this->billing->estimateReservation(
             $estimateQuestion,

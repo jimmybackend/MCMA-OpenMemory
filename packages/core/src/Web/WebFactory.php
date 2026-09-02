@@ -83,6 +83,12 @@ final class WebFactory
             'capture-freshness'=>self::optional('MCMA_WEB_CAPTURE_FRESHNESS')??'stable',
             'capture-max-age'=>(int)(self::optional('MCMA_WEB_CAPTURE_MAX_AGE')??'2592000'),
             'capture-reuse'=>self::optional('MCMA_WEB_CAPTURE_REUSE')??'reuse-unless-stale',
+            'conversation-context-enabled'=>self::boolEnv('MCMA_WEB_CONVERSATION_CONTEXT_ENABLED',true),
+            'conversation-context-token-budget'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_TOKEN_BUDGET')??'6000'),
+            'conversation-context-max-turns'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_MAX_TURNS')??'6'),
+            'conversation-context-candidates'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_CANDIDATES')??'12'),
+            'conversation-context-min-relevance'=>(float)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_MIN_RELEVANCE')??'0.08'),
+            'conversation-context-recent-anchors'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_RECENT_ANCHORS')??'2'),
         ];
         $candidateSimilarity=self::optional('MCMA_WEB_CANDIDATE_SIMILARITY');
         if($candidateSimilarity!==null) $options['candidate-similarity']=(float)$candidateSimilarity;

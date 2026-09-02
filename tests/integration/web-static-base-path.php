@@ -13,10 +13,10 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260902-4"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260902-5"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260902-4"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260902-5"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -31,6 +31,7 @@ check(str_contains($index,'id="conversationList"'),'conversation list is present
 check(str_contains($index,'id="chatMessages"'),'chat message stream is present');
 check(str_contains($index,'id="conversationTitle"'),'conversation title is present');
 check(str_contains($index,'id="composerStatus"'),'chat composer status is present');
+check(str_contains($index,'MCMA selecciona sólo turnos recientes/relevantes'),'bounded conversation context guidance is present');
 check(str_contains($index,'id="newConversation"'),'new conversation control is present');
 check(str_contains($index,'id="interactionApprove"'),'interaction approval action is present');
 check(str_contains($index,'id="interactionDiscard"'),'interaction discard action is present');
@@ -59,6 +60,8 @@ check(str_contains($app,"switchMemoryView('tree')"),'memory tree view switch is 
 check(str_contains($app,"switchMemoryView('list')"),'memory list view switch is wired');
 check(str_contains($app,"'/validation'"),'memory explorer validation endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/context'"),'context transparency endpoint is wired');
+check(str_contains($app,'HISTORIAL CONVERSACIONAL SELECCIONADO'),'context transparency renders selected conversation turns');
+check(str_contains($app,'conversation_context'),'conversation context metadata is rendered');
 check(str_contains($app,"activateTab('ask')"),'Chat tab activation is wired');
 check(str_contains($app,"mainTabs.addEventListener('click'"),'tab click delegation is wired');
 check(str_contains($app,"closest('[data-tab-target]')"),'tab click target resolution is wired');

@@ -117,7 +117,9 @@ payment
 
 A request reserves credits before the first paid AI call and settles against actual usage afterward.
 
-When generation may include guarded MCMA memory context, the reservation includes a conservative context-byte allowance. If generation is the first model call, the metering wrapper can use the actual serialized context size for the estimate. Final settlement always uses provider-reported usage when available; the conservative reservation is released down to actual usage.
+When generation may include guarded MCMA memory context, the reservation includes a conservative context-byte allowance. Bounded conversational context adds its configured upper-bound budget to that reservation when an embedding call reserves credits before generation. This prevents a configurable conversation budget from exceeding the context capacity anticipated by the credit reservation.
+
+If generation is the first model call, the metering wrapper uses the actual serialized generation input for the estimate. `MeteredGenerationProvider` includes both validated `memory_context` and selected `conversation_context` in its billing input. Final settlement always uses provider-reported usage when available; the conservative reservation is released down to actual usage.
 
 ## Plans
 
@@ -362,6 +364,8 @@ api_keys_enabled = false
 The `api_keys_enabled=false` value is the current instance configuration, not a removal of the API-key implementation documented above.
 
 Conversation-history navigation is intentionally outside AI charging: `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` read/decrypt the authenticated user's canonical archive and report zero AI tokens and zero credit units. Sending a new question through Ask continues to use the normal exact/semantic/generation metering path.
+
+When a new question requires generation, the bounded conversation selector itself is deterministic and makes no extra embedding/model call. Only the selected historical material that is actually sent to generation contributes to generation input usage/credits.
 
 Stripe Checkout creation and the cancel-return path have been exercised on the live deployment without completing a charge. A successful live/test paid Checkout plus webhook fulfillment remains a separate payment smoke test; the one-time/subscription implementation and automated tests are already complete.
 

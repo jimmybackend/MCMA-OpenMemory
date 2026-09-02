@@ -176,19 +176,26 @@ final class OllamaGenerationProvider implements GenerationProvider
     private static function memoryContextText(array $context): ?string
     {
         $memory=$context['memory_context']??null;
-        if(!is_array($memory)) return null;
+        $conversation=$context['conversation_context']??null;
+        if(!is_array($memory)&&!is_array($conversation)) return null;
+
         $payload=[
             'source'=>'mcma',
-            'logical_ref'=>(string)($memory['logical_ref']??''),
-            'question'=>(string)($memory['question']??''),
-            'answer'=>(string)($memory['answer']??''),
-            'validation_state'=>(string)($memory['validation_state']??''),
-            'confidence'=>(float)($memory['confidence']??0),
-            'freshness_class'=>(string)($memory['freshness_class']??''),
-            'stale'=>(bool)($memory['stale']??false),
-            'reasons'=>is_array($memory['reasons']??null)?array_values($memory['reasons']):[],
+            'logical_ref'=>is_array($memory)?(string)($memory['logical_ref']??''):'',
+            'question'=>is_array($memory)?(string)($memory['question']??''):'',
+            'answer'=>is_array($memory)?(string)($memory['answer']??''):'',
+            'validation_state'=>is_array($memory)?(string)($memory['validation_state']??''):'',
+            'confidence'=>is_array($memory)?(float)($memory['confidence']??0):0.0,
+            'freshness_class'=>is_array($memory)?(string)($memory['freshness_class']??''):'',
+            'stale'=>is_array($memory)?(bool)($memory['stale']??false):false,
+            'reasons'=>is_array($memory)&&is_array($memory['reasons']??null)?array_values($memory['reasons']):[],
         ];
-        if($payload['answer']==='') return null;
+
+        if(is_array($conversation)&&is_array($conversation['turns']??null)&&$conversation['turns']!==[]){
+            $payload['conversation']=$conversation;
+        }
+
+        if($payload['answer']===''&&!isset($payload['conversation'])) return null;
         return json_encode($payload,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     }
 
