@@ -89,3 +89,33 @@ AskService
 ~~~
 
 Stripe Checkout supports one-time and recurring packages. Recurring credits are fulfilled from verified paid invoices, while subscription lifecycle state is stored in the encrypted billing account.
+
+## Persistent Chat and conversation archive
+
+The web Chat layer is a view over the same file-first MCMA library; it is not a second persistence system.
+
+~~~text
+authenticated web session
+        ↓
+conversation_id
+        ↓
+AskService / explicit memory flow
+        ↓
+canonical encrypted interaction
+memory://interactions/YYYY/MM/DD/conv_<id>/req_<id>
+        ↓
+private derived encrypted conversation index
+memory://system/conversation-index
+        ↓
+GET /mcma/v1/conversations
+GET /mcma/v1/conversations/conv_<32-hex>
+        ↓
+sidebar / reopened chronological turns
+~~~
+
+Question and answer content is stored once in the canonical interaction object. The conversation index stores summary metadata plus canonical interaction references; it does not duplicate the transcript. It is incrementally maintained and can be rebuilt from actor-visible canonical interactions when its count/fingerprint is missing or stale.
+
+Conversation list/detail navigation performs authenticated storage reads/decryption only and reports zero AI tokens and zero AI credits. Opening an archived conversation keeps its `conversation_id` for future grouping but does not silently inject the full archived transcript into the generation prompt. Recent-turn prompt assembly remains a separate future context-builder concern with permission, relevance and token-budget controls.
+
+The system conversation index is private derived state and is not exposed through the normal library browser or returned as a logical reference to clients.
+
