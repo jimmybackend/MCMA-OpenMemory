@@ -53,7 +53,7 @@ final class ExplicitMemoryEmbeddingProvider implements EmbeddingProvider
     public function embed(string $text): array
     {
         $this->calls++;
-        $normalized=mb_strtolower(trim(preg_replace('/\s+/u',' ',$text)??$text),'UTF-8');
+        $normalized=strtolower(trim(preg_replace('/\s+/u',' ',$text)??$text));
         if(str_contains($normalized,'semantic precision')||str_contains($normalized,'precisión semántica')){
             return [1.0,0.0,0.0];
         }
