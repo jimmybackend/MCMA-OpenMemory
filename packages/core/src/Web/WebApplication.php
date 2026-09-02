@@ -215,7 +215,7 @@ final class WebApplication
             }
 
             $kind=str_starts_with($logicalRef,'memory://user/')?'memory':
-                (str_starts_with($logicalRef,'memory://knowledge/')?'knowledge':null);
+                (preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#',$logicalRef)?'knowledge':null);
             if($kind===null){
                 throw new WebException(400,'invalid_library_ref','Only user memory, interactions and knowledge are browsable here');
             }
