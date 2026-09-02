@@ -27,7 +27,7 @@
 ## Retrieval and memory model
 
 - MEMORY-TAXONOMY.md — cognitive memory classification.
-- ENCRYPTED-INDEX.md — encrypted catalogs and scalable retrieval.
+- ENCRYPTED-INDEX.md — encrypted catalogs, semantic/derived indexing and the private conversation index used by persistent Chat.
 - KNOWLEDGE-REUSE.md — memory-first answer reuse.
 - STORAGE-ADAPTERS.md — provider-independent storage contract.
 - STORAGE-PROVIDERS.md — implemented Local/GitHub/S3/GCS/Drive/Azure/OSS/WebDAV providers.
