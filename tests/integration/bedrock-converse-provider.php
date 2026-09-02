@@ -82,6 +82,52 @@ $contextResult=$contextProvider->generate('Use my current context',[
 ]);
 if(!$contextSeen||($contextResult['text']??null)!=='Context-aware response.') throw new RuntimeException('Bedrock context injection simulation failed');
 
+$conversationOnlySeen=false;
+$conversationOnlyRequester=function(string $method,string $url,array $headers,string $body)use(&$conversationOnlySeen):array{
+    $request=json_decode($body,true,512,JSON_THROW_ON_ERROR);
+    $userText=(string)($request['messages'][0]['content'][0]['text']??'');
+    $systemText=(string)($request['system'][0]['text']??'');
+    if(!str_contains($userText,'MCMA MEMORY CONTEXT')) throw new RuntimeException('Conversation-only MCMA context marker missing');
+    if(!str_contains($userText,'"conversation_id":"conv_'.str_repeat('e',32).'"')) throw new RuntimeException('Conversation id missing from Bedrock context');
+    if(!str_contains($userText,'"question":"Earlier nginx turn"')) throw new RuntimeException('Selected conversation turn missing from Bedrock context');
+    if(!str_contains($systemText,'untrusted reference data')) throw new RuntimeException('Conversation-only safety instruction missing');
+    $conversationOnlySeen=true;
+    return [200,json_encode([
+        'output'=>['message'=>['role'=>'assistant','content'=>[['text'=>'Conversation-aware response.']]]],
+        'stopReason'=>'end_turn',
+        'usage'=>['inputTokens'=>30,'outputTokens'=>5,'totalTokens'=>35],
+    ],JSON_THROW_ON_ERROR),[]];
+};
+$conversationOnlyProvider=new BedrockConverseGenerationProvider(
+    'us-east-1','amazon.nova-micro-v1:0',128,0.1,null,'test-bedrock-key',
+    null,null,null,$conversationOnlyRequester
+);
+$conversationOnlyResult=$conversationOnlyProvider->generate('What did we do next?',[
+    'conversation_context'=>[
+        'conversation_id'=>'conv_'.str_repeat('e',32),
+        'selection'=>[
+            'strategy'=>'recent-plus-lexical-v1',
+            'selected_turns'=>1,
+            'token_budget'=>6000,
+            'estimated_tokens_upper_bound'=>256,
+            'token_estimate_method'=>'estimated-bytes-upper-bound',
+        ],
+        'turns'=>[[
+            'logical_ref'=>'memory://interactions/2026/09/02/conv_'.str_repeat('e',32).'/req_'.str_repeat('1',32),
+            'at'=>'2026-09-02T19:00:00Z',
+            'question'=>'Earlier nginx turn',
+            'answer'=>'We updated TLS configuration.',
+            'validation_state'=>'unverified',
+            'confidence'=>0.5,
+            'relevance_score'=>0.8,
+            'selection_reason'=>'relevance',
+        ]],
+    ],
+]);
+if(!$conversationOnlySeen||($conversationOnlyResult['text']??null)!=='Conversation-aware response.'){
+    throw new RuntimeException('Bedrock conversation-only context injection simulation failed');
+}
+
 $sigSeen = false;
 $sigRequester = function (string $method, string $url, array $headers, string $body) use (&$sigSeen): array {
     if (!str_contains($url, 'amazon.nova-micro-v1%3A0/converse')) {
