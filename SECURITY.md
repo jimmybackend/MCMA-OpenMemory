@@ -55,3 +55,12 @@ Finite IEEE-754 doubles are canonicalized using ECMAScript-compatible JCS notati
 Future hardening should include independent vault unlock/hardware key release, key rotation, pepper rotation, device authorization, Stripe Customer Portal/self-service subscription management, broader payment-provider connectors and external cryptographic/security review.
 
 Encrypted admin audit events, incremental semantic indexing, multi-user isolation and billing ledgers are already implemented.
+
+## Conversation index privacy
+
+The persistent Chat sidebar uses a private encrypted derived index at the system-memory boundary. It stores conversation metadata and references to canonical `memory://interactions/...` objects; question/answer content remains canonical in the interaction objects rather than being duplicated into a second transcript store.
+
+Normal library browsing does not expose the private conversation-index logical reference. Conversation list/detail APIs require the authenticated web session, resolve exactly that user's MCMA Library, and do not accept a client-selected actor, library or storage location. Cross-user access is covered by integration tests, and unauthenticated production access returns HTTP 401.
+
+Displaying archived turns is not authority to inject them into an AI prompt. Automatic full-history prompt injection is intentionally absent from the current implementation.
+
