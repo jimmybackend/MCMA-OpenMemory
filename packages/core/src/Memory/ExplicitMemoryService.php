@@ -70,6 +70,9 @@ final class ExplicitMemoryService
         }
 
         $sourceText = self::extractRequestedContent($requestText);
+        if ($sourceText === '') {
+            throw new \RuntimeException('Explicit memory request has no content to store');
+        }
         $organization = $this->organize($sourceText);
         $classification = $organization['classification'];
 
@@ -396,6 +399,7 @@ PROMPT;
         );
 
         $candidate = trim(is_string($candidate) ? $candidate : $requestText);
+        if ($candidate === '' && self::isExplicitSaveRequest($requestText)) return '';
         return $candidate !== '' ? $candidate : $requestText;
     }
 
