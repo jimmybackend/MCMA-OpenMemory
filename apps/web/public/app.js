@@ -354,7 +354,7 @@
       if(interactions.length===0)renderChatEmpty();
 
       conversationReadCost.textContent='0 tokens IA · 0 créditos';
-      composerStatus.textContent='Historial abierto · 0 tokens IA · no se reinjecta automáticamente al modelo.';
+      composerStatus.textContent='Historial abierto · 0 tokens IA al navegar · la IA seleccionará sólo contexto reciente/relevante si necesita generar.';
       if(refreshList)renderConversationList();
       else markActiveConversation();
       chatWorkspace.classList.remove('sidebar-open');
@@ -457,6 +457,7 @@
     const tokens=Number(usage.total_tokens ?? usage.totalTokens ?? 0);
     const credits=Number(billing.credit_units_charged ?? 0);
     const memoryContext=result.context_used?.memory===true;
+    const conversationContext=result.context_used?.conversation===true;
 
     answerSource.className='route-badge';
     if(route==='memory-capture'){
@@ -468,8 +469,8 @@
     }else if(route==='memory-semantic'){
       answerSource.textContent='Memoria semántica';
       answerSource.classList.add('route-semantic');
-    }else if(route==='provider'&&memoryContext){
-      answerSource.textContent='IA + memoria MCMA';
+    }else if(route==='provider'&&(memoryContext||conversationContext)){
+      answerSource.textContent=memoryContext&&conversationContext?'IA + memoria + conversación':(memoryContext?'IA + memoria MCMA':'IA + conversación');
       answerSource.classList.add('route-ai-memory');
     }else if(route==='provider'){
       const provider=String(result.provider_id||'');
@@ -1038,20 +1039,46 @@
     contextLastAt.textContent=memoryDate(trace.at);
 
     const used=trace.context_used||{};
+    const sections=[];
+    const badges=[];
+
     if(used.memory===true){
       const value=used.answer?.value;
-      contextInjectedAnswer.textContent=typeof value==='string'?value:(value!==undefined?JSON.stringify(value,null,2):'Memoria usada, pero esta traza antigua no contiene el texto inyectado.');
-      contextInjectedMeta.replaceChildren(
-        memoryBadge('MCMA inyectada','route-badge route-ai-memory'),
+      const memoryText=typeof value==='string'?value:(value!==undefined?JSON.stringify(value,null,2):'Memoria usada, pero esta traza antigua no contiene el texto inyectado.');
+      sections.push('MEMORIA MCMA VALIDADA\n'+memoryText);
+      badges.push(
+        memoryBadge('Memoria MCMA','route-badge route-ai-memory'),
         memoryBadge(used.validation_state||'—'),
         memoryBadge('Confianza '+Number(used.confidence||0).toFixed(2)),
         memoryBadge(used.freshness_class||'—')
       );
+    }
+
+    const conversation=used.conversation_context;
+    const turns=Array.isArray(conversation?.turns)?conversation.turns:[];
+    if(used.conversation===true&&turns.length>0){
+      const rendered=turns.map((turn,index)=>{
+        const q=typeof turn.question==='string'?turn.question:'';
+        const a=typeof turn.answer==='string'?turn.answer:JSON.stringify(turn.answer??'');
+        return 'TURNO '+(index+1)+' · '+(turn.at||'')+' · relevancia '+Number(turn.relevance_score||0).toFixed(2)+'\nUsuario: '+q+'\nAsistente: '+a;
+      }).join('\n\n');
+      sections.push('HISTORIAL CONVERSACIONAL SELECCIONADO\n'+rendered);
+      const selection=conversation.selection||{};
+      badges.push(
+        memoryBadge(number(turns.length)+' turnos'),
+        memoryBadge(number(selection.estimated_tokens_upper_bound||0)+' tokens máx. contexto'),
+        memoryBadge(selection.strategy||'selección contextual')
+      );
+    }
+
+    if(sections.length>0){
+      contextInjectedAnswer.textContent=sections.join('\n\n---\n\n');
+      contextInjectedMeta.replaceChildren(...badges);
     }else{
       if(trace.route==='memory-exact'||trace.route==='memory-semantic'){
-        contextInjectedAnswer.textContent='No se inyectó memoria en un modelo: MCMA respondió directamente desde '+routeLabel(trace.route).toLowerCase()+'.';
+        contextInjectedAnswer.textContent='No se inyectó contexto en un modelo: MCMA respondió directamente desde '+routeLabel(trace.route).toLowerCase()+'.';
       }else{
-        contextInjectedAnswer.textContent='Ninguna memoria persistente fue inyectada al modelo en esta pregunta.';
+        contextInjectedAnswer.textContent='No se seleccionó memoria ni historial conversacional para esta generación.';
       }
       contextInjectedMeta.replaceChildren(memoryBadge('Sin contexto inyectado'));
     }
@@ -1121,7 +1148,7 @@
       for(const trace of traces){
         const el=contextListItem(
           trace.question||'Pregunta',
-          memoryDate(trace.at)+' · '+routeLabel(trace.route)+(trace.context_used?.memory===true?' · contexto MCMA':''),
+          memoryDate(trace.at)+' · '+routeLabel(trace.route)+((trace.context_used?.memory===true||trace.context_used?.conversation===true)?' · contexto MCMA':''),
           ()=>renderContextTrace(trace)
         );
         el.dataset.traceId=trace.trace_id||'';
