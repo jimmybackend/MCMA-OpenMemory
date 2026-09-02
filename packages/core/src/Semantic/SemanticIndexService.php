@@ -494,6 +494,13 @@ final class SemanticIndexService
             KnowledgeRecord::validate($record);
             $result['answer'] = $record['answer'];
             $result['provenance'] = $record['provenance'];
+            $result['relations'] = $record['relations'];
+            foreach($record['relations'] as $relation){
+                if(is_string($relation) && str_starts_with($relation,'memory://user/')){
+                    $result['canonical_memory_ref']=$relation;
+                    break;
+                }
+            }
         }
 
         return $result;
