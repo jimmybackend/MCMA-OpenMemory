@@ -208,17 +208,21 @@ It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-use
 The web UI is organized into three primary tabs. Tab switching is handled client-side with delegated click/keyboard events, and mutable UI assets are configured to revalidate so an older cached `app.js` cannot leave newer tab markup non-interactive.
 
 
-- **Preguntar** — ask MCMA and see the answer route, tokens and credits; each successful turn is also archived encrypted under a tab-scoped conversation id;
+- **Chat** — MiChat-inspired MCMA workspace with a conversation sidebar, search, temporal groups, project filters, persistent message history, **Nueva conversación**, the existing `current`/`remember` controls and per-answer route/token/credit metadata;
 - **Biblioteca** — browse personal memory, persistent conversations and Knowledge through virtual shelves by session, date, topic, project, person/character, entity, source and validation state;
 - **Contexto MCMA** — inspect the latest encrypted per-request context traces, persistent-memory counts, model-generated memories and internal derived system objects.
 
-Conversation turns are stored once under `memory://interactions/...`; the library shelves are virtual references rather than copies. Browsing and decrypting the library uses zero AI tokens. An archived interaction starts unverified; the owner can approve it as reusable Knowledge or retract it. Deep catalog classification runs only on approval and is metered when billing is enabled. The separate Context trace window remains capped to the latest 50 requests for operational transparency, while the durable interaction archive is not capped at 50.
+Conversation turns are stored once under `memory://interactions/...`; the chat sidebar and library shelves are derived views rather than copies. A private encrypted conversation index stores only conversation metadata plus canonical interaction references, so normal sidebar rendering does not decrypt the whole library. Listing/opening conversations uses zero AI tokens and zero AI credits. An archived interaction starts unverified; the owner can approve it as reusable Knowledge or retract it. Deep catalog classification runs only on approval and is metered when billing is enabled. The separate Context trace window remains capped to the latest 50 requests for operational transparency, while the durable interaction archive is not capped at 50.
+
+Opening a previous conversation restores its visible archived turns and keeps using that `conversation_id` for new turns. This UI phase does **not** automatically inject the entire archived conversation into the model prompt; conversational context injection remains a separate future, permission-aware and token-budgeted concern.
 
 ~~~text
 GET  /login
 GET  /callback
 GET  /mcma/v1/health
 GET  /mcma/v1/me
+GET  /mcma/v1/conversations
+GET  /mcma/v1/conversations/conv_<32-hex>
 POST /mcma/v1/register
 POST /mcma/v1/ask
 POST /logout
