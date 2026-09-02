@@ -213,3 +213,58 @@ The existing validated-memory Context Builder remains separate and may be presen
 
 Reading the conversation list or opening archived turns makes no generation/embedding call and therefore uses zero AI tokens/credits. Once selected conversation context is actually passed to a generation provider, its serialized input is included in metering/billing.
 
+## Multi-memory RAG Context Builder
+
+When exact memory cannot answer directly and semantic retrieval also cannot return one candidate through the strict direct-answer gate, the web Ask path can synthesize several related KnowledgeRecords in one generation request.
+
+The query embedding is generated **once**. That same ranked semantic pool is used first for the normal direct semantic decision and then, only if generation is still required, for multi-memory context assembly.
+
+~~~text
+question
+  ↓
+exact reusable?
+  ├── yes → direct answer
+  ↓
+one semantic query embedding
+  ↓
+wider actor-visible RAG candidate pool
+  ├── one candidate passes strict direct gate → direct semantic answer
+  ↓
+canonical readAs(ai) for RAG candidates
+  ↓
+supported / verified + confidence gate
+  ↓
+score each memory
+  ├── similarity       0.42
+  ├── confidence       0.22
+  ├── freshness        0.14
+  ├── provenance       0.17
+  └── validation       0.05
+  ↓
+max memories + conservative context budget
+  ↓
+GenerationProvider
+~~~
+
+The default RAG candidate similarity floor is `0.55`, while the ordinary direct semantic threshold remains `0.78` unless deployment configuration changes it. A wider discovery floor therefore does **not** make a lower-similarity memory eligible for direct return.
+
+Only `supported` or `verified` memories at or above the configured confidence threshold enter this RAG layer. Permission-denied, disputed, retracted, unverified, low-confidence or `never-direct` records are excluded. Stale but otherwise trusted records may be supplied as lower-priority reference material when generation is already required, preserving their stale/freshness metadata for revalidation.
+
+Provenance is part of ranking rather than a decorative field. Current source-quality ordering favors direct user evidence and documentation over prior model output, while still combining it with similarity, confidence and freshness. Selected provenance entries and canonical/logical references are sent to the provider as untrusted reference data.
+
+Default web limits are:
+
+~~~text
+candidate pool       8
+selected memories    4
+RAG budget           8000
+candidate similarity 0.55
+minimum RAG score    0.50
+answer bytes/memory  4500
+provenance entries   4
+~~~
+
+The budget uses `estimated-bytes-upper-bound`, so MCMA never labels the pre-provider estimate as exact tokenizer usage. Final billing uses provider-reported usage when available.
+
+If the generated synthesis is remembered, its new KnowledgeRecord remains `unverified` by default but records the selected RAG memories as `source_type=memory` provenance and memory relations. This makes later validation auditable instead of losing the evidence chain.
+
