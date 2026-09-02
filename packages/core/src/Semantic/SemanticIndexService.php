@@ -417,19 +417,18 @@ final class SemanticIndexService
             ];
         }
 
-        $hybridSelection = $candidateSimilarity !== null || $minRerankScore !== null;
-        $top = $hybridSelection ? null : ($ranked['candidates'][0] ?? null);
-
-        if ($hybridSelection) {
-            foreach ($ranked['candidates'] as $candidate) {
-                if (($candidate['reusable'] ?? false) !== true) continue;
-                $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
-                $rerankPass = $minRerankScore !== null
-                    && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
-                if ($similarityPass || $rerankPass) {
-                    $top = $candidate;
-                    break;
-                }
+        // Candidate discovery may be wider than the direct-answer gate for
+        // multi-memory RAG. A direct semantic answer still requires the normal
+        // similarity threshold or the explicitly configured rerank threshold.
+        $top = null;
+        foreach ($ranked['candidates'] as $candidate) {
+            if (($candidate['reusable'] ?? false) !== true) continue;
+            $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
+            $rerankPass = $minRerankScore !== null
+                && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
+            if ($similarityPass || $rerankPass) {
+                $top = $candidate;
+                break;
             }
         }
 
