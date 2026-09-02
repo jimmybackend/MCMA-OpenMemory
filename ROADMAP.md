@@ -177,6 +177,7 @@
 - [x] no database dependency
 - [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
 - [x] real EC2 persistent Chat + conversation-index deployment smoke test (verified 2026-09-02)
+- [x] real EC2 bounded conversational context deployment smoke test (verified 2026-09-02)
 
 ## Metering + Billing + Commercial API — first implementation complete
 - [x] encrypted daily usage ledger per user
@@ -241,8 +242,15 @@
 - [x] deterministic recent-anchor + lexical relevance selection
 - [x] conservative context token budget and max-turn limits
 - [x] selected-turn metering and Contexto MCMA transparency
+- [x] multi-memory semantic candidate pool reused from a single query embedding
+- [x] strict direct-semantic gate preserved while RAG discovery can use a wider similarity floor
+- [x] multi-memory ranking by similarity, confidence, freshness, provenance and validation
+- [x] actor-aware canonical re-read before any memory enters RAG context
+- [x] configurable RAG memory count and conservative token budget
+- [x] selected RAG provenance/relations preserved when generated synthesis is remembered
+- [x] multi-memory RAG metering and Contexto MCMA transparency
 - [x] token-budgeted selection of recent interaction turns for generation context
-- [ ] token-budgeted multi-memory RAG context assembly with provenance and freshness metadata
+- [x] token-budgeted multi-memory RAG context assembly with provenance and freshness metadata
 - [x] explicit owner validation/promotion/retraction workflow in web memory explorer
 - [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
 - [ ] real EC2 + Ollama end-to-end smoke test
