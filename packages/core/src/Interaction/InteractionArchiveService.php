@@ -15,7 +15,7 @@ final class InteractionArchiveService
 {
     public const VERSION='1.0';
     private const CONVERSATION_INDEX_REF='memory://system/conversation-index';
-    private const CONVERSATION_INDEX_VERSION='1.0';
+    private const CONVERSATION_INDEX_VERSION='1.1';
 
     public function __construct(private readonly Library $library) {}
 
@@ -195,6 +195,67 @@ final class InteractionArchiveService
             'interactions'=>$interactions,
             'ai_tokens_used'=>0,
             'credit_units_charged'=>0,
+        ];
+    }
+
+    public function contextCandidates(string $actor,string $conversationId,int $limit=12): array
+    {
+        if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)){
+            throw new RuntimeException('Invalid conversation id');
+        }
+        if($limit<1||$limit>32) throw new RuntimeException('Conversation context candidate limit must be between 1 and 32');
+
+        // The encrypted conversation index is trusted derived infrastructure and
+        // remains owner-only. It is used only to discover recent canonical refs.
+        // Every returned interaction is still read through the requesting actor,
+        // so the index can never bypass resource permissions.
+        $index=$this->conversationIndex('owner');
+        $conversation=$index['conversations'][$conversationId]??null;
+        if(!is_array($conversation)){
+            return [
+                'conversation_id'=>$conversationId,
+                'candidates'=>[],
+                'candidate_count'=>0,
+            ];
+        }
+
+        $recent=is_array($conversation['recent_interactions']??null)
+            ?array_values($conversation['recent_interactions'])
+            :[];
+        usort($recent,static function(array $a,array $b): int {
+            $timeCompare=(strtotime((string)($b['at']??''))?:0)<=>(strtotime((string)($a['at']??''))?:0);
+            if($timeCompare!==0) return $timeCompare;
+            return (string)($b['ref']??'')<=>(string)($a['ref']??'');
+        });
+
+        $candidates=[];
+        foreach($recent as $item){
+            if(count($candidates)>=$limit) break;
+            if(!is_array($item)) continue;
+            $logicalRef=$item['ref']??null;
+            if(!is_string($logicalRef)) continue;
+            try{
+                $detail=$this->read($actor,$logicalRef);
+            }catch(Throwable){
+                continue;
+            }
+            $interaction=$detail['interaction'];
+            if((string)($interaction['conversation_id']??'')!==$conversationId) continue;
+            $candidates[]=[
+                'logical_ref'=>$logicalRef,
+                'interaction_id'=>(string)($interaction['interaction_id']??''),
+                'at'=>(string)($interaction['at']??''),
+                'question'=>(string)($interaction['question']??''),
+                'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
+                'route'=>(string)($interaction['route']??'unknown'),
+                'validation'=>is_array($interaction['validation']??null)?$interaction['validation']:[],
+            ];
+        }
+
+        return [
+            'conversation_id'=>$conversationId,
+            'candidates'=>$candidates,
+            'candidate_count'=>count($candidates),
         ];
     }
 
@@ -548,6 +609,7 @@ final class InteractionArchiveService
                 'last_at'=>$at,
                 'interaction_count'=>0,
                 'interaction_refs'=>[],
+                'recent_interactions'=>[],
                 'projects'=>[],
             ];
         }
@@ -566,7 +628,20 @@ final class InteractionArchiveService
             $existing['last_at']=$at;
         }
 
+        $recent=is_array($existing['recent_interactions']??null)?$existing['recent_interactions']:[];
+        $recent=array_values(array_filter($recent,static fn($item): bool =>
+            is_array($item)&&is_string($item['ref']??null)&&$item['ref']!==$logicalRef
+        ));
+        $recent[]=['ref'=>$logicalRef,'at'=>$at];
+        usort($recent,static function(array $a,array $b): int {
+            $timeCompare=(strtotime((string)($a['at']??''))?:0)<=>(strtotime((string)($b['at']??''))?:0);
+            if($timeCompare!==0) return $timeCompare;
+            return (string)($a['ref']??'')<=>(string)($b['ref']??'');
+        });
+        if(count($recent)>32) $recent=array_slice($recent,-32);
+
         $existing['interaction_refs']=$refs;
+        $existing['recent_interactions']=$recent;
         $existing['interaction_count']=count($refs);
         $existing['projects']=array_values(array_unique(array_merge(
             self::labels($existing['projects']??[]),
