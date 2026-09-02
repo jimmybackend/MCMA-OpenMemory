@@ -43,9 +43,15 @@ final class MeteredGenerationProvider implements GenerationProvider
 
     private static function billingInput(string $question,array $context): string
     {
+        $parts=[$question];
+        $instruction=$context['system_instructions']??null;
+        if(is_string($instruction)&&trim($instruction)!=='') $parts[]=trim($instruction);
+
         $memory=$context['memory_context']??null;
-        if(!is_array($memory)) return $question;
-        $encoded=json_encode($memory,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
-        return is_string($encoded)?$question."\n".$encoded:$question;
+        if(is_array($memory)){
+            $encoded=json_encode($memory,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+            if(is_string($encoded)) $parts[]=$encoded;
+        }
+        return implode("\n",$parts);
     }
 }
