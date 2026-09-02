@@ -271,20 +271,72 @@ When billing is enabled, organizer generation and semantic embedding calls go th
 
 A bare command such as `Guarda esto` with no memory content is rejected rather than storing the command itself. Credentials and secrets should continue to use the MCMA Vault rather than ordinary user memory.
 
-## Zero-AI memory explorer
+## Cognitive library and zero-AI browsing
 
-Authenticated web users can browse and decrypt memory without invoking an embedding or generation model.
+Authenticated web users can browse and decrypt a cognitive library without invoking an embedding or generation model.
 
-The default **Tree** view exposes only the permission-filtered personal branch:
+Every successful Ask/explicit-memory turn is archived as one encrypted episodic object:
+
+~~~text
+memory://interactions/YYYY/MM/DD/conv_<id>/req_<id>
+~~~
+
+The browser keeps a conversation id in tab-scoped session storage. Reloading the same tab keeps the conversation; **Nueva conversación** starts a new id. The interaction archive is not capped at 50 entries and is separate from the short recent-context trace window.
+
+The default **Tree** view uses:
+
+~~~text
+GET /mcma/v1/library-tree
+GET /mcma/v1/library-object?ref=...
+~~~
+
+The library exposes only actor-visible objects from:
+
+~~~text
+memory://user/...
+memory://interactions/...
+memory://knowledge/q-<sha256>
+~~~
+
+`memory://system/` and `memory://access/` (including Vault) are never exposed through the library browser.
+
+One encrypted interaction object is rendered through virtual catalog shelves rather than duplicated physically:
+
+~~~text
+Memoria personal/
+Conversaciones/
+  Por sesión/
+  Por fecha/
+  Por temas/
+  Por proyectos/
+  Por personas/
+  Por personajes/
+  Por entidades/
+  Por fuente/
+  Por estado/
+Knowledge/
+~~~
+
+An interaction initially has `validation.state=unverified`. The owner can use:
+
+~~~text
+POST /mcma/v1/interaction-validation
+{"ref":"memory://interactions/...","action":"approve"}
+{"ref":"memory://interactions/...","action":"discard"}
+~~~
+
+Approving catalogs the interaction and creates or validates reusable Knowledge at confidence `0.95`. Deep topic/project/person/character classification is invoked only on owner approval; merely archiving the conversation does not add an extra model call. With billing enabled, approval-time catalog generation and semantic refresh use normal metering. If no generation provider exists, approval still works with the deterministic catalog already available.
+
+Discarding marks the archived interaction `retracted`. When related generated Knowledge exists, it is retracted through the normal epistemic gates; no new embedding is needed for discard.
+
+The legacy personal-memory routes remain available for compatibility:
 
 ~~~text
 GET /mcma/v1/memory-tree
 GET /mcma/v1/memory-object?ref=memory://user/...
 ~~~
 
-`/mcma/v1/memory-tree` is derived from `Library::treeAs('owner')` but returns only the `memory://user/` subtree. Internal `memory://knowledge/`, `memory://system/` and `memory://access/` branches are not part of this response. The decrypted-object route accepts only `memory://user/...` references and performs an actor-aware Library read before returning content.
-
-The UI renders collapsible thematic folders and allows selecting a leaf to see its decrypted canonical content, original user text when present, logical route, cognitive layer, scope, temperature, maturity, revision, object id and storage hash.
+The UI renders collapsible library shelves and allows selecting a leaf to see decrypted content, question/source text, logical route, catalog labels, validation state, cognitive layer, scope, temperature, maturity, revision, object id and storage hash.
 
 The existing **List** view remains available for knowledge-record search, validation and pagination:
 
@@ -305,7 +357,7 @@ Validation accepts only:
 
 `confirm` promotes the owner-confirmed memory to `verified` with confidence `0.95`. `discard` marks it `retracted` with confidence `0.0`. Repeating the same action is idempotent.
 
-Tree navigation, canonical-object decryption and the existing list/validation operations report zero AI tokens and zero AI credits because they use only authenticated Library reads/decryption and deterministic metadata updates. Storage requests (for example S3 GET/PUT operations) still occur and are not the same thing as model-token usage.
+Library navigation, interaction/session/date views, canonical-object decryption and the existing list operations report zero AI tokens and zero AI credits because they use only authenticated Library reads/decryption and deterministic metadata. Approval can intentionally call the configured catalog model and semantic provider; that usage is metered. Discard remains zero-AI. Storage requests (for example S3 GET/PUT operations) still occur and are not the same thing as model-token usage.
 
 When a validation update changes the knowledge object's `storage_hash`, MCMA refreshes the existing semantic-index entry's object/hash linkage while preserving its existing vector. No new embedding is generated for that metadata-only update.
 
@@ -327,7 +379,7 @@ memory://system/context-traces
 
 The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary and the exact validated memory context supplied to generation when one was injected. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
 
-Only the latest 50 traces are retained in this first implementation. The context-trace object is protected as owner-only system memory. Existing libraries are hardened on first use; new default permission policies include the restriction directly.
+Only the latest 50 **context traces** are retained in this first implementation. They are an operational transparency window, not the durable conversation archive. Complete Ask/response interactions are stored separately under `memory://interactions/...` without the 50-entry cap. The context-trace object is protected as owner-only system memory. Existing libraries are hardened on first use; new default permission policies include the restriction directly.
 
 The read-only transparency route is:
 

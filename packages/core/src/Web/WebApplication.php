@@ -9,11 +9,14 @@ use MCMA\Core\Billing\AdminService;
 use MCMA\Core\Billing\ApiKeyService;
 use MCMA\Core\Billing\BillableAskService;
 use MCMA\Core\Billing\BillableExplicitMemoryService;
+use MCMA\Core\Billing\BillableInteractionApprovalService;
 use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Context\ContextTraceService;
+use MCMA\Core\Interaction\InteractionArchiveService;
+use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\Memory\ExplicitMemoryService;
@@ -184,6 +187,94 @@ final class WebApplication
                 'ok'=>true,
                 'context'=>$context->snapshot((float)($this->providerOptions['min-confidence']??0.75)),
             ]);
+        }
+
+        if($method==='GET'&&$path==='/mcma/v1/library-tree'){
+            $principal=$this->sessionPrincipal($request);
+            return HttpResponse::json([
+                'ok'=>true,
+                'library'=>(new InteractionArchiveService($principal['library']))->libraryTree('owner'),
+            ]);
+        }
+
+        if($method==='GET'&&$path==='/mcma/v1/library-object'){
+            $principal=$this->sessionPrincipal($request);
+            $logicalRef=trim((string)($request->query('ref')??''));
+            if($logicalRef===''||strlen($logicalRef)>2048){
+                throw new WebException(400,'invalid_library_ref','A library memory reference is required');
+            }
+
+            if(str_starts_with($logicalRef,'memory://interactions/')){
+                try{
+                    $detail=(new InteractionArchiveService($principal['library']))->read('owner',$logicalRef);
+                }catch(Throwable $e){
+                    if(str_contains($e->getMessage(),'Memory not found:')) throw new WebException(404,'library_object_not_found','Library object not found');
+                    throw $e;
+                }
+                return HttpResponse::json(['ok'=>true,'object'=>['kind'=>'interaction']+$detail]);
+            }
+
+            $kind=str_starts_with($logicalRef,'memory://user/')?'memory':
+                (preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#',$logicalRef)?'knowledge':null);
+            if($kind===null){
+                throw new WebException(400,'invalid_library_ref','Only user memory, interactions and knowledge are browsable here');
+            }
+
+            try{$stored=$principal['library']->readAs('owner',$logicalRef);}
+            catch(Throwable $e){
+                if(str_contains($e->getMessage(),'Memory not found:')) throw new WebException(404,'library_object_not_found','Library object not found');
+                throw $e;
+            }
+            return HttpResponse::json([
+                'ok'=>true,
+                'object'=>[
+                    'kind'=>$kind,
+                    'logical_ref'=>$logicalRef,
+                    'object_id'=>$stored['object_id']??null,
+                    'storage_hash'=>$stored['storage_hash']??null,
+                    'metadata'=>$stored['payload']['metadata']??[],
+                    'content'=>$stored['payload']['content']??null,
+                    'ai_tokens_used'=>0,
+                    'credit_units_charged'=>0,
+                ],
+            ]);
+        }
+
+        if($method==='POST'&&$path==='/mcma/v1/interaction-validation'){
+            $this->assertOrigin($request);
+            $principal=$this->requestPrincipal($request);
+            $input=$request->json(16384);
+            $logicalRef=trim((string)($input['ref']??''));
+            $action=(string)($input['action']??'');
+            if(!str_starts_with($logicalRef,'memory://interactions/')){
+                throw new WebException(400,'invalid_interaction_ref','An interaction reference is required');
+            }
+            if(!in_array($action,['approve','discard'],true)){
+                throw new WebException(400,'invalid_interaction_action','action must be approve or discard');
+            }
+
+            $embedding=$this->providers->embedding($this->providerOptions,true);
+            $generator=$this->providers->generation($this->providerOptions);
+            $validationRequestId='req_'.bin2hex(random_bytes(16));
+
+            if($this->billingEnabled){
+                if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
+                $this->billing->ensureAccount($principal['library']);
+                $result=(new BillableInteractionApprovalService(
+                    $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens
+                ))->validate(
+                    $validationRequestId,$principal['kind'],$logicalRef,$action,
+                    array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null)
+                );
+            }else{
+                $catalog=$action==='approve'?new InteractionCatalogService($generator):null;
+                $result=(new InteractionArchiveService($principal['library']))->validate(
+                    'owner',$logicalRef,$action,$catalog,$embedding
+                );
+                $result['billing']=['credit_units_charged'=>0,'usage'=>['total_tokens'=>0]];
+            }
+
+            return HttpResponse::json(['ok'=>true,'validation'=>$result]);
         }
 
         if($method==='GET'&&$path==='/mcma/v1/memory-tree'){
@@ -365,8 +456,10 @@ final class WebApplication
         }
 
         $requestId='req_'.bin2hex(random_bytes(16));
+        $conversationId=$this->conversationId($input);
         $result=$this->captureExplicitMemory($principal,$text,$requestId);
         $result=$this->recordContextTrace($principal,$requestId,$text,false,true,$result);
+        $result=$this->recordInteraction($principal,$requestId,$conversationId,$text,$result);
         return HttpResponse::json(['ok'=>true,'result'=>$result]);
     }
 
@@ -380,10 +473,12 @@ final class WebApplication
         $current=$this->boolField($input,'current',false);
         $remember=$this->boolField($input,'remember',true);
         $requestId='req_'.bin2hex(random_bytes(16));
+        $conversationId=$this->conversationId($input);
 
         if(ExplicitMemoryService::isExplicitSaveRequest($question)){
             $result=$this->captureExplicitMemory($principal,$question,$requestId);
             $result=$this->recordContextTrace($principal,$requestId,$question,false,true,$result);
+            $result=$this->recordInteraction($principal,$requestId,$conversationId,$question,$result);
             return HttpResponse::json(['ok'=>true,'result'=>$result]);
         }
 
@@ -434,6 +529,7 @@ final class WebApplication
         }
 
         $result=$this->recordContextTrace($principal,$requestId,$question,$current,$remember,$result);
+        $result=$this->recordInteraction($principal,$requestId,$conversationId,$question,$result);
         return HttpResponse::json(['ok'=>true,'result'=>$result]);
     }
 
@@ -463,6 +559,42 @@ final class WebApplication
             }
             throw $e;
         }
+    }
+
+    private function conversationId(array $input): string
+    {
+        $value=$input['conversation_id']??null;
+        if($value===null||$value==='') return InteractionArchiveService::normalizeConversationId(null);
+        if(!is_string($value)||!preg_match('/^conv_[0-9a-f]{32}$/',$value)){
+            throw new WebException(400,'invalid_conversation_id','conversation_id must match conv_<32 lowercase hex>');
+        }
+        return $value;
+    }
+
+    private function recordInteraction(
+        array $principal,
+        string $requestId,
+        string $conversationId,
+        string $question,
+        array $result
+    ): array {
+        try{
+            $archive=(new InteractionArchiveService($principal['library']))->archive(
+                'owner',$requestId,$conversationId,$question,$result,(string)($principal['kind']??'web')
+            );
+            $result['interaction_archive']=[
+                'recorded'=>true,
+                'logical_ref'=>$archive['logical_ref'],
+                'conversation_id'=>$archive['conversation_id'],
+                'interaction_id'=>$archive['interaction_id'],
+                'at'=>$archive['at'],
+                'validation_state'=>$archive['validation_state'],
+            ];
+        }catch(Throwable $e){
+            error_log('MCMA interaction archive error: '.$e->getMessage());
+            $result['interaction_archive']=['recorded'=>false,'conversation_id'=>$conversationId];
+        }
+        return $result;
     }
 
     private function recordContextTrace(

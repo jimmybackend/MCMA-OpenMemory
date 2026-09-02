@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260902-2">
+  <link rel="stylesheet" href="app.css?v=20260902-3">
 </head>
 <body>
   <main class="shell">
@@ -56,15 +56,15 @@
 
     <nav id="mainTabs" class="main-tabs" role="tablist" aria-label="Secciones de MCMA" hidden>
       <button id="tabAsk" type="button" role="tab" class="tab-button active" data-tab-target="ask" aria-controls="askPanel" aria-selected="true">Preguntar</button>
-      <button id="tabMemory" type="button" role="tab" class="tab-button" data-tab-target="memory" aria-controls="memoryExplorer" aria-selected="false">Mi memoria</button>
+      <button id="tabMemory" type="button" role="tab" class="tab-button" data-tab-target="memory" aria-controls="memoryExplorer" aria-selected="false">Biblioteca</button>
       <button id="tabContext" type="button" role="tab" class="tab-button" data-tab-target="context" aria-controls="contextPanel" aria-selected="false">Contexto MCMA</button>
     </nav>
 
     <section id="memoryExplorer" class="card memory-explorer tab-panel" role="tabpanel" aria-labelledby="tabMemory" data-tab-panel="memory" hidden>
       <div class="row between memory-title-row">
         <div>
-          <h2>Mi memoria</h2>
-          <p>Navega por tus carpetas lógicas y abre recuerdos descifrados sin usar IA.</p>
+          <h2>Biblioteca cognitiva</h2>
+          <p>Navega memoria personal, conversaciones completas y conocimiento aprobado sin usar IA para leer.</p>
         </div>
         <span id="memoryCount" class="zero-ai-badge">0 recuerdos · 0 tokens IA</span>
       </div>
@@ -78,17 +78,17 @@
         <div class="memory-layout memory-tree-layout">
           <aside class="memory-list-panel memory-tree-panel">
             <div class="memory-tree-heading">
-              <strong>memory://user</strong>
-              <span>Carpetas temáticas</span>
+              <strong>📚 Biblioteca MCMA</strong>
+              <span>Memoria · conversaciones · Knowledge · vistas virtuales</span>
             </div>
-            <div id="memoryTree" class="memory-tree" role="tree" aria-label="Árbol de memoria personal">
+            <div id="memoryTree" class="memory-tree" role="tree" aria-label="Árbol de biblioteca cognitiva">
               <p class="memory-empty">Cargando árbol…</p>
             </div>
           </aside>
 
           <article id="memoryTreeDetail" class="memory-detail">
             <div id="memoryTreeDetailEmpty" class="memory-detail-empty">
-              Selecciona un recuerdo del árbol para descifrarlo.
+              Selecciona un elemento de la biblioteca para descifrarlo.
             </div>
 
             <div id="memoryTreeDetailContent" hidden>
@@ -100,11 +100,11 @@
               <h3 id="memoryTreeDetailTitle">—</h3>
               <div class="memory-path" id="memoryTreeDetailPath">—</div>
 
-              <div class="memory-answer-label">Recuerdo descifrado</div>
+              <div class="memory-answer-label" id="libraryAnswerLabel">Contenido descifrado</div>
               <pre id="memoryTreeDetailAnswer" class="memory-answer"></pre>
 
               <div id="memoryTreeSourceWrap" hidden>
-                <div class="memory-answer-label">Texto original guardado</div>
+                <div class="memory-answer-label" id="librarySourceLabel">Pregunta / fuente original</div>
                 <pre id="memoryTreeDetailSource" class="memory-answer memory-source"></pre>
               </div>
 
@@ -116,6 +116,17 @@
                 <div><dt>Revisión</dt><dd id="memoryTreeDetailRevision">—</dd></div>
                 <div><dt>Actualizada</dt><dd id="memoryTreeDetailUpdated">—</dd></div>
               </dl>
+
+              <div id="libraryCatalogWrap" class="library-catalog" hidden>
+                <div class="memory-answer-label">Catálogo de biblioteca</div>
+                <div id="libraryCatalogBadges" class="answer-meta"></div>
+              </div>
+
+              <div id="interactionActions" class="memory-detail-actions" hidden>
+                <button id="interactionApprove" type="button" class="confirm-button">✓ Aprobar como conocimiento</button>
+                <button id="interactionDiscard" type="button" class="danger-button">Descartar conocimiento</button>
+                <span id="interactionValidationStatus" class="memory-validation-status"></span>
+              </div>
 
               <details class="memory-technical">
                 <summary>Detalles técnicos</summary>
@@ -292,6 +303,10 @@
       <form id="askForm">
         <label for="question">Pregunta</label>
         <textarea id="question" maxlength="32768" required placeholder="Escribe una pregunta o «Guarda esto: …»"></textarea>
+        <div class="conversation-session-bar">
+          <span>Sesión de conversación: <strong id="conversationLabel">—</strong></span>
+          <button id="newConversation" type="button" class="secondary-button">Nueva conversación</button>
+        </div>
         <div class="row">
           <label><input id="current" type="checkbox"> Exigir información actual</label>
           <label><input id="remember" type="checkbox" checked> Recordar respuesta nueva</label>
@@ -310,6 +325,6 @@
       <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js?v=20260902-2" defer></script>
+  <script src="app.js?v=20260902-3" defer></script>
 </body>
 </html>
