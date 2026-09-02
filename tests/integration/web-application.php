@@ -253,6 +253,34 @@ try {
     assert_web_app(($discardBody['memory']['validation_state']??null) === 'retracted', 'Memory discard did not retract record');
     assert_web_app(($discardBody['validation']['ai_tokens_used']??-1) === 0, 'Memory discard used AI tokens');
 
+    $explicitAsk = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/ask',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['question'=>'Guarda esto: Mi editor preferido es Vim.','remember'=>false], JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($explicitAsk->status() === 200, 'Explicit memory through /ask failed');
+    $explicitAskBody = json_decode($explicitAsk->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($explicitAskBody['result']['route']??null) === 'memory-capture', 'Explicit /ask intent was not routed to memory capture');
+    assert_web_app(($explicitAskBody['result']['stored']??false) === true, 'Explicit /ask memory was not stored');
+    assert_web_app(str_starts_with((string)($explicitAskBody['result']['logical_ref']??''),'memory://user/knowledge/'), 'Explicit /ask canonical route mismatch');
+    assert_web_app(($explicitAskBody['result']['storage']['classification']['cognitive_layer']??null) === '40-semantic', 'No-provider explicit memory fallback classification mismatch');
+
+    $explicitEndpoint = $app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/memory',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['text'=>'Las decisiones de despliegue de MCMA deben documentarse.'], JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($explicitEndpoint->status() === 200, 'Explicit /memory endpoint failed');
+    $explicitEndpointBody = json_decode($explicitEndpoint->body(), true, 64, JSON_THROW_ON_ERROR);
+    assert_web_app(($explicitEndpointBody['result']['route']??null) === 'memory-capture', 'Explicit /memory route mismatch');
+    assert_web_app(($explicitEndpointBody['result']['stored']??false) === true, 'Explicit /memory endpoint did not store memory');
+
     $ask = $app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/ask',

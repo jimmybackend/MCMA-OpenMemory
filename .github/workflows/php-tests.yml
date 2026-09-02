@@ -86,7 +86,9 @@ jobs:
         run: php tests/integration/permissions-vault.php
 
       - name: Knowledge reuse and agents
-        run: php tests/integration/knowledge-core.php
+        run: |
+          php tests/integration/knowledge-core.php
+          php tests/integration/explicit-memory-capture.php
 
       - name: Semantic retrieval
         run: |

@@ -38,6 +38,7 @@
     return ({
       'memory-exact':'Memoria exacta',
       'memory-semantic':'Memoria semántica',
+      'memory-capture':'Memoria guardada',
       'provider':'IA / proveedor',
       'ask':'Sin proveedor'
     })[route]||route||'—';
@@ -124,7 +125,10 @@
     const memoryContext=result.context_used?.memory===true;
 
     answerSource.className='route-badge';
-    if(route==='memory-exact'){
+    if(route==='memory-capture'){
+      answerSource.textContent='Memoria guardada';
+      answerSource.classList.add('route-exact');
+    }else if(route==='memory-exact'){
       answerSource.textContent='Memoria exacta';
       answerSource.classList.add('route-exact');
     }else if(route==='memory-semantic'){

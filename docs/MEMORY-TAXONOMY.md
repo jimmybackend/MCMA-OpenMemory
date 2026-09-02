@@ -123,6 +123,25 @@ Dates/
 
 without requiring the encrypted object to move physically.
 
+
+## Explicit user memories
+
+A deliberate user instruction such as `Guarda esto: ...` can create a canonical classified object while preserving the same independent taxonomy dimensions.
+
+Example:
+
+~~~text
+memory://user/projects/mcma-semantic-precision-3d8e39c0c421
+  cognitive_layer: 90-projects
+  scope: project
+  temperature: hot
+  maturity: confirmed
+~~~
+
+The canonical route is derived by MCMA, not supplied by a language model. The encrypted content preserves the user's source text plus the normalized durable representation. Implementations may maintain a separate knowledge/semantic recovery reference that points back to this canonical object.
+
+This keeps **where/what the memory is** separate from **how it is retrieved**.
+
 ## Logical references
 
 Logical references are independent of temperature, for example:

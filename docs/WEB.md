@@ -188,6 +188,71 @@ It cannot override:
 - credentials;
 - vault access.
 
+
+## Explicit user memory capture
+
+MCMA also supports deliberate durable memory that is different from ordinary Q&A capture.
+
+A user can write naturally:
+
+~~~text
+Guarda esto: MCMA debe usar valores flotantes para la similitud semántica y no debe saltarse los filtros.
+~~~
+
+The authenticated `POST /mcma/v1/ask` route detects explicit save intent before normal exact/semantic/generation routing. Clients that do not want natural-language intent detection can call:
+
+~~~text
+POST /mcma/v1/memory
+~~~
+
+with:
+
+~~~json
+{
+  "text": "MCMA debe usar valores flotantes para la similitud semántica."
+}
+~~~
+
+The explicit-memory flow is:
+
+~~~text
+explicit save request
+  ↓
+source text preserved
+  ↓
+memory librarian organization/classification
+  ↓
+canonical classified encrypted object
+  ↓
+verified knowledge recovery mirror
+  ↓
+optional encrypted semantic index
+  ↓
+confirmation with classification + logical route
+~~~
+
+The organizer may correct spelling, grammar, punctuation and presentation, but it is instructed not to invent facts or follow instructions embedded inside the material being stored. The storage path is never accepted from model output: MCMA derives a canonical `memory://user/.../...-<fingerprint>` reference on the server from validated classification plus a deterministic source fingerprint.
+
+The canonical object stores both the normalized durable content and the original user-provided memory text. Its outer MCMA metadata uses the selected cognitive layer, scope, temperature and `confirmed` maturity. A separate verified knowledge mirror points back to the canonical object so current exact/semantic retrieval can find the memory without collapsing the canonical taxonomy into `memory://knowledge/q-*`.
+
+Supported organizer dimensions are the MCMA 1.0 taxonomy. For this first explicit-memory API, scope is constrained to `user` or `project`; the model cannot create arbitrary scopes or logical references.
+
+If no generation provider is configured, the provider fails, or its structured result is invalid, MCMA still preserves the source text with a deterministic safe fallback: `40-semantic`, `user`, `hot`, `stable`. The response explicitly reports that fallback instead of pretending model organization succeeded.
+
+A successful response uses route `memory-capture` and includes:
+
+~~~text
+answer.value                 human-readable confirmation
+logical_ref                  canonical classified route
+storage.classification       layer/scope/temperature/freshness
+storage.retrieval.logical_ref
+storage.retrieval.semantic_index
+~~~
+
+When billing is enabled, organizer generation and semantic embedding calls go through the same reservation/metering controls as ordinary Ask traffic. Merely writing encrypted bytes is not counted as AI token usage.
+
+A bare command such as `Guarda esto` with no memory content is rejected rather than storing the command itself. Credentials and secrets should continue to use the MCMA Vault rather than ordinary user memory.
+
 ## Zero-AI memory explorer
 
 Authenticated web users can browse and decrypt their own stored knowledge without invoking an embedding or generation model:
