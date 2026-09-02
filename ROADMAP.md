@@ -76,7 +76,9 @@
 - [x] natural-language save intent detection (`Guarda esto`, `Recuerda esto`, English equivalents)
 - [x] explicit `POST /mcma/v1/memory` API
 - [x] model-assisted correction and structured taxonomy classification
-- [x] server-derived canonical `memory://user/<bucket>/<slug>-<fingerprint>` route
+- [x] server-derived canonical `memory://user/<category...>/<slug>-<fingerprint>` route
+- [x] AI-proposed, server-validated dynamic thematic `category_path` (1–5 levels)
+- [x] natural folder trees such as recipes/cooking and configurations/servers/host
 - [x] original source text preserved beside normalized durable content
 - [x] cognitive layer / scope / temperature / freshness persisted on the canonical object
 - [x] verified KnowledgeService recovery mirror linked to the canonical memory
@@ -85,6 +87,9 @@
 - [x] deterministic no-model/invalid-model fallback that preserves the source
 - [x] route/classification confirmation returned to the user
 - [x] integration coverage for classification, revision, semantic recovery and fallback
+- [x] recipe-family context preserved across save-command parsing
+- [x] server/hostname context preserved for configuration memories
+- [x] semantic recovery tested across dynamic thematic folders
 
 ## Ask orchestration — first implementation complete
 - [x] provider-neutral GenerationProvider
