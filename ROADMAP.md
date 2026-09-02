@@ -72,6 +72,20 @@
 - [x] deterministic local reranking
 - [x] reusable candidates prioritized over revalidate/reject candidates
 
+## Explicit user memory — first implementation complete
+- [x] natural-language save intent detection (`Guarda esto`, `Recuerda esto`, English equivalents)
+- [x] explicit `POST /mcma/v1/memory` API
+- [x] model-assisted correction and structured taxonomy classification
+- [x] server-derived canonical `memory://user/<bucket>/<slug>-<fingerprint>` route
+- [x] original source text preserved beside normalized durable content
+- [x] cognitive layer / scope / temperature / freshness persisted on the canonical object
+- [x] verified KnowledgeService recovery mirror linked to the canonical memory
+- [x] incremental semantic indexing without bypassing validation/confidence/freshness filters
+- [x] billing metering for organizer and embedding calls
+- [x] deterministic no-model/invalid-model fallback that preserves the source
+- [x] route/classification confirmation returned to the user
+- [x] integration coverage for classification, revision, semantic recovery and fallback
+
 ## Ask orchestration — first implementation complete
 - [x] provider-neutral GenerationProvider
 - [x] exact reusable memory before any model call
