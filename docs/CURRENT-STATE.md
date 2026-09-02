@@ -210,7 +210,7 @@ The browser cannot select user id, storage, actor, embedding provider, generatio
 
 The live EC2 HTTPS + Google OIDC flow is verified. The 2026-09-02 deployment additionally verifies the persistent Chat assets, conversation-index API protection and focused integration coverage. Manual browser UX verification of creating/reopening multiple conversations remains an operational check, not a missing backend implementation.
 
-The bounded conversational Context Builder described above is implemented in the current feature branch/PR but is **not yet claimed as deployed on the live EC2 instance**. Production remains on the previously verified Chat deployment until the feature is merged, pulled to `/var/www/memory`, tested and restarted.
+The bounded conversational Context Builder described above is implemented and covered by the full **PHP Core Tests** suite in PR #7 (run #143 passed). It is **not yet claimed as deployed on the live EC2 instance**. Production remains on the previously verified Chat deployment until the merged commit is pulled to `/var/www/memory`, tested and restarted.
 
 
 ## Metering and billing
