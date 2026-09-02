@@ -14,8 +14,9 @@ use MCMA\Core\Storage\LocalFilesystemAdapter;
 final class ExplicitMemoryGenerationProvider implements GenerationProvider
 {
     public int $calls=0;
+    public int $mcmaCalls=0;
 
-    public function id(): string { return 'test:explicit-memory-organizer:v1'; }
+    public function id(): string { return 'test:explicit-memory-organizer:v2'; }
 
     public function generate(string $question,array $context=[]): array
     {
@@ -23,21 +24,54 @@ final class ExplicitMemoryGenerationProvider implements GenerationProvider
         if(!is_string($context['system_instructions']??null)||!str_contains($context['system_instructions'],'memory librarian')){
             throw new RuntimeException('Explicit memory organizer did not receive system instructions');
         }
-        if(!str_contains($question,'MCMA')||!str_contains($question,'floating')){
-            throw new RuntimeException('Explicit memory organizer did not receive user memory as data');
+        if(!str_contains($context['system_instructions'],'category_path')){
+            throw new RuntimeException('Explicit memory organizer did not receive dynamic taxonomy instructions');
         }
 
-        return [
-            'text'=>json_encode([
-                'title'=>$this->calls===1?'MCMA semantic precision decision':'Semantic precision decision for MCMA',
+        if(str_contains($question,'pollo') && str_contains($question,'Coca')){
+            $payload=[
+                'title'=>'Receta de la abuela: pollo a la Coca-Cola',
+                'normalized_content'=>"Receta de la abuela para pollo a la Coca-Cola. Ingredientes: pollo, Coca-Cola, cebolla y sal. Preparación: dorar el pollo, agregar cebolla y Coca-Cola, sazonar y cocinar hasta que la salsa reduzca.",
+                'retrieval_question'=>'¿Tienes guardada la receta de la abuela para pollo a la Coca-Cola?',
+                'category_path'=>['recetas','cocina'],
+                'cognitive_layer'=>'50-procedural',
+                'scope'=>'user',
+                'temperature'=>'warm',
+                'freshness_class'=>'stable',
+                'classification_reason'=>'Es una receta familiar reutilizable y corresponde a conocimiento procedural de cocina.',
+            ];
+        }elseif(str_contains($question,'server_name mailit.click') && str_contains($question,'nginx')){
+            $payload=[
+                'title'=>'Configuración Nginx de mailit.click',
+                'normalized_content'=>"Configuración Nginx guardada para el EC2 de mailit.click:\nserver {\n    listen 80;\n    server_name mailit.click www.mailit.click;\n    root /var/www/html;\n}",
+                'retrieval_question'=>'¿Qué configuración de Nginx está guardada para el servidor EC2 mailit.click?',
+                'category_path'=>['configuraciones','servidores','mailit.click'],
+                'cognitive_layer'=>'50-procedural',
+                'scope'=>'project',
+                'temperature'=>'hot',
+                'freshness_class'=>'dynamic',
+                'classification_reason'=>'Es configuración operativa de Nginx asociada a un servidor concreto.',
+            ];
+        }else{
+            if(!str_contains($question,'MCMA')||!str_contains($question,'floating')){
+                throw new RuntimeException('Explicit memory organizer did not receive expected user memory as data');
+            }
+            $this->mcmaCalls++;
+            $payload=[
+                'title'=>$this->mcmaCalls===1?'MCMA semantic precision decision':'Semantic precision decision for MCMA',
                 'normalized_content'=>'MCMA must use floating-point values for semantic similarity so a single topic can retain greater precision, and semantic retrieval must preserve all configured filters.',
                 'retrieval_question'=>'What semantic precision and filtering decision was made for MCMA?',
+                'category_path'=>['proyectos','mcma','arquitectura'],
                 'cognitive_layer'=>'90-projects',
                 'scope'=>'project',
                 'temperature'=>'hot',
                 'freshness_class'=>'stable',
                 'classification_reason'=>'This is a durable architecture decision for the MCMA project.',
-            ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+            ];
+        }
+
+        return [
+            'text'=>json_encode($payload,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
             'usage'=>['inputTokens'=>40,'outputTokens'=>80,'totalTokens'=>120],
             'stop_reason'=>'end_turn',
         ];
@@ -57,7 +91,13 @@ final class ExplicitMemoryEmbeddingProvider implements EmbeddingProvider
         if(str_contains($normalized,'semantic precision')||str_contains($normalized,'precisión semántica')){
             return [1.0,0.0,0.0];
         }
-        return [0.0,0.0,1.0];
+        if(str_contains($normalized,'pollo')||str_contains($normalized,'coca-cola')||str_contains($normalized,'receta')){
+            return [0.0,1.0,0.0];
+        }
+        if(str_contains($normalized,'nginx')||str_contains($normalized,'mailit.click')){
+            return [0.0,0.0,1.0];
+        }
+        return [0.5773502692,0.5773502692,0.5773502692];
     }
 }
 
@@ -125,8 +165,11 @@ try{
     explicit_memory_ok(($result['storage']['classification']['cognitive_layer']??null)==='90-projects','Cognitive layer mismatch');
     explicit_memory_ok(($result['storage']['classification']['scope']??null)==='project','Scope mismatch');
     explicit_memory_ok(($result['storage']['classification']['temperature']??null)==='hot','Temperature mismatch');
-    explicit_memory_ok(str_starts_with((string)$result['logical_ref'],'memory://user/projects/mcma-semantic-precision-decision-'),'Canonical classified route mismatch');
-    explicit_memory_ok(str_contains((string)$result['answer']['value'],'Ruta: memory://user/projects/'),'User confirmation did not include canonical route');
+    explicit_memory_ok(str_starts_with((string)$result['logical_ref'],'memory://user/proyectos/mcma/arquitectura/mcma-semantic-precision-decision-'),'Canonical dynamic taxonomy route mismatch');
+    explicit_memory_ok(($result['storage']['classification']['category_path']??null)===['proyectos','mcma','arquitectura'],'Dynamic category path mismatch');
+    explicit_memory_ok(($result['storage']['classification']['category_slugs']??null)===['proyectos','mcma','arquitectura'],'Dynamic category slugs mismatch');
+    explicit_memory_ok(str_contains((string)$result['answer']['value'],'Carpetas: proyectos / mcma / arquitectura'),'User confirmation did not include thematic folders');
+    explicit_memory_ok(str_contains((string)$result['answer']['value'],'Ruta: memory://user/proyectos/mcma/arquitectura/'),'User confirmation did not include dynamic canonical route');
 
     $canonical=$lib->readAs('owner',(string)$result['logical_ref']);
     explicit_memory_ok(($canonical['payload']['metadata']['cognitive_layer']??null)==='90-projects','Canonical outer cognitive layer mismatch');
@@ -164,6 +207,59 @@ try{
         str_contains((string)($semantic['answer']['value']??''),'floating-point'),
         'Semantic recovery did not return normalized explicit memory'
     );
+
+    $recipeRequest="Guarda la receta de mi abuela: pollo a la Coca. Ingredientes: pollo, Coca-Cola, cebolla y sal. Preparación: dorar el pollo, agregar cebolla y Coca-Cola, sazonar y reducir.";
+    $recipe=$service->capture('owner',$recipeRequest);
+    explicit_memory_ok(
+        str_starts_with((string)$recipe['logical_ref'],'memory://user/recetas/cocina/receta-de-la-abuela-pollo-a-la-coca-cola-'),
+        'Recipe was not stored in dynamic recipes/cooking taxonomy'
+    );
+    explicit_memory_ok(($recipe['storage']['classification']['category_path']??null)===['recetas','cocina'],'Recipe category path mismatch');
+    explicit_memory_ok(($recipe['storage']['classification']['cognitive_layer']??null)==='50-procedural','Recipe cognitive layer mismatch');
+    explicit_memory_ok(
+        str_contains((string)($recipe['memory']['source']??''),'receta de mi abuela'),
+        'Save-command parsing lost the recipe relationship before the colon'
+    );
+
+    $recipeAnswer=(new SemanticIndexService($lib))->answer(
+        'ai',
+        '¿Tienes guardada la receta de pollo a la coca de mi abuela?',
+        $embedding,
+        false,
+        0.75,
+        0.75,
+        5
+    );
+    explicit_memory_ok(($recipeAnswer['reusable']??false)===true,'Recipe was not semantically recoverable');
+    explicit_memory_ok(str_contains((string)($recipeAnswer['answer']['value']??''),'Receta de la abuela'),'Recipe semantic recovery returned wrong memory');
+
+    $nginxRequest="Guarda esta configuración de nginx del EC2 mailit.click:\nserver {\n    listen 80;\n    server_name mailit.click www.mailit.click;\n    root /var/www/html;\n}";
+    $nginx=$service->capture('owner',$nginxRequest);
+    explicit_memory_ok(
+        str_starts_with((string)$nginx['logical_ref'],'memory://user/configuraciones/servidores/mailit-click/configuracion-nginx-de-mailit-click-'),
+        'Nginx configuration was not stored in configurations/servers/mailit.click taxonomy'
+    );
+    explicit_memory_ok(
+        ($nginx['storage']['classification']['category_path']??null)===['configuraciones','servidores','mailit.click'],
+        'Nginx category path mismatch'
+    );
+    explicit_memory_ok(($nginx['storage']['classification']['freshness_class']??null)==='dynamic','Nginx freshness should be dynamic');
+    explicit_memory_ok(
+        str_contains((string)($nginx['memory']['source']??''),'configuración de nginx del EC2 mailit.click'),
+        'Save-command parsing lost Nginx server context before the colon'
+    );
+
+    $nginxAnswer=(new SemanticIndexService($lib))->answer(
+        'ai',
+        '¿Tienes guardada configuración de nginx para mailit.click?',
+        $embedding,
+        false,
+        0.75,
+        0.75,
+        5
+    );
+    explicit_memory_ok(($nginxAnswer['reusable']??false)===true,'Nginx configuration was not semantically recoverable');
+    explicit_memory_ok(str_contains((string)($nginxAnswer['answer']['value']??''),'server_name mailit.click'),'Nginx semantic recovery returned wrong memory');
 
     $firstObject=(string)$result['storage']['object_id'];
     $firstHash=(string)$result['storage']['storage_hash'];
