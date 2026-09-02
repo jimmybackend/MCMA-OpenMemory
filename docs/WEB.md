@@ -273,7 +273,20 @@ A bare command such as `Guarda esto` with no memory content is rejected rather t
 
 ## Zero-AI memory explorer
 
-Authenticated web users can browse and decrypt their own stored knowledge without invoking an embedding or generation model:
+Authenticated web users can browse and decrypt memory without invoking an embedding or generation model.
+
+The default **Tree** view exposes only the permission-filtered personal branch:
+
+~~~text
+GET /mcma/v1/memory-tree
+GET /mcma/v1/memory-object?ref=memory://user/...
+~~~
+
+`/mcma/v1/memory-tree` is derived from `Library::treeAs('owner')` but returns only the `memory://user/` subtree. Internal `memory://knowledge/`, `memory://system/` and `memory://access/` branches are not part of this response. The decrypted-object route accepts only `memory://user/...` references and performs an actor-aware Library read before returning content.
+
+The UI renders collapsible thematic folders and allows selecting a leaf to see its decrypted canonical content, original user text when present, logical route, cognitive layer, scope, temperature, maturity, revision, object id and storage hash.
+
+The existing **List** view remains available for knowledge-record search, validation and pagination:
 
 ~~~text
 GET  /mcma/v1/memories
@@ -292,7 +305,7 @@ Validation accepts only:
 
 `confirm` promotes the owner-confirmed memory to `verified` with confidence `0.95`. `discard` marks it `retracted` with confidence `0.0`. Repeating the same action is idempotent.
 
-These browser operations report zero AI tokens and zero AI credits because they use only authenticated Library reads/decryption and deterministic metadata updates. Storage requests (for example S3 GET/PUT operations) still occur and are not the same thing as model-token usage.
+Tree navigation, canonical-object decryption and the existing list/validation operations report zero AI tokens and zero AI credits because they use only authenticated Library reads/decryption and deterministic metadata updates. Storage requests (for example S3 GET/PUT operations) still occur and are not the same thing as model-token usage.
 
 When a validation update changes the knowledge object's `storage_hash`, MCMA refreshes the existing semantic-index entry's object/hash linkage while preserving its existing vector. No new embedding is generated for that metadata-only update.
 
