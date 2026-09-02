@@ -85,6 +85,9 @@ $conversationRequester=function(string $method,string $url,array $headers,string
     if(!str_contains($user,'"conversation_id":"conv_'.str_repeat('e',32).'"')||!str_contains($user,'"question":"Earlier turn"')){
         throw new RuntimeException('Ollama selected conversation context missing');
     }
+    if(!str_contains($user,'"strategy":"multi-memory-rag-v1"')||!str_contains($user,'"question":"Selected RAG memory"')){
+        throw new RuntimeException('Ollama multi-memory RAG context missing');
+    }
     $conversationSeen=true;
     return [200,json_encode([
         'message'=>['role'=>'assistant','content'=>'Conversation-aware local response.'],
@@ -95,6 +98,27 @@ $conversationGeneration=new OllamaGenerationProvider(
     'http://127.0.0.1:11434','chat-model',128,0.2,null,$conversationRequester
 );
 $conversationResult=$conversationGeneration->generate('Follow up',[
+    'multi_memory_context'=>[
+        'query'=>'Combined context query',
+        'selection'=>[
+            'strategy'=>'multi-memory-rag-v1',
+            'selected_memories'=>1,
+            'token_budget'=>8000,
+            'estimated_tokens_upper_bound'=>300,
+        ],
+        'memories'=>[[
+            'logical_ref'=>'memory://knowledge/q-'.str_repeat('b',64),
+            'question'=>'Selected RAG memory',
+            'answer'=>'Selected RAG answer.',
+            'similarity'=>0.91,
+            'rag_score'=>0.88,
+            'validation_state'=>'verified',
+            'confidence'=>0.95,
+            'freshness_class'=>'stable',
+            'stale'=>false,
+            'provenance'=>[['source_type'=>'documentation','reference'=>'docs/test.md']],
+        ]],
+    ],
     'conversation_context'=>[
         'conversation_id'=>'conv_'.str_repeat('e',32),
         'selection'=>['strategy'=>'recent-plus-lexical-v1','selected_turns'=>1],
