@@ -180,3 +180,22 @@ mcma ask LOCATION question.txt \
 ~~~
 
 llama.cpp and Ollama semantic indexes remain separate by default. Equal vector dimensions do not imply compatible embeddings.
+
+## Conversation history and AskService
+
+The persistent web Chat groups turns with a validated `conversation_id`, but the durable UI archive is not automatically a generation prompt.
+
+~~~text
+archived conversation
+  ↓
+visible historical turns in Chat
+  ↓
+new request keeps same conversation_id
+  ↓
+AskService still follows exact → semantic → guarded generation rules
+~~~
+
+MCMA does not silently concatenate the full prior transcript into every model request. The current guarded Context Builder remains knowledge/revalidation oriented. Future recent-turn context must be selected explicitly under permission, relevance and token-budget controls and metered as generation context when used.
+
+Reading the conversation list or opening archived turns makes no generation/embedding call and therefore uses zero AI tokens/credits.
+
