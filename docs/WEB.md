@@ -231,9 +231,9 @@ optional encrypted semantic index
 confirmation with classification + logical route
 ~~~
 
-The organizer may correct spelling, grammar, punctuation and presentation, but it is instructed not to invent facts or follow instructions embedded inside the material being stored. The storage path is never accepted from model output: MCMA derives a canonical `memory://user/.../...-<fingerprint>` reference on the server from validated classification plus a deterministic source fingerprint.
+The organizer may correct spelling, grammar, punctuation and presentation, but it is instructed not to invent facts or follow instructions embedded inside the material being stored. The storage path is never accepted from model output. The librarian may propose a bounded conceptual `category_path` array such as `["recetas","cocina"]` or `["configuraciones","servidores","mailit.click"]`. MCMA validates and slug-normalizes those folder labels, then derives the canonical `memory://user/<category...>/<title>-<fingerprint>` reference on the server using the normalized thematic hierarchy plus a deterministic source fingerprint.
 
-The canonical object stores both the normalized durable content and the original user-provided memory text. Its outer MCMA metadata uses the selected cognitive layer, scope, temperature and `confirmed` maturity. A separate verified knowledge mirror points back to the canonical object so current exact/semantic retrieval can find the memory without collapsing the canonical taxonomy into `memory://knowledge/q-*`.
+The canonical object stores both the normalized durable content and the original user-provided memory text. It also stores the thematic category labels/slugs. Its outer MCMA metadata uses the selected cognitive layer, scope, temperature and `confirmed` maturity. The thematic folders are independent from the cognitive layer: for example, a recipe can live under `recetas/cocina` while using `50-procedural`, and a live Nginx configuration can live under `configuraciones/servidores/mailit-click` with dynamic freshness. A separate verified knowledge mirror points back to the canonical object so current exact/semantic retrieval can find the memory without collapsing the canonical taxonomy into `memory://knowledge/q-*`.
 
 Supported organizer dimensions are the MCMA 1.0 taxonomy. For this first explicit-memory API, scope is constrained to `user` or `project`; the model cannot create arbitrary scopes or logical references.
 
@@ -242,12 +242,30 @@ If no generation provider is configured, the provider fails, or its structured r
 A successful response uses route `memory-capture` and includes:
 
 ~~~text
-answer.value                 human-readable confirmation
-logical_ref                  canonical classified route
-storage.classification       layer/scope/temperature/freshness
-storage.retrieval.logical_ref
-storage.retrieval.semantic_index
+answer.value                              human-readable confirmation
+logical_ref                               canonical thematic route
+storage.classification.category_path      human folder labels
+storage.classification.category_slugs     canonical folder segments
+storage.classification                    layer/scope/temperature/freshness
+storage.retrieval.logical_ref             verified recovery mirror
+storage.retrieval.semantic_index          optional semantic entry
 ~~~
+
+Example user interactions:
+
+~~~text
+Guarda la receta de mi abuela: pollo a la Coca...
+→ memory://user/recetas/cocina/receta-de-la-abuela-pollo-a-la-coca-cola-...
+
+Guarda esta configuración de nginx del EC2 mailit.click:
+server {
+    server_name mailit.click www.mailit.click;
+    ...
+}
+→ memory://user/configuraciones/servidores/mailit-click/configuracion-nginx-de-mailit-click-...
+~~~
+
+Later, a question such as `¿Tienes guardada configuración de nginx para mailit.click?` is answered through the verified knowledge/semantic mirror and returns the stored configuration while still applying permission, validation, confidence and freshness gates.
 
 When billing is enabled, organizer generation and semantic embedding calls go through the same reservation/metering controls as ordinary Ask traffic. Merely writing encrypted bytes is not counted as AI token usage.
 
