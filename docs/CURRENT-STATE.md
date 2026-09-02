@@ -182,6 +182,8 @@ MCMA now includes a same-origin web application under `apps/web/public`.
 
 It provides OIDC Authorization Code + PKCE login, RS256/JWKS ID-token validation, encrypted HttpOnly sessions, multi-user library resolution, `/mcma/v1/me`, `/mcma/v1/ask`, optional registration, logout and a browser chat UI.
 
+The primary **Chat** view now includes a conversation sidebar, search, temporal grouping, project filters, persistent message history and a stable composer. Persistent turns remain canonical under `memory://interactions/...`; a private encrypted derived index stores conversation summaries and canonical references for zero-AI navigation. `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` list/open that archive without model calls. Opening history does not automatically inject those turns into a model prompt.
+
 The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
 
 The remaining web milestone is a real EC2 HTTPS + live OIDC smoke test.
