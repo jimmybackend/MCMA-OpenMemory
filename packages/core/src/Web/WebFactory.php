@@ -89,6 +89,14 @@ final class WebFactory
             'conversation-context-candidates'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_CANDIDATES')??'12'),
             'conversation-context-min-relevance'=>(float)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_MIN_RELEVANCE')??'0.08'),
             'conversation-context-recent-anchors'=>(int)(self::optional('MCMA_WEB_CONVERSATION_CONTEXT_RECENT_ANCHORS')??'2'),
+            'rag-multi-memory-enabled'=>self::boolEnv('MCMA_WEB_RAG_MULTI_MEMORY_ENABLED',true),
+            'rag-token-budget'=>(int)(self::optional('MCMA_WEB_RAG_TOKEN_BUDGET')??'8000'),
+            'rag-max-memories'=>(int)(self::optional('MCMA_WEB_RAG_MAX_MEMORIES')??'4'),
+            'rag-candidates'=>(int)(self::optional('MCMA_WEB_RAG_CANDIDATES')??'8'),
+            'rag-candidate-similarity'=>(float)(self::optional('MCMA_WEB_RAG_CANDIDATE_SIMILARITY')??'0.55'),
+            'rag-min-score'=>(float)(self::optional('MCMA_WEB_RAG_MIN_SCORE')??'0.50'),
+            'rag-max-answer-bytes'=>(int)(self::optional('MCMA_WEB_RAG_MAX_ANSWER_BYTES')??'4500'),
+            'rag-max-provenance'=>(int)(self::optional('MCMA_WEB_RAG_MAX_PROVENANCE')??'4'),
         ];
         $candidateSimilarity=self::optional('MCMA_WEB_CANDIDATE_SIMILARITY');
         if($candidateSimilarity!==null) $options['candidate-similarity']=(float)$candidateSimilarity;
