@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260902-4">
+  <link rel="stylesheet" href="app.css?v=20260902-5">
 </head>
 <body>
   <main class="shell">
@@ -253,8 +253,8 @@
               <div><dt>Proveedor</dt><dd id="contextLastProvider">—</dd></div>
               <div><dt>Fecha</dt><dd id="contextLastAt">—</dd></div>
             </dl>
-            <div class="memory-answer-label">Memoria inyectada al modelo</div>
-            <pre id="contextInjectedAnswer" class="context-code">Ninguna memoria fue inyectada.</pre>
+            <div class="memory-answer-label">Contexto seleccionado e inyectado al modelo</div>
+            <pre id="contextInjectedAnswer" class="context-code">Ningún contexto fue inyectado.</pre>
             <div id="contextInjectedMeta" class="answer-meta"></div>
           </div>
         </article>
@@ -370,7 +370,7 @@
 
         <form id="askForm" class="chat-composer">
           <div class="chat-composer-meta">
-            <span id="composerStatus" aria-live="polite">Listo · el historial visible no se reinjecta automáticamente al modelo.</span>
+            <span id="composerStatus" aria-live="polite">Listo · MCMA selecciona sólo turnos recientes/relevantes y respeta un presupuesto de contexto.</span>
             <div id="answerMeta" class="answer-meta chat-usage-meta" hidden>
               <span id="answerSource" class="route-badge">—</span>
               <span id="answerTokens" class="metric-badge">0 tokens</span>
@@ -395,6 +395,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260902-4" defer></script>
+  <script src="app.js?v=20260902-5" defer></script>
 </body>
 </html>
