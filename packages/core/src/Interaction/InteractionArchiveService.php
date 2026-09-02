@@ -459,8 +459,15 @@ final class InteractionArchiveService
 
     private function persistConversationIndex(string $actor,array $index): void
     {
-        $existing=$this->readConversationIndex($actor);
-        if($existing===null){
+        $exists=false;
+        foreach($this->library->listAs($actor) as $entry){
+            if(in_array(self::CONVERSATION_INDEX_REF,$entry['logical_refs']??[],true)){
+                $exists=true;
+                break;
+            }
+        }
+
+        if(!$exists){
             $this->library->writeAs(
                 $actor,self::CONVERSATION_INDEX_REF,$index,'json','hot','00-system','system','confirmed'
             );
