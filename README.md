@@ -139,7 +139,7 @@ A first guarded Context Builder can pass a previously validated `supported/verif
 
 The same generation request may also receive the bounded conversational context described above. Selected conversation turns are episodic continuity data, remain explicitly marked as untrusted reference data, are metered as generation input, and are recorded in Contexto MCMA so the user can see exactly which historical turns were supplied.
 
-The next layer is now implemented in PR #8: **multi-memory RAG**. When generation is required, MCMA can combine several trusted actor-visible KnowledgeRecords in one request, rank them using similarity + confidence + freshness + provenance + validation, and cap both the number of selected memories and their conservative context budget. Direct exact/semantic reuse remains stricter and unchanged.
+The next layer is now merged in `main` from PR #8: **multi-memory RAG**. When generation is required, MCMA can combine several trusted actor-visible KnowledgeRecords in one request, rank them using similarity + confidence + freshness + provenance + validation, and cap both the number of selected memories and their conservative context budget. Direct exact/semantic reuse remains stricter and unchanged.
 
 
 ## Local AI
