@@ -186,6 +186,63 @@ final class WebApplication
             ]);
         }
 
+        if($method==='GET'&&$path==='/mcma/v1/memory-tree'){
+            $principal=$this->sessionPrincipal($request);
+            $tree=$principal['library']->treeAs('owner');
+            $userTree=is_array($tree['user']??null)?$tree['user']:[];
+            $total=0;
+            foreach($principal['library']->listAs('owner') as $entry){
+                foreach($entry['logical_refs']??[] as $ref){
+                    if(is_string($ref)&&str_starts_with($ref,'memory://user/')) $total++;
+                }
+            }
+            return HttpResponse::json([
+                'ok'=>true,
+                'memory'=>[
+                    'root'=>'memory://user',
+                    'tree'=>$userTree,
+                    'total'=>$total,
+                    'ai_tokens_used'=>0,
+                    'credit_units_charged'=>0,
+                ],
+            ]);
+        }
+
+        if($method==='GET'&&$path==='/mcma/v1/memory-object'){
+            $principal=$this->sessionPrincipal($request);
+            $logicalRef=trim((string)($request->query('ref')??''));
+            if($logicalRef===''||strlen($logicalRef)>2048||!str_starts_with($logicalRef,'memory://user/')){
+                throw new WebException(400,'invalid_memory_ref','A memory://user/... reference is required');
+            }
+
+            try{
+                $stored=$principal['library']->readAs('owner',$logicalRef);
+            }catch(Throwable $e){
+                if(str_contains($e->getMessage(),'Memory not found:')){
+                    throw new WebException(404,'memory_not_found','Memory object not found');
+                }
+                throw $e;
+            }
+
+            $payload=$stored['payload']??null;
+            if(!is_array($payload)) throw new WebException(500,'invalid_memory_object','Stored memory payload is malformed');
+            $metadata=is_array($payload['metadata']??null)?$payload['metadata']:[];
+            $content=$payload['content']??null;
+
+            return HttpResponse::json([
+                'ok'=>true,
+                'memory'=>[
+                    'logical_ref'=>$logicalRef,
+                    'object_id'=>$stored['object_id']??null,
+                    'storage_hash'=>$stored['storage_hash']??null,
+                    'metadata'=>$metadata,
+                    'content'=>$content,
+                    'ai_tokens_used'=>0,
+                    'credit_units_charged'=>0,
+                ],
+            ]);
+        }
+
         if($method==='GET'&&$path==='/mcma/v1/memories'){
             $principal=$this->sessionPrincipal($request);
             $query=trim((string)($request->query('q')??''));
