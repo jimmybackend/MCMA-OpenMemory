@@ -215,7 +215,7 @@ The live EC2 HTTPS + Google OIDC flow is verified. The 2026-09-02 deployment add
 
 The bounded conversational Context Builder is deployed and was re-verified directly on EC2 after pulling `b54302c`, restarting `php-fpm-mcma`, checking health and confirming the `20260902-5` public assets.
 
-The current PR #8 development branch adds scored multi-memory RAG on top of that deployed baseline. Its first full CI run passed, but multi-memory RAG is **not yet claimed as deployed on EC2** until the feature is merged and the resulting main commit is pulled/tested there.
+Scored multi-memory RAG is merged into `main` at code commit `5a6b22fcde52bf952df94a190ad08b9847549903`. PR #8 CI and the post-merge `main` push workflow both passed. Multi-memory RAG is **not yet claimed as deployed on EC2** until that main commit is pulled into `/var/www/memory`, tested there and `php-fpm-mcma` is restarted.
 
 
 ## Metering and billing
