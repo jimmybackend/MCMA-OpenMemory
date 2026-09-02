@@ -116,5 +116,7 @@ The conversation index contains only derived conversation metadata and canonical
 
 Each archived interaction updates the derived index incrementally. On read, MCMA compares the actor-visible canonical interaction reference count plus a SHA-256 reference fingerprint with the index. A missing, malformed or stale index is rebuilt from canonical encrypted interactions.
 
+Conversation-index version `1.1` additionally keeps a bounded `recent_interactions` list of at most 32 `{ref, at}` pointers per conversation. These pointers exist only to avoid scanning/decrypting the entire archive when building conversational context. They contain no duplicated question/answer text. The context builder uses the private index for discovery and must still perform actor-aware canonical reads before a turn can be selected.
+
 List/detail navigation does not invoke an embedding or generation provider. The system index remains private; clients receive safe conversation summaries/turns, not the `memory://system/...` index reference.
 
