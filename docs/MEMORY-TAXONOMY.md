@@ -128,19 +128,36 @@ without requiring the encrypted object to move physically.
 
 A deliberate user instruction such as `Guarda esto: ...` can create a canonical classified object while preserving the same independent taxonomy dimensions.
 
-Example:
+Explicit memory now has two independent classifications:
+
+1. **cognitive classification** — cognitive layer, scope, temperature, freshness and maturity;
+2. **thematic taxonomy** — a dynamic hierarchy of human concepts used to organize the canonical `memory://` tree.
+
+Examples:
 
 ~~~text
-memory://user/projects/mcma-semantic-precision-3d8e39c0c421
-  cognitive_layer: 90-projects
+memory://user/recetas/cocina/receta-de-la-abuela-pollo-a-la-coca-cola-<fingerprint>
+  cognitive_layer: 50-procedural
+  scope: user
+  temperature: warm
+  freshness: stable
+  maturity: confirmed
+
+memory://user/configuraciones/servidores/mailit-click/configuracion-nginx-de-mailit-click-<fingerprint>
+  cognitive_layer: 50-procedural
   scope: project
   temperature: hot
+  freshness: dynamic
   maturity: confirmed
 ~~~
 
-The canonical route is derived by MCMA, not supplied by a language model. The encrypted content preserves the user's source text plus the normalized durable representation. Implementations may maintain a separate knowledge/semantic recovery reference that points back to this canonical object.
+The memory librarian proposes a conceptual `category_path` such as `["recetas","cocina"]` or `["configuraciones","servidores","mailit.click"]`. It does **not** provide a `memory://` reference or filename. MCMA validates the category array, normalizes each segment to a safe canonical slug and constructs the actual route on the server.
 
-This keeps **where/what the memory is** separate from **how it is retrieved**.
+The thematic folder names can follow the user's language and domain. This lets the taxonomy grow naturally instead of forcing every memory into a fixed list of subject folders. Category depth is bounded to five levels to avoid uncontrolled hierarchies.
+
+The encrypted canonical object preserves the user's original source text, the normalized durable representation, the human category labels and the normalized category slugs. A separate verified knowledge/semantic recovery reference points back to the canonical object.
+
+This keeps **what kind of memory it is**, **where it is organized**, and **how it is retrieved** as separate concerns.
 
 ## Logical references
 
