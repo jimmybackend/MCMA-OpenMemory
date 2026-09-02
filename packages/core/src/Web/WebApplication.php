@@ -15,6 +15,7 @@ use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Context\ContextTraceService;
+use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Interaction\InteractionArchiveService;
 use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Knowledge\KnowledgeService;
@@ -515,11 +516,13 @@ final class WebApplication
             'provenance'=>[],
         ];
 
+        $conversationContextBuilder=$this->conversationContextBuilder($principal['library']);
+
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
             $this->billing->ensureAccount($principal['library']);
             $service=new BillableAskService(
-                $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens
+                $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens,$conversationContextBuilder
             );
             $result=$service->ask(
                 $requestId,
@@ -531,13 +534,14 @@ final class WebApplication
                 $remember,$capture,
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
                 isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
-                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null
+                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null,
+                $conversationId
             );
         }else{
             $knowledge=new KnowledgeService($principal['library']);
             $semantic=$embedding!==null?new SemanticIndexService($principal['library']):null;
             $librarian=$embedding!==null?new Librarian($knowledge,$semantic,$embedding):new Librarian($knowledge);
-            $ask=new AskService($knowledge,$semantic,$embedding,$generator,$librarian);
+            $ask=new AskService($knowledge,$semantic,$embedding,$generator,$librarian,$conversationContextBuilder);
             $result=$ask->ask(
                 'ai',$question,$current,
                 (float)($this->providerOptions['min-confidence']??0.75),
@@ -545,7 +549,8 @@ final class WebApplication
                 (int)($this->providerOptions['top-k']??5),
                 $remember,$capture,
                 isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
-                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null
+                isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null,
+                $conversationId
             );
         }
 
@@ -580,6 +585,20 @@ final class WebApplication
             }
             throw $e;
         }
+    }
+
+    private function conversationContextBuilder(Library $library): ?ConversationContextBuilder
+    {
+        if(($this->providerOptions['conversation-context-enabled']??true)!==true) return null;
+
+        return new ConversationContextBuilder(
+            $library,
+            (int)($this->providerOptions['conversation-context-token-budget']??6000),
+            (int)($this->providerOptions['conversation-context-max-turns']??6),
+            (int)($this->providerOptions['conversation-context-candidates']??12),
+            (float)($this->providerOptions['conversation-context-min-relevance']??0.08),
+            (int)($this->providerOptions['conversation-context-recent-anchors']??2)
+        );
     }
 
     private function conversationId(array $input): string
