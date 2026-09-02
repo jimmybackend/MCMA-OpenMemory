@@ -348,3 +348,20 @@ MCMA_STRIPE_PACKAGES_JSON=...
 Do not enable paid model billing until pricing entries are configured.
 
 Multi-user deployments must continue to leave MCMA_MASTER_KEY_B64 unset and use MCMA_KEY_DIR.
+
+## Live web configuration — 2026-09-02
+
+The persistent-Chat production deployment was rechecked after the UI/archive release. The public health response reports:
+
+~~~text
+billing_enabled  = true
+stripe_enabled   = true
+api_keys_enabled = false
+~~~
+
+The `api_keys_enabled=false` value is the current instance configuration, not a removal of the API-key implementation documented above.
+
+Conversation-history navigation is intentionally outside AI charging: `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` read/decrypt the authenticated user's canonical archive and report zero AI tokens and zero credit units. Sending a new question through Ask continues to use the normal exact/semantic/generation metering path.
+
+Stripe Checkout creation and the cancel-return path have been exercised on the live deployment without completing a charge. A successful live/test paid Checkout plus webhook fulfillment remains a separate payment smoke test; the one-time/subscription implementation and automated tests are already complete.
+
