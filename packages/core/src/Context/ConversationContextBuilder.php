@@ -37,6 +37,11 @@ final class ConversationContextBuilder
         }
     }
 
+    public function tokenBudgetUpperBound(): int
+    {
+        return $this->tokenBudget;
+    }
+
     public function build(string $actor,string $conversationId,string $question): ?array
     {
         $question=trim($question);
