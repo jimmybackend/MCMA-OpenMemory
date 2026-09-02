@@ -6,6 +6,7 @@ namespace MCMA\Core\Billing;
 use MCMA\Core\Agent\Librarian;
 use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
+use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\Semantic\EmbeddingProvider;
@@ -19,7 +20,8 @@ final class BillableAskService
         private readonly BillingService $billing,
         private readonly ?EmbeddingProvider $embeddingProvider,
         private readonly ?GenerationProvider $generationProvider,
-        private readonly int $maxOutputTokens = 1024
+        private readonly int $maxOutputTokens = 1024,
+        private readonly ?ConversationContextBuilder $conversationContextBuilder = null
     ) {
     }
 
@@ -35,7 +37,8 @@ final class BillableAskService
         array $captureOptions=[],
         array $billingMetadata=[],
         ?float $candidateSimilarity=null,
-        ?float $minRerankScore=null
+        ?float $minRerankScore=null,
+        ?string $conversationId=null
     ): array {
         $this->billing->authorizeChannel($this->library,$origin);
 
@@ -64,7 +67,7 @@ final class BillableAskService
             ? new Librarian($knowledge,$semantic,$embedding)
             : new Librarian($knowledge);
 
-        $ask=new AskService($knowledge,$semantic,$embedding,$generation,$librarian);
+        $ask=new AskService($knowledge,$semantic,$embedding,$generation,$librarian,$this->conversationContextBuilder);
 
         try{
             $result=$ask->ask(
@@ -77,7 +80,8 @@ final class BillableAskService
                 $rememberGenerated,
                 $captureOptions,
                 $candidateSimilarity,
-                $minRerankScore
+                $minRerankScore,
+                $conversationId
             );
             $result['billing']=$context->settle('success',[
                 'route'=>(string)($result['route']??'unknown'),
