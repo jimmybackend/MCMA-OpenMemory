@@ -151,6 +151,12 @@
 - [x] browser chat UI
 - [x] session status/profile chip, favicon and answer route/token badges
 - [x] zero-AI memory explorer with decrypted question/answer browsing
+- [x] persistent encrypted question/answer interaction archive beyond the 50 context traces
+- [x] tab-scoped conversation IDs + explicit Nueva conversación control
+- [x] cognitive library virtual views by session/date/topic/project/person/character/entity/source/state
+- [x] owner interaction approve/retract workflow
+- [x] approval-time cataloging + Knowledge promotion with billing-aware model usage
+- [x] library browser isolation from system/Vault objects
 - [x] permission-filtered visual `memory://user/` tree with collapsible thematic folders
 - [x] zero-AI decrypted canonical memory detail from tree leaves
 - [x] tree/list toggle preserving existing knowledge search workflow
@@ -221,7 +227,8 @@
 
 ## Next
 - [x] guarded single-memory Context Builder for supported/verified revalidation candidates
-- [ ] recent-turn/session context policy without storing an unbounded plaintext transcript
+- [x] persistent encrypted recent-turn/session archive without storing an unbounded plaintext transcript
+- [ ] token-budgeted selection of recent interaction turns for generation context
 - [ ] token-budgeted RAG context assembly with provenance and freshness metadata
 - [x] explicit owner validation/promotion/retraction workflow in web memory explorer
 - [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
