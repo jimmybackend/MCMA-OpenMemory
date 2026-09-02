@@ -123,6 +123,44 @@ Dates/
 
 without requiring the encrypted object to move physically.
 
+## Cognitive library interactions
+
+Conversation history is persisted as episodic memory rather than as an unbounded plaintext transcript.
+
+~~~text
+memory://interactions/YYYY/MM/DD/conv_<id>/req_<id>
+  cognitive_layer: 30-episodic
+  scope: session
+  temperature: hot/warm/cold
+  maturity: observed/confirmed
+~~~
+
+Each interaction stores one encrypted question/answer turn plus route, provider/source, conversation id, timestamp, relations, validation state and catalog metadata.
+
+The same stored object can appear in multiple virtual library views:
+
+~~~text
+Sessions/
+Dates/
+Topics/
+Projects/
+People/
+Characters/
+Entities/
+Sources/
+Validation/
+~~~
+
+These are catalog views over one canonical encrypted interaction, not physical copies.
+
+Interactions begin `unverified`. Owner approval promotes the interaction to `verified`/0.95 and synchronizes reusable Knowledge. Approval-time cataloging may add topics, projects, people, characters and named entities explicitly supported by the interaction. Rejected interactions become `retracted` and are not trusted as reusable knowledge.
+
+This keeps three concepts separate:
+
+1. **conversation archive** — what was asked and answered;
+2. **personal memory** — durable owner-authored facts/decisions/configuration under `memory://user/`;
+3. **Knowledge** — validated reusable answers under `memory://knowledge/`.
+
 
 ## Explicit user memories
 
