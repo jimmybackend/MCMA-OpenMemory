@@ -208,11 +208,11 @@ It includes OIDC Authorization Code + PKCE, encrypted HttpOnly sessions, per-use
 The web UI is organized into three primary tabs. Tab switching is handled client-side with delegated click/keyboard events, and mutable UI assets are configured to revalidate so an older cached `app.js` cannot leave newer tab markup non-interactive.
 
 
-- **Preguntar** — ask MCMA and see the answer route, tokens and credits;
-- **Mi memoria** — deterministically list, filter and decrypt the authenticated user's stored questions/answers without calling Titan, Nova or another AI provider;
-- **Contexto MCMA** — inspect encrypted per-request context traces, persistent-memory counts, model-generated memories and internal derived system objects.
+- **Preguntar** — ask MCMA and see the answer route, tokens and credits; each successful turn is also archived encrypted under a tab-scoped conversation id;
+- **Biblioteca** — browse personal memory, persistent conversations and Knowledge through virtual shelves by session, date, topic, project, person/character, entity, source and validation state;
+- **Contexto MCMA** — inspect the latest encrypted per-request context traces, persistent-memory counts, model-generated memories and internal derived system objects.
 
-The owner can confirm a memory as `verified` or discard it as `retracted`; semantic index hash linkage is refreshed without regenerating the embedding vector. Context traces are stored encrypted inside the user's own library, capped to the latest 50 requests and protected as owner-only system memory. When a validated MCMA memory is injected into generation, the trace preserves the exact memory text and metadata that was supplied to the provider so the behavior is auditable.
+Conversation turns are stored once under `memory://interactions/...`; the library shelves are virtual references rather than copies. Browsing and decrypting the library uses zero AI tokens. An archived interaction starts unverified; the owner can approve it as reusable Knowledge or retract it. Deep catalog classification runs only on approval and is metered when billing is enabled. The separate Context trace window remains capped to the latest 50 requests for operational transparency, while the durable interaction archive is not capped at 50.
 
 ~~~text
 GET  /login
