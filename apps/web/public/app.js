@@ -17,13 +17,16 @@
   const memoryTreeDetailLayer=$('memoryTreeDetailLayer'),memoryTreeDetailScope=$('memoryTreeDetailScope'),memoryTreeDetailTemperature=$('memoryTreeDetailTemperature');
   const memoryTreeDetailMaturity=$('memoryTreeDetailMaturity'),memoryTreeDetailRevision=$('memoryTreeDetailRevision'),memoryTreeDetailUpdated=$('memoryTreeDetailUpdated');
   const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
+  const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
+  const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
+  const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
   const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
   const memoryDetailValidation=$('memoryDetailValidation'),memoryDetailConfidence=$('memoryDetailConfidence');
   const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
-  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,selectedRef:null};
+  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,selectedRef:null,selectedKind:null};
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
   const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
@@ -40,6 +43,29 @@
   }
 
   const number=v=>new Intl.NumberFormat('es-MX').format(Number(v||0));
+
+  function randomHex(bytes=16){
+    const data=new Uint8Array(bytes);
+    crypto.getRandomValues(data);
+    return [...data].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+
+  function createConversationId(){
+    const id='conv_'+randomHex(16);
+    try{sessionStorage.setItem('mcma_conversation_id',id);}catch(error){}
+    conversationLabel.textContent=id.slice(0,13)+'…'+id.slice(-8);
+    conversationLabel.title=id;
+    return id;
+  }
+
+  function currentConversationId(){
+    let id='';
+    try{id=sessionStorage.getItem('mcma_conversation_id')||'';}catch(error){}
+    if(!/^conv_[0-9a-f]{32}$/.test(id))return createConversationId();
+    conversationLabel.textContent=id.slice(0,13)+'…'+id.slice(-8);
+    conversationLabel.title=id;
+    return id;
+  }
 
   function routeLabel(route){
     return ({
@@ -251,7 +277,7 @@
     memoryListView.setAttribute('aria-pressed',treeMode?'false':'true');
 
     if(treeMode){
-      memoryCount.textContent=number(memoryState.treeTotal)+' recuerdos · 0 tokens IA';
+      memoryCount.textContent=number(memoryState.treeTotal)+' elementos · 0 tokens IA';
       if(memoryState.tree===null)loadMemoryTree();
     }else{
       if(memoryState.items.length===0)loadMemories(1);else renderMemoryList();
@@ -260,23 +286,33 @@
 
   function humanizeTreeSegment(value,file=false){
     let text=String(value||'');
-    if(file)text=text.replace(/-[0-9a-f]{16}$/i,'');
+    if(file)text=text.replace(/-[0-9a-f]{8,64}$/i,'');
     text=text.replace(/-/g,' ').trim();
-    return text||'recuerdo';
+    return text||'elemento';
   }
 
   function clearMemoryTreeDetail(){
     memoryState.selectedRef=null;
+    memoryState.selectedKind=null;
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
+    memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
+    interactionActions.hidden=true;
+    interactionValidationStatus.textContent='';
+    libraryCatalogWrap.hidden=true;
     for(const node of memoryTree.querySelectorAll('.memory-tree-file'))node.classList.remove('selected');
   }
 
-  function appendMemoryTreeNode(container,segment,node,segments,depth){
+  function libraryIcon(kind){
+    return kind==='interaction'?'💬':kind==='knowledge'?'📖':kind==='memory'?'🧠':'📄';
+  }
+
+  function appendMemoryTreeNode(container,segment,node,depth){
     if(!node||typeof node!=='object')return;
-    const children=Object.keys(node).filter(key=>key!=='@object_id').sort((a,b)=>a.localeCompare(b,'es'));
-    const hasObject=typeof node['@object_id']==='string';
-    const logicalRef='memory://'+segments.join('/');
+    const keys=Object.keys(node).filter(key=>!key.startsWith('@'));
+    const children=keys.sort((a,b)=>a.localeCompare(b,'es'));
+    const logicalRef=typeof node['@ref']==='string'?node['@ref']:null;
+    const kind=typeof node['@kind']==='string'?node['@kind']:'memory';
 
     if(children.length>0){
       const details=document.createElement('details');
@@ -289,68 +325,75 @@
       group.className='memory-tree-children';
       group.setAttribute('role','group');
 
-      if(hasObject){
+      if(logicalRef){
         const file=document.createElement('button');
         file.type='button';
         file.className='memory-tree-file';
         file.dataset.memoryRef=logicalRef;
-        file.textContent='📄 '+humanizeTreeSegment(segment,true);
+        file.textContent=libraryIcon(kind)+' '+humanizeTreeSegment(segment,true);
         file.addEventListener('click',()=>loadMemoryTreeDetail(logicalRef));
         group.appendChild(file);
       }
 
-      for(const child of children){
-        appendMemoryTreeNode(group,child,node[child],[...segments,child],depth+1);
-      }
+      for(const child of children)appendMemoryTreeNode(group,child,node[child],depth+1);
       details.appendChild(group);
       container.appendChild(details);
       return;
     }
 
-    if(hasObject){
+    if(logicalRef){
       const file=document.createElement('button');
       file.type='button';
       file.className='memory-tree-file';
       file.dataset.memoryRef=logicalRef;
-      file.textContent='📄 '+humanizeTreeSegment(segment,true);
+      file.textContent=libraryIcon(kind)+' '+humanizeTreeSegment(segment,true);
       file.addEventListener('click',()=>loadMemoryTreeDetail(logicalRef));
       container.appendChild(file);
     }
   }
 
+  function countLibraryLeaves(node){
+    if(!node||typeof node!=='object')return 0;
+    let total=typeof node['@ref']==='string'?1:0;
+    for(const [key,value] of Object.entries(node)){
+      if(!key.startsWith('@'))total+=countLibraryLeaves(value);
+    }
+    return total;
+  }
+
   function renderMemoryTree(){
     memoryTree.replaceChildren();
     const tree=memoryState.tree&&typeof memoryState.tree==='object'?memoryState.tree:{};
-    const roots=Object.keys(tree).filter(key=>key!=='@object_id').sort((a,b)=>a.localeCompare(b,'es'));
+    const roots=Object.keys(tree).filter(key=>!key.startsWith('@'));
 
     if(roots.length===0){
       const empty=document.createElement('p');
       empty.className='memory-empty';
-      empty.textContent='Todavía no hay recuerdos personales organizados en memory://user/.';
+      empty.textContent='Todavía no hay elementos en tu biblioteca cognitiva.';
       memoryTree.appendChild(empty);
     }else{
-      for(const segment of roots)appendMemoryTreeNode(memoryTree,segment,tree[segment],['user',segment],0);
+      for(const segment of roots)appendMemoryTreeNode(memoryTree,segment,tree[segment],0);
     }
 
-    memoryCount.textContent=number(memoryState.treeTotal)+' recuerdos · 0 tokens IA';
+    memoryState.treeTotal=countLibraryLeaves(tree);
+    memoryCount.textContent=number(memoryState.treeTotal)+' referencias · 0 tokens IA';
   }
 
   async function loadMemoryTree(){
-    memoryCount.textContent='Descifrando índice del árbol… · 0 tokens IA';
+    memoryCount.textContent='Descifrando catálogo de biblioteca… · 0 tokens IA';
     try{
-      const data=await api('/mcma/v1/memory-tree',{method:'GET',headers:{}});
-      const result=data.memory||{};
+      const data=await api('/mcma/v1/library-tree',{method:'GET',headers:{}});
+      const result=data.library||{};
       memoryState.tree=result.tree&&typeof result.tree==='object'?result.tree:{};
-      memoryState.treeTotal=Number(result.total||0);
       renderMemoryTree();
     }catch(error){
       memoryState.tree=null;
       memoryTree.replaceChildren();
       const failed=document.createElement('p');
       failed.className='memory-empty';
-      failed.textContent='No se pudo abrir el árbol: '+error.message;
+      failed.textContent='No se pudo abrir la biblioteca: '+error.message;
       memoryTree.appendChild(failed);
-      memoryCount.textContent='Error al leer árbol';
+      memoryCount.textContent='Error al leer biblioteca';
     }
   }
 
@@ -361,55 +404,152 @@
     return JSON.stringify(content,null,2);
   }
 
-  function renderMemoryTreeDetail(memory){
-    memoryState.selectedRef=memory.logical_ref||null;
+  function catalogBadges(catalog){
+    const badges=[];
+    const groups=[
+      ['Tema',catalog.topics],['Proyecto',catalog.projects],['Persona',catalog.people],
+      ['Personaje',catalog.characters],['Entidad',catalog.entities],['Fuente',catalog.sources]
+    ];
+    for(const [prefix,values] of groups){
+      if(!Array.isArray(values))continue;
+      for(const value of values)badges.push(memoryBadge(prefix+': '+value));
+    }
+    return badges;
+  }
+
+  function renderMemoryTreeDetail(object){
+    memoryState.selectedRef=object.logical_ref||null;
+    memoryState.selectedKind=object.kind||null;
     memoryTreeDetailEmpty.hidden=true;
     memoryTreeDetailContent.hidden=false;
+    interactionActions.hidden=true;
+    interactionValidationStatus.textContent='';
+    libraryCatalogWrap.hidden=true;
 
     for(const node of memoryTree.querySelectorAll('.memory-tree-file')){
       node.classList.toggle('selected',node.dataset.memoryRef===memoryState.selectedRef);
     }
 
-    const metadata=memory.metadata&&typeof memory.metadata==='object'?memory.metadata:{};
-    const content=memory.content;
+    const metadata=object.metadata&&typeof object.metadata==='object'?object.metadata:{};
+    memoryTreeDetailPath.textContent=object.logical_ref||'—';
+    memoryTreeDetailObject.textContent=object.object_id||'—';
+    memoryTreeDetailHash.textContent=object.storage_hash||'—';
+    memoryTreeDetailRevision.textContent=String(metadata.revision||1);
+    memoryTreeDetailUpdated.textContent=memoryDate(metadata.updated_at||metadata.created_at);
+
+    if(object.kind==='interaction'){
+      const interaction=object.interaction||{};
+      const catalog=interaction.catalog&&typeof interaction.catalog==='object'?interaction.catalog:{};
+      const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
+      memoryTreeDetailTitle.textContent=catalog.title||interaction.question||'Interacción';
+      libraryAnswerLabel.textContent='Respuesta descifrada';
+      memoryTreeDetailAnswer.textContent=treeDisplayContent(interaction.answer?.value);
+      librarySourceLabel.textContent='Pregunta original';
+      memoryTreeSourceWrap.hidden=false;
+      memoryTreeDetailSource.textContent=interaction.question||'—';
+      memoryTreeDetailLayer.textContent=metadata.cognitive_layer||'30-episodic';
+      memoryTreeDetailScope.textContent=metadata.scope||'session';
+      memoryTreeDetailTemperature.textContent=metadata.temperature||'hot';
+      memoryTreeDetailMaturity.textContent=metadata.maturity||'observed';
+
+      const badges=[
+        memoryBadge('💬 Interacción'),
+        memoryBadge('Estado: '+(validation.state||'unverified')),
+        memoryBadge('Ruta: '+routeLabel(interaction.route)),
+        memoryBadge('Sesión: '+String(interaction.conversation_id||'—').slice(-8))
+      ];
+      memoryTreeDetailBadges.replaceChildren(...badges);
+
+      const cb=catalogBadges(catalog);
+      libraryCatalogWrap.hidden=cb.length===0;
+      libraryCatalogBadges.replaceChildren(...cb);
+
+      interactionActions.hidden=false;
+      interactionApprove.disabled=validation.state==='verified';
+      interactionDiscard.disabled=validation.state==='retracted';
+      return;
+    }
+
+    if(object.kind==='knowledge'){
+      const record=object.content&&typeof object.content==='object'?object.content:{};
+      const epistemic=record.epistemic&&typeof record.epistemic==='object'?record.epistemic:{};
+      memoryTreeDetailTitle.textContent=record.intent?.question||'Knowledge';
+      libraryAnswerLabel.textContent='Respuesta / conocimiento descifrado';
+      memoryTreeDetailAnswer.textContent=treeDisplayContent(record.answer?.value);
+      librarySourceLabel.textContent='Procedencia';
+      memoryTreeSourceWrap.hidden=false;
+      memoryTreeDetailSource.textContent=JSON.stringify(record.provenance||[],null,2);
+      memoryTreeDetailLayer.textContent=metadata.cognitive_layer||'40-semantic';
+      memoryTreeDetailScope.textContent=metadata.scope||'knowledge';
+      memoryTreeDetailTemperature.textContent=metadata.temperature||'warm';
+      memoryTreeDetailMaturity.textContent=metadata.maturity||'knowledge';
+      memoryTreeDetailBadges.replaceChildren(
+        memoryBadge('📖 Knowledge'),
+        memoryBadge('Estado: '+(epistemic.validation_state||'unverified')),
+        memoryBadge('Confianza: '+Number(epistemic.confidence||0).toFixed(2))
+      );
+      return;
+    }
+
+    const content=object.content;
     const canonical=content&&typeof content==='object'&&!Array.isArray(content)?content:{};
     const classification=canonical.classification&&typeof canonical.classification==='object'?canonical.classification:{};
-    const lastSegment=String(memory.logical_ref||'').split('/').pop()||'recuerdo';
-
+    const lastSegment=String(object.logical_ref||'').split('/').pop()||'recuerdo';
     memoryTreeDetailTitle.textContent=typeof canonical.title==='string'&&canonical.title.trim()!==''?canonical.title:humanizeTreeSegment(lastSegment,true);
-    memoryTreeDetailPath.textContent=memory.logical_ref||'—';
+    libraryAnswerLabel.textContent='Recuerdo descifrado';
     memoryTreeDetailAnswer.textContent=treeDisplayContent(content);
-
-    const source=canonical.source&&typeof canonical.source==='object'&&typeof canonical.source.original==='string'
-      ?canonical.source.original:'';
+    const source=canonical.source&&typeof canonical.source==='object'&&typeof canonical.source.original==='string'?canonical.source.original:'';
+    librarySourceLabel.textContent='Texto original guardado';
     memoryTreeSourceWrap.hidden=source==='';
     memoryTreeDetailSource.textContent=source;
-
     memoryTreeDetailLayer.textContent=metadata.cognitive_layer||classification.cognitive_layer||'—';
     memoryTreeDetailScope.textContent=metadata.scope||classification.scope||'—';
     memoryTreeDetailTemperature.textContent=metadata.temperature||classification.temperature||'—';
     memoryTreeDetailMaturity.textContent=metadata.maturity||'—';
-    memoryTreeDetailRevision.textContent=String(metadata.revision||1);
-    memoryTreeDetailUpdated.textContent=memoryDate(metadata.updated_at||metadata.created_at);
-    memoryTreeDetailObject.textContent=memory.object_id||'—';
-    memoryTreeDetailHash.textContent=memory.storage_hash||'—';
-
-    const badges=[];
     const categories=Array.isArray(classification.category_path)?classification.category_path:[];
+    const badges=[memoryBadge('🧠 Memoria personal')];
     if(categories.length)badges.push(memoryBadge('📁 '+categories.join(' / ')));
-    badges.push(memoryBadge(memoryTreeDetailTemperature.textContent));
-    badges.push(memoryBadge(memoryTreeDetailLayer.textContent));
+    badges.push(memoryBadge(memoryTreeDetailTemperature.textContent),memoryBadge(memoryTreeDetailLayer.textContent));
     memoryTreeDetailBadges.replaceChildren(...badges);
   }
 
   async function loadMemoryTreeDetail(logicalRef){
-    memoryTreeDetailEmpty.textContent='Descifrando recuerdo…';
+    memoryTreeDetailEmpty.textContent='Descifrando elemento…';
     try{
-      const data=await api('/mcma/v1/memory-object?ref='+encodeURIComponent(logicalRef),{method:'GET',headers:{}});
-      renderMemoryTreeDetail(data.memory||{});
+      const data=await api('/mcma/v1/library-object?ref='+encodeURIComponent(logicalRef),{method:'GET',headers:{}});
+      renderMemoryTreeDetail(data.object||{});
     }catch(error){
       clearMemoryTreeDetail();
-      memoryTreeDetailEmpty.textContent='No se pudo descifrar el recuerdo: '+error.message;
+      memoryTreeDetailEmpty.textContent='No se pudo descifrar el elemento: '+error.message;
+    }
+  }
+
+  async function validateInteraction(action){
+    if(!memoryState.selectedRef||memoryState.selectedKind!=='interaction')return;
+    interactionApprove.disabled=true;
+    interactionDiscard.disabled=true;
+    interactionValidationStatus.textContent=action==='approve'
+      ?'Catalogando y aprobando conocimiento…'
+      :'Descartando conocimiento…';
+    try{
+      const data=await api('/mcma/v1/interaction-validation',{
+        method:'POST',
+        body:JSON.stringify({ref:memoryState.selectedRef,action})
+      });
+      const validation=data.validation||{};
+      const billing=validation.billing||{};
+      const usage=billing.usage||{};
+      interactionValidationStatus.textContent=(action==='approve'?'Conocimiento aprobado':'Conocimiento descartado')+
+        ' · '+number(usage.total_tokens||0)+' tokens · '+number(billing.credit_units_charged||0)+' créditos';
+      const ref=memoryState.selectedRef;
+      memoryState.tree=null;
+      await loadMemoryTree();
+      await loadMemoryTreeDetail(ref);
+      await loadBilling();
+    }catch(error){
+      interactionValidationStatus.textContent=error.message;
+      interactionApprove.disabled=false;
+      interactionDiscard.disabled=false;
     }
   }
 
@@ -743,17 +883,24 @@
     event.preventDefault();send.disabled=true;answer.textContent='Procesando…';answerMeta.hidden=true;
     try{
       const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
-        question:$('question').value,current:$('current').checked,remember:$('remember').checked
+        question:$('question').value,current:$('current').checked,remember:$('remember').checked,
+        conversation_id:currentConversationId()
       })});
       const result=data.result||{};
       answer.textContent=result.answer?.value ?? JSON.stringify(result,null,2);
       renderAnswerMeta(result);
       await loadBilling();
-      if(result.stored===true){
+      if(result.interaction_archive?.recorded===true){
+        const cid=result.interaction_archive.conversation_id;
+        if(/^conv_[0-9a-f]{32}$/.test(cid)){
+          try{sessionStorage.setItem('mcma_conversation_id',cid);}catch(error){}
+          currentConversationId();
+        }
         memoryState.tree=null;
-        memoryState.items=[];
-        if(memoryState.mode==='tree')await loadMemoryTree();else await loadMemories(1);
       }
+      if(result.stored===true)memoryState.items=[];
+      if(!memoryExplorer.hidden&&memoryState.mode==='tree')await loadMemoryTree();
+      else if(!memoryExplorer.hidden&&memoryState.mode==='list'&&result.stored===true)await loadMemories(1);
     }catch(error){answer.textContent=error.message;answerMeta.hidden=true;}
     finally{send.disabled=false;}
   });
@@ -801,6 +948,12 @@
 
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
+  interactionApprove.addEventListener('click',()=>validateInteraction('approve'));
+  interactionDiscard.addEventListener('click',()=>validateInteraction('discard'));
+  newConversation.addEventListener('click',()=>{
+    createConversationId();
+    $('question').focus();
+  });
 
   memorySearchForm.addEventListener('submit',event=>{
     event.preventDefault();
@@ -839,5 +992,6 @@
     }
   });
 
+  currentConversationId();
   loadMe();
 })();
