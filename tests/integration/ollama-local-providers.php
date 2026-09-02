@@ -75,6 +75,40 @@ if (($result['usage']['inputTokens'] ?? null) !== 11 || ($result['usage']['outpu
 }
 if ($generation->id() !== 'ollama-chat:chat-model') throw new RuntimeException('Ollama generation provider id mismatch');
 
+$conversationSeen=false;
+$conversationRequester=function(string $method,string $url,array $headers,string $body)use(&$conversationSeen):array{
+    $request=json_decode($body,true,512,JSON_THROW_ON_ERROR);
+    if(($request['messages'][0]['role']??null)!=='system'||!str_contains((string)($request['messages'][0]['content']??''),'untrusted reference data')){
+        throw new RuntimeException('Ollama conversation safety instruction missing');
+    }
+    $user=(string)($request['messages'][1]['content']??'');
+    if(!str_contains($user,'"conversation_id":"conv_'.str_repeat('e',32).'"')||!str_contains($user,'"question":"Earlier turn"')){
+        throw new RuntimeException('Ollama selected conversation context missing');
+    }
+    $conversationSeen=true;
+    return [200,json_encode([
+        'message'=>['role'=>'assistant','content'=>'Conversation-aware local response.'],
+        'done'=>true,'done_reason'=>'stop','prompt_eval_count'=>20,'eval_count'=>5,
+    ],JSON_THROW_ON_ERROR),[]];
+};
+$conversationGeneration=new OllamaGenerationProvider(
+    'http://127.0.0.1:11434','chat-model',128,0.2,null,$conversationRequester
+);
+$conversationResult=$conversationGeneration->generate('Follow up',[
+    'conversation_context'=>[
+        'conversation_id'=>'conv_'.str_repeat('e',32),
+        'selection'=>['strategy'=>'recent-plus-lexical-v1','selected_turns'=>1],
+        'turns'=>[[
+            'logical_ref'=>'memory://interactions/2026/09/02/conv_'.str_repeat('e',32).'/req_'.str_repeat('1',32),
+            'at'=>'2026-09-02T19:00:00Z','question'=>'Earlier turn','answer'=>'Earlier answer',
+            'validation_state'=>'unverified','confidence'=>0.5,'relevance_score'=>0.8,'selection_reason'=>'relevance',
+        ]],
+    ],
+]);
+if(!$conversationSeen||($conversationResult['text']??null)!=='Conversation-aware local response.'){
+    throw new RuntimeException('Ollama conversation context simulation failed');
+}
+
 $invalidBaseRejected = false;
 try {
     new OllamaEmbeddingProvider('file:///tmp/ollama.sock', 'model', $embedRequester);
