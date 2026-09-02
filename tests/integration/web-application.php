@@ -280,6 +280,79 @@ try {
     $explicitEndpointBody = json_decode($explicitEndpoint->body(), true, 64, JSON_THROW_ON_ERROR);
     assert_web_app(($explicitEndpointBody['result']['route']??null) === 'memory-capture', 'Explicit /memory route mismatch');
     assert_web_app(($explicitEndpointBody['result']['stored']??false) === true, 'Explicit /memory endpoint did not store memory');
+    assert_web_app(($explicitEndpointBody['result']['interaction_archive']['recorded']??false) === true, 'Explicit /memory interaction was not archived');
+    $interactionRef=(string)($explicitEndpointBody['result']['interaction_archive']['logical_ref']??'');
+    assert_web_app(str_starts_with($interactionRef,'memory://interactions/'),'Interaction archive logical ref missing');
+
+    $libraryTree=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-tree',[],[],['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($libraryTree->status()===200,'Cognitive library tree route failed');
+    $libraryTreeBody=json_decode($libraryTree->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($libraryTreeBody['library']['root']??null)==='Biblioteca MCMA','Cognitive library root mismatch');
+    assert_web_app(($libraryTreeBody['library']['interaction_total']??0)>=2,'Cognitive library did not include archived interactions');
+    assert_web_app(($libraryTreeBody['library']['ai_tokens_used']??-1)===0,'Cognitive library browse used AI tokens');
+    assert_web_app(isset($libraryTreeBody['library']['tree']['Conversaciones']['Por sesión']),'Conversation session shelf missing');
+    assert_web_app(isset($libraryTreeBody['library']['tree']['Conversaciones']['Por fecha']),'Conversation date shelf missing');
+    assert_web_app(isset($libraryTreeBody['library']['tree']['Knowledge']),'Knowledge shelf missing');
+
+    $libraryObject=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-object',[],['ref'=>$interactionRef],['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($libraryObject->status()===200,'Archived interaction library object failed');
+    $libraryObjectBody=json_decode($libraryObject->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($libraryObjectBody['object']['kind']??null)==='interaction','Library interaction kind mismatch');
+    assert_web_app(
+        ($libraryObjectBody['object']['interaction']['question']??null)==='Las decisiones de despliegue de MCMA deben documentarse.',
+        'Archived interaction question did not decrypt'
+    );
+
+    $bobLibraryTree=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-tree',[],[],['mcma_session'=>$bobCookie]
+    ));
+    $bobLibraryTreeBody=json_decode($bobLibraryTree->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($bobLibraryTreeBody['library']['interaction_total']??-1)===0,'Bob could see Alice interaction archive');
+
+    $bobLibraryObject=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-object',[],['ref'=>$interactionRef],['mcma_session'=>$bobCookie]
+    ));
+    assert_web_app($bobLibraryObject->status()===404,'Bob could decrypt Alice archived interaction');
+
+    $blockedLibraryVault=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-object',[],['ref'=>'memory://access/vault'],['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($blockedLibraryVault->status()===400,'Cognitive library exposed Vault');
+
+    $approveInteraction=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/interaction-validation',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['ref'=>$interactionRef,'action'=>'approve'],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($approveInteraction->status()===200,'Interaction approval route failed');
+    $approveInteractionBody=json_decode($approveInteraction->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($approveInteractionBody['validation']['validation_state']??null)==='verified','Interaction approval did not verify archived turn');
+
+    $approvedObject=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/library-object',[],['ref'=>$interactionRef],['mcma_session'=>$aliceCookie]
+    ));
+    $approvedObjectBody=json_decode($approvedObject->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($approvedObjectBody['object']['interaction']['validation']['state']??null)==='verified',
+        'Approved interaction state was not persisted'
+    );
+
+    $crossOriginInteraction=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/interaction-validation',
+        ['origin'=>'https://evil.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['ref'=>$interactionRef,'action'=>'discard'],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($crossOriginInteraction->status()===403,'Cross-origin interaction validation was accepted');
 
     $canonicalTreeRef=(string)($explicitEndpointBody['result']['logical_ref']??'');
     assert_web_app(str_starts_with($canonicalTreeRef,'memory://user/'),'Explicit memory did not create a canonical user-tree reference');
