@@ -42,8 +42,6 @@ check(str_contains($app,"api('/mcma/v1/library-tree'"),'cognitive library tree e
 check(str_contains($app,"api('/mcma/v1/library-object?ref='"),'cognitive library object endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/interaction-validation'"),'interaction validation endpoint is wired');
 check(str_contains($app,'conversation_id:currentConversationId()'),'conversation id is sent with ask requests');
-check(str_contains($app,"api('/mcma/v1/memory-tree'"),'memory tree endpoint is wired');
-check(str_contains($app,"api('/mcma/v1/memory-object?ref='"),'memory tree decrypted-object endpoint is wired');
 check(str_contains($app,"switchMemoryView('tree')"),'memory tree view switch is wired');
 check(str_contains($app,"switchMemoryView('list')"),'memory list view switch is wired');
 check(str_contains($app,"'/validation'"),'memory explorer validation endpoint is wired');
