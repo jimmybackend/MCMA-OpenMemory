@@ -95,3 +95,26 @@ vault/security material
 Indexes must not require a GitHub, S3, WebDAV or other provider-specific identity.
 
 The storage adapter maps portable object references/locators to the configured backend.
+
+## Derived conversation index
+
+The web Chat sidebar now uses another encrypted derived index:
+
+~~~text
+memory://system/conversation-index
+~~~
+
+Its purpose is to avoid decrypting the full durable interaction archive on every sidebar render.
+
+The authoritative transcript remains:
+
+~~~text
+memory://interactions/YYYY/MM/DD/conv_<id>/req_<id>
+~~~
+
+The conversation index contains only derived conversation metadata and canonical interaction references, including conversation id, display title, first/last timestamps, interaction count, project labels and ordered interaction references. It does not become a second authoritative question/answer database.
+
+Each archived interaction updates the derived index incrementally. On read, MCMA compares the actor-visible canonical interaction reference count plus a SHA-256 reference fingerprint with the index. A missing, malformed or stale index is rebuilt from canonical encrypted interactions.
+
+List/detail navigation does not invoke an embedding or generation provider. The system index remains private; clients receive safe conversation summaries/turns, not the `memory://system/...` index reference.
+
