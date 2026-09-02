@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace MCMA\Core\Ask;
 
 use MCMA\Core\Agent\Librarian;
+use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Knowledge\KnowledgeRecord;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Semantic\EmbeddingProvider;
@@ -17,7 +18,8 @@ final class AskService
         private readonly ?SemanticIndexService $semantic = null,
         private readonly ?EmbeddingProvider $embeddingProvider = null,
         private readonly ?GenerationProvider $generationProvider = null,
-        private readonly ?Librarian $librarian = null
+        private readonly ?Librarian $librarian = null,
+        private readonly ?ConversationContextBuilder $conversationContextBuilder = null
     ) {
         if (($this->semantic === null) !== ($this->embeddingProvider === null)) {
             throw new RuntimeException('Ask semantic retrieval requires both SemanticIndexService and EmbeddingProvider');
@@ -34,7 +36,8 @@ final class AskService
         bool $rememberGenerated = true,
         array $captureOptions = [],
         ?float $candidateSimilarity = null,
-        ?float $minRerankScore = null
+        ?float $minRerankScore = null,
+        ?string $conversationId = null
     ): array {
         $normalized = KnowledgeRecord::normalizeIntent($question);
 
@@ -82,12 +85,28 @@ final class AskService
 
         $contextAttempt=(($memoryAttempt['found']??false)===true)?$memoryAttempt:$exact;
         $memoryContext = $this->generationMemoryContext($actor, $question, $contextAttempt, $minConfidence);
+
+        $conversationContext=null;
+        if(
+            $this->conversationContextBuilder!==null
+            && is_string($conversationId)
+            && preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)
+        ){
+            try{
+                $conversationContext=$this->conversationContextBuilder->build($actor,$conversationId,$question);
+            }catch(\Throwable $e){
+                error_log('MCMA conversation context builder error: '.$e->getMessage());
+                $conversationContext=null;
+            }
+        }
+
         $generationContext = [
             'actor' => $actor,
             'current_required' => $currentRequired,
             'memory_attempt' => self::memorySummary($memoryAttempt),
         ];
         if ($memoryContext !== null) $generationContext['memory_context'] = $memoryContext;
+        if ($conversationContext !== null) $generationContext['conversation_context'] = $conversationContext;
 
         $generated = $this->generationProvider->generate($question, $generationContext);
         $text = trim((string)($generated['text'] ?? ''));
@@ -177,6 +196,13 @@ final class AskService
             ];
         } else {
             $result['context_used'] = ['memory' => false];
+        }
+
+        $result['context_used']['conversation']=$conversationContext!==null;
+        if($conversationContext!==null){
+            // Context transparency intentionally records exactly which selected
+            // historical turns were supplied to generation.
+            $result['context_used']['conversation_context']=$conversationContext;
         }
 
         if (isset($generated['usage']) && is_array($generated['usage'])) $result['usage'] = $generated['usage'];
