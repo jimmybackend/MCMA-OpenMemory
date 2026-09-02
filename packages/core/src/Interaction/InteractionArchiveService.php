@@ -14,6 +14,8 @@ use Throwable;
 final class InteractionArchiveService
 {
     public const VERSION='1.0';
+    private const CONVERSATION_INDEX_REF='memory://system/conversation-index';
+    private const CONVERSATION_INDEX_VERSION='1.0';
 
     public function __construct(private readonly Library $library) {}
 
@@ -94,6 +96,12 @@ final class InteractionArchiveService
             $actor,$logicalRef,$interaction,'json','hot','30-episodic','session','observed'
         );
 
+        try{
+            $this->upsertConversationIndex($actor,$logicalRef,$interaction);
+        }catch(Throwable $e){
+            error_log('MCMA conversation index update error: '.$e->getMessage());
+        }
+
         return [
             'logical_ref'=>$logicalRef,
             'object_id'=>$stored['object_id'],
@@ -121,6 +129,70 @@ final class InteractionArchiveService
             'storage_hash'=>$stored['storage_hash'],
             'metadata'=>$stored['payload']['metadata']??[],
             'interaction'=>$content,
+            'ai_tokens_used'=>0,
+            'credit_units_charged'=>0,
+        ];
+    }
+
+    public function conversations(string $actor): array
+    {
+        $index=$this->conversationIndex($actor);
+        $items=[];
+        foreach($index['conversations']??[] as $conversation){
+            if(!is_array($conversation)) continue;
+            $items[]=self::conversationSummary($conversation);
+        }
+
+        usort($items,static fn(array $a,array $b): int =>
+            (strtotime((string)($b['last_at']??''))?:0)<=>(strtotime((string)($a['last_at']??''))?:0)
+        );
+
+        return [
+            'conversations'=>$items,
+            'total'=>count($items),
+            'ai_tokens_used'=>0,
+            'credit_units_charged'=>0,
+        ];
+    }
+
+    public function conversation(string $actor,string $conversationId): array
+    {
+        if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)){
+            throw new RuntimeException('Invalid conversation id');
+        }
+
+        $index=$this->conversationIndex($actor);
+        $conversation=$index['conversations'][$conversationId]??null;
+        if(!is_array($conversation)){
+            throw new RuntimeException('Conversation not found: '.$conversationId);
+        }
+
+        $interactions=[];
+        foreach($conversation['interaction_refs']??[] as $logicalRef){
+            if(!is_string($logicalRef)) continue;
+            $detail=$this->read($actor,$logicalRef);
+            $interaction=$detail['interaction'];
+            $interactions[]=[
+                'logical_ref'=>$logicalRef,
+                'interaction_id'=>(string)($interaction['interaction_id']??''),
+                'at'=>(string)($interaction['at']??''),
+                'question'=>(string)($interaction['question']??''),
+                'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
+                'route'=>(string)($interaction['route']??'unknown'),
+                'provider'=>is_array($interaction['provider']??null)?$interaction['provider']:['called'=>false,'id'=>null],
+                'validation'=>is_array($interaction['validation']??null)?$interaction['validation']:[],
+                'catalog'=>is_array($interaction['catalog']??null)?$interaction['catalog']:[],
+                'billing'=>is_array($interaction['billing']??null)?$interaction['billing']:null,
+            ];
+        }
+
+        usort($interactions,static fn(array $a,array $b): int =>
+            (strtotime((string)$a['at'])?:0)<=>(strtotime((string)$b['at'])?:0)
+        );
+
+        return [
+            'conversation'=>self::conversationSummary($conversation),
+            'interactions'=>$interactions,
             'ai_tokens_used'=>0,
             'credit_units_charged'=>0,
         ];
@@ -180,6 +252,12 @@ final class InteractionArchiveService
             '30-episodic','session',
             $action==='approve'?'confirmed':'observed'
         );
+
+        try{
+            $this->upsertConversationIndex($actor,$logicalRef,$interaction);
+        }catch(Throwable $e){
+            error_log('MCMA conversation index refresh error: '.$e->getMessage());
+        }
 
         return [
             'logical_ref'=>$logicalRef,
@@ -298,6 +376,220 @@ final class InteractionArchiveService
             'ai_tokens_used'=>0,
             'credit_units_charged'=>0,
         ];
+    }
+
+    private function conversationIndex(string $actor): array
+    {
+        $this->ensureConversationIndexPolicy();
+        $refs=$this->interactionRefs($actor);
+        $index=$this->readConversationIndex($actor);
+
+        if(
+            $index===null
+            || (int)($index['indexed_interaction_count']??-1)!==count($refs)
+            || !hash_equals((string)($index['refs_hash']??''),self::refsHash($refs))
+        ){
+            return $this->rebuildConversationIndex($actor,$refs);
+        }
+
+        return $index;
+    }
+
+    private function upsertConversationIndex(string $actor,string $logicalRef,array $interaction): void
+    {
+        self::assertInteractionRef($logicalRef);
+        $this->ensureConversationIndexPolicy();
+
+        $refs=$this->interactionRefs($actor);
+        $index=$this->readConversationIndex($actor);
+        if($index===null){
+            $this->rebuildConversationIndex($actor,$refs);
+            return;
+        }
+
+        self::indexInteraction($index,$logicalRef,$interaction);
+        $index['indexed_interaction_count']=count($refs);
+        $index['refs_hash']=self::refsHash($refs);
+        $index['updated_at']=gmdate('Y-m-d\TH:i:s\Z');
+        $this->persistConversationIndex($actor,$index);
+    }
+
+    private function rebuildConversationIndex(string $actor,array $refs): array
+    {
+        $index=[
+            'conversation_index_version'=>self::CONVERSATION_INDEX_VERSION,
+            'updated_at'=>gmdate('Y-m-d\TH:i:s\Z'),
+            'indexed_interaction_count'=>count($refs),
+            'refs_hash'=>self::refsHash($refs),
+            'conversations'=>[],
+        ];
+
+        foreach($refs as $logicalRef){
+            try{
+                $detail=$this->read($actor,$logicalRef);
+                self::indexInteraction($index,$logicalRef,$detail['interaction']);
+            }catch(Throwable $e){
+                error_log('MCMA conversation index rebuild skipped interaction: '.$e->getMessage());
+            }
+        }
+
+        $this->persistConversationIndex($actor,$index);
+        return $index;
+    }
+
+    private function readConversationIndex(string $actor): ?array
+    {
+        try{
+            $stored=$this->library->readAs($actor,self::CONVERSATION_INDEX_REF);
+        }catch(Throwable $e){
+            if(str_contains($e->getMessage(),'Memory not found:')) return null;
+            throw $e;
+        }
+
+        $content=$stored['payload']['content']??null;
+        if(
+            !is_array($content)
+            || ($content['conversation_index_version']??null)!==self::CONVERSATION_INDEX_VERSION
+            || !is_array($content['conversations']??null)
+        ){
+            return null;
+        }
+        return $content;
+    }
+
+    private function persistConversationIndex(string $actor,array $index): void
+    {
+        $exists=false;
+        foreach($this->library->listAs($actor) as $entry){
+            if(in_array(self::CONVERSATION_INDEX_REF,$entry['logical_refs']??[],true)){
+                $exists=true;
+                break;
+            }
+        }
+
+        if(!$exists){
+            $this->library->writeAs(
+                $actor,self::CONVERSATION_INDEX_REF,$index,'json','hot','00-system','system','confirmed'
+            );
+            return;
+        }
+
+        $this->library->updateAs(
+            $actor,self::CONVERSATION_INDEX_REF,$index,'json','hot','00-system','system','confirmed'
+        );
+    }
+
+    private function interactionRefs(string $actor): array
+    {
+        $refs=[];
+        foreach($this->library->listAs($actor) as $entry){
+            foreach($entry['logical_refs']??[] as $ref){
+                if(is_string($ref)&&str_starts_with($ref,'memory://interactions/')){
+                    try{self::assertInteractionRef($ref);$refs[]=$ref;}catch(Throwable){}
+                    break;
+                }
+            }
+        }
+        sort($refs,SORT_STRING);
+        return array_values(array_unique($refs));
+    }
+
+    private function ensureConversationIndexPolicy(): void
+    {
+        try{
+            $policy=$this->library->permissions('owner');
+        }catch(RuntimeException){
+            return;
+        }
+
+        $denyFound=false;
+        $ownerFound=false;
+        foreach($policy['resources']??[] as $rule){
+            if(!is_array($rule)||($rule['resource']??null)!==self::CONVERSATION_INDEX_REF) continue;
+            if(($rule['subject']??null)==='*') $denyFound=true;
+            if(($rule['subject']??null)==='owner') $ownerFound=true;
+        }
+        if($denyFound&&$ownerFound) return;
+
+        if(!$denyFound){
+            $policy['resources'][]=[
+                'resource'=>self::CONVERSATION_INDEX_REF,
+                'subject'=>'*',
+                'deny'=>['*'],
+            ];
+        }
+        if(!$ownerFound){
+            $policy['resources'][]=[
+                'resource'=>self::CONVERSATION_INDEX_REF,
+                'subject'=>'owner',
+                'allow'=>['read','write','update','delete'],
+            ];
+        }
+        $this->library->setPermissions($policy,'owner');
+    }
+
+    private static function indexInteraction(array &$index,string $logicalRef,array $interaction): void
+    {
+        $conversationId=(string)($interaction['conversation_id']??'');
+        if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)) return;
+
+        $at=(string)($interaction['at']??'');
+        $catalog=is_array($interaction['catalog']??null)?$interaction['catalog']:[];
+        $title=self::cleanLabel((string)($catalog['title']??''));
+        if($title==='') $title=self::shortTitle((string)($interaction['question']??'Conversación'));
+        $projects=self::labels($catalog['projects']??[]);
+
+        $existing=$index['conversations'][$conversationId]??null;
+        if(!is_array($existing)){
+            $existing=[
+                'conversation_id'=>$conversationId,
+                'title'=>$title,
+                'first_at'=>$at,
+                'last_at'=>$at,
+                'interaction_count'=>0,
+                'interaction_refs'=>[],
+                'projects'=>[],
+            ];
+        }
+
+        $refs=is_array($existing['interaction_refs']??null)?$existing['interaction_refs']:[];
+        if(!in_array($logicalRef,$refs,true)) $refs[]=$logicalRef;
+        sort($refs,SORT_STRING);
+
+        $firstAt=(string)($existing['first_at']??'');
+        if($firstAt===''||($at!==''&&(strtotime($at)?:0)<(strtotime($firstAt)?:0))){
+            $existing['first_at']=$at;
+            $existing['title']=$title;
+        }
+        $lastAt=(string)($existing['last_at']??'');
+        if($lastAt===''||($at!==''&&(strtotime($at)?:0)>=(strtotime($lastAt)?:0))){
+            $existing['last_at']=$at;
+        }
+
+        $existing['interaction_refs']=$refs;
+        $existing['interaction_count']=count($refs);
+        $existing['projects']=array_values(array_unique(array_merge(
+            self::labels($existing['projects']??[]),
+            $projects
+        )));
+        $index['conversations'][$conversationId]=$existing;
+    }
+
+    private static function conversationSummary(array $conversation): array
+    {
+        return [
+            'conversation_id'=>(string)($conversation['conversation_id']??''),
+            'title'=>(string)($conversation['title']??'Conversación'),
+            'first_at'=>(string)($conversation['first_at']??''),
+            'last_at'=>(string)($conversation['last_at']??''),
+            'interaction_count'=>(int)($conversation['interaction_count']??0),
+            'projects'=>self::labels($conversation['projects']??[]),
+        ];
+    }
+
+    private static function refsHash(array $refs): string
+    {
+        return 'sha256:'.hash('sha256',implode("\n",$refs));
     }
 
     private function approveKnowledge(string $actor,string $interactionRef,array $interaction,?EmbeddingProvider $embeddingProvider): array

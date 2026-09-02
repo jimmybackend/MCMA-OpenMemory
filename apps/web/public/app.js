@@ -7,6 +7,7 @@
   const answerMeta=$('answerMeta'),answerSource=$('answerSource'),answerTokens=$('answerTokens'),answerCredits=$('answerCredits'),answerRemembered=$('answerRemembered');
   const apiKeysBox=$('apiKeysBox'),createKey=$('createKey'),keyList=$('keyList'),newKey=$('newKey');
   const stripeBox=$('stripeBox'),stripePackages=$('stripePackages'),stripeStatus=$('stripeStatus');
+  const accountDrawer=$('accountDrawer'),accountDrawerContent=$('accountDrawerContent');
   const memoryExplorer=$('memoryExplorer'),memorySearchForm=$('memorySearchForm'),memoryQuery=$('memoryQuery');
   const memoryTemperature=$('memoryTemperature'),memoryValidation=$('memoryValidation'),memoryReset=$('memoryReset');
   const memoryCount=$('memoryCount'),memoryList=$('memoryList'),memoryPagePrev=$('memoryPagePrev'),memoryPageNext=$('memoryPageNext'),memoryPageLabel=$('memoryPageLabel');
@@ -20,6 +21,10 @@
   const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
   const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
+  const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
+  const conversationTitle=$('conversationTitle'),conversationReadCost=$('conversationReadCost'),conversationSidebarToggle=$('conversationSidebarToggle'),chatWorkspace=$('askPanel'),chatMessages=$('chatMessages');
+  const composerStatus=$('composerStatus'),questionInput=$('question');
+  const conversationState={items:[],filter:'',loading:false};
   const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
   const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
   const memoryDetailValidation=$('memoryDetailValidation'),memoryDetailConfidence=$('memoryDetailConfidence');
@@ -50,21 +55,314 @@
     return [...data].map(v=>v.toString(16).padStart(2,'0')).join('');
   }
 
-  function createConversationId(){
-    const id='conv_'+randomHex(16);
+  function setConversationId(id){
+    if(!/^conv_[0-9a-f]{32}$/.test(id))return '';
     try{sessionStorage.setItem('mcma_conversation_id',id);}catch(error){}
     conversationLabel.textContent=id.slice(0,13)+'…'+id.slice(-8);
     conversationLabel.title=id;
     return id;
   }
 
+  function createConversationId(){
+    return setConversationId('conv_'+randomHex(16));
+  }
+
   function currentConversationId(){
     let id='';
     try{id=sessionStorage.getItem('mcma_conversation_id')||'';}catch(error){}
     if(!/^conv_[0-9a-f]{32}$/.test(id))return createConversationId();
-    conversationLabel.textContent=id.slice(0,13)+'…'+id.slice(-8);
-    conversationLabel.title=id;
-    return id;
+    return setConversationId(id);
+  }
+
+  function prepareAccountDrawer(){
+    if(!accountDrawerContent)return;
+    for(const panel of [account,stripeBox,apiKeysBox]){
+      if(panel&&panel.parentElement!==accountDrawerContent)accountDrawerContent.appendChild(panel);
+    }
+  }
+
+  function normalizedSearch(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  }
+
+  function conversationGroup(value){
+    const date=new Date(value||'');
+    if(Number.isNaN(date.getTime()))return 'Anteriores';
+    const now=new Date();
+    const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const day=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+    const days=Math.floor((today-day)/86400000);
+    if(days<=0)return 'Hoy';
+    if(days===1)return 'Ayer';
+    if(days<=7)return 'Últimos 7 días';
+    return 'Anteriores';
+  }
+
+  function conversationDate(value){
+    const date=new Date(value||'');
+    if(Number.isNaN(date.getTime()))return '—';
+    return new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(date);
+  }
+
+  function shortConversationTitle(value){
+    const text=String(value||'').replace(/\s+/g,' ').trim();
+    if(text==='')return 'Nueva conversación';
+    return text.length<=72?text:text.slice(0,69).trimEnd()+'…';
+  }
+
+  function displayChatValue(value){
+    if(typeof value==='string')return value;
+    if(value===null||value===undefined)return '';
+    try{return JSON.stringify(value,null,2);}catch(error){return String(value);}
+  }
+
+  function clearChatMessages(){
+    chatMessages.replaceChildren();
+  }
+
+  function renderChatEmpty(){
+    clearChatMessages();
+    const wrap=document.createElement('div');
+    wrap.className='chat-empty-state';
+    const mark=document.createElement('span');
+    mark.className='chat-empty-mark';
+    mark.setAttribute('aria-hidden','true');
+    mark.textContent='M';
+    const title=document.createElement('h3');
+    title.textContent='¿Qué quieres recordar o preguntar?';
+    const copy=document.createElement('p');
+    copy.textContent='MCMA puede responder, recuperar memoria y guardar esta conversación cifrada en tu biblioteca.';
+    wrap.append(mark,title,copy);
+    chatMessages.appendChild(wrap);
+  }
+
+  function appendChatMessage(role,text,meta=[]){
+    const article=document.createElement('article');
+    article.className='chat-message '+(role==='user'?'chat-message-user':'chat-message-assistant');
+    const roleNode=document.createElement('div');
+    roleNode.className='chat-message-role';
+    roleNode.textContent=role==='user'?'Tú':'MCMA';
+    const content=document.createElement('div');
+    content.className='chat-message-content';
+    content.textContent=displayChatValue(text);
+    const metaNode=document.createElement('div');
+    metaNode.className='chat-message-meta';
+    for(const value of meta){
+      if(value===null||value===undefined||String(value).trim()==='')continue;
+      const item=document.createElement('span');
+      item.textContent=String(value);
+      metaNode.appendChild(item);
+    }
+    article.append(roleNode,content);
+    if(metaNode.childElementCount>0)article.appendChild(metaNode);
+    chatMessages.appendChild(article);
+    chatMessages.scrollTop=chatMessages.scrollHeight;
+    return {article,content,meta:metaNode};
+  }
+
+  function setChatMessageMeta(message,values=[]){
+    message.meta.replaceChildren();
+    for(const value of values){
+      if(value===null||value===undefined||String(value).trim()==='')continue;
+      const item=document.createElement('span');
+      item.textContent=String(value);
+      message.meta.appendChild(item);
+    }
+    if(message.meta.childElementCount>0&&!message.meta.isConnected)message.article.appendChild(message.meta);
+  }
+
+  function interactionMeta(interaction){
+    const billing=interaction.billing&&typeof interaction.billing==='object'?interaction.billing:{};
+    const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
+    const tokens=Number(billing.total_tokens||0);
+    const credits=Number(billing.credit_units_charged||0);
+    const meta=[routeLabel(interaction.route),number(tokens)+' tokens',number(credits)+' créditos'];
+    if(validation.state)meta.push('Estado: '+validation.state);
+    return meta;
+  }
+
+  function resultMessageMeta(result){
+    const billing=result.billing&&typeof result.billing==='object'?result.billing:{};
+    const usage=billing.usage||result.usage||{};
+    const tokens=Number(usage.total_tokens??usage.totalTokens??0);
+    const credits=Number(billing.credit_units_charged??0);
+    return [routeLabel(result.route),number(tokens)+' tokens',number(credits)+' créditos'];
+  }
+
+  function renderConversationProjects(){
+    conversationProjects.replaceChildren();
+    const projects=[];
+    for(const item of conversationState.items){
+      for(const project of Array.isArray(item.projects)?item.projects:[]){
+        if(typeof project==='string'&&project.trim()!==''&&!projects.includes(project))projects.push(project);
+      }
+    }
+    projects.sort((a,b)=>a.localeCompare(b,'es'));
+    conversationProjectsWrap.hidden=projects.length===0;
+    for(const project of projects.slice(0,16)){
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='conversation-project';
+      button.textContent=project;
+      button.title='Filtrar por '+project;
+      button.addEventListener('click',()=>{
+        conversationState.filter=project;
+        conversationSearch.value=project;
+        renderConversationList();
+      });
+      conversationProjects.appendChild(button);
+    }
+  }
+
+  function renderConversationList(){
+    conversationList.replaceChildren();
+    const filter=normalizedSearch(conversationState.filter);
+    const current=currentConversationId();
+    const filtered=conversationState.items.filter(item=>{
+      if(filter==='')return true;
+      return normalizedSearch([
+        item.title||'',
+        item.conversation_id||'',
+        ...(Array.isArray(item.projects)?item.projects:[])
+      ].join(' ')).includes(filter);
+    });
+
+    if(filtered.length===0){
+      const empty=document.createElement('div');
+      empty.className='conversation-empty';
+      empty.textContent=filter===''?'Todavía no hay conversaciones guardadas.':'No hay conversaciones que coincidan.';
+      conversationList.appendChild(empty);
+      return;
+    }
+
+    const order=['Hoy','Ayer','Últimos 7 días','Anteriores'];
+    const grouped=new Map(order.map(label=>[label,[]]));
+    for(const item of filtered)grouped.get(conversationGroup(item.last_at)).push(item);
+
+    for(const label of order){
+      const items=grouped.get(label);
+      if(items.length===0)continue;
+      const group=document.createElement('section');
+      group.className='conversation-group';
+      const heading=document.createElement('div');
+      heading.className='conversation-group-title';
+      heading.textContent=label;
+      group.appendChild(heading);
+
+      for(const item of items){
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='conversation-item';
+        button.classList.toggle('active',item.conversation_id===current);
+        button.dataset.conversationId=item.conversation_id;
+
+        const title=document.createElement('span');
+        title.className='conversation-item-title';
+        title.textContent=item.title||'Conversación';
+
+        const meta=document.createElement('span');
+        meta.className='conversation-item-meta';
+        const count=document.createElement('span');
+        count.textContent=number(item.interaction_count||0)+' turnos';
+        const at=document.createElement('span');
+        at.textContent=conversationDate(item.last_at);
+        meta.append(count,at);
+
+        button.append(title,meta);
+        button.addEventListener('click',()=>loadConversation(item.conversation_id));
+        group.appendChild(button);
+      }
+      conversationList.appendChild(group);
+    }
+  }
+
+  function markActiveConversation(){
+    const current=currentConversationId();
+    for(const button of conversationList.querySelectorAll('[data-conversation-id]')){
+      button.classList.toggle('active',button.dataset.conversationId===current);
+    }
+  }
+
+  function renderNewConversation(clearInput=true){
+    conversationTitle.textContent='Nueva conversación';
+    answerMeta.hidden=true;
+    answer.textContent='';
+    composerStatus.textContent='Listo · el historial visible no se reinjecta automáticamente al modelo.';
+    if(clearInput)questionInput.value='';
+    renderChatEmpty();
+    renderConversationList();
+  }
+
+  function startNewConversation(){
+    createConversationId();
+    renderNewConversation(true);
+    chatWorkspace.classList.remove('sidebar-open');
+    conversationSidebarToggle.setAttribute('aria-expanded','false');
+    questionInput.focus();
+  }
+
+  async function loadConversations({openCurrent=true}={}){
+    conversationState.loading=true;
+    if(conversationList.childElementCount===0){
+      const loading=document.createElement('div');
+      loading.className='conversation-empty';
+      loading.textContent='Cargando archivo…';
+      conversationList.appendChild(loading);
+    }
+    try{
+      const data=await api('/mcma/v1/conversations',{method:'GET',headers:{}});
+      const archive=data.archive||{};
+      conversationState.items=Array.isArray(archive.conversations)?archive.conversations:[];
+      conversationState.items.sort((a,b)=>(Date.parse(b.last_at)||0)-(Date.parse(a.last_at)||0));
+      renderConversationProjects();
+      renderConversationList();
+
+      if(openCurrent){
+        const current=currentConversationId();
+        const exists=conversationState.items.some(item=>item.conversation_id===current);
+        if(exists)await loadConversation(current,{refreshList:false});
+        else renderNewConversation(false);
+      }
+    }catch(error){
+      conversationList.replaceChildren();
+      const failed=document.createElement('div');
+      failed.className='conversation-empty';
+      failed.textContent='No se pudo abrir el archivo: '+error.message;
+      conversationList.appendChild(failed);
+      composerStatus.textContent='No se pudo leer el historial. Enviar sigue disponible si la sesión está activa.';
+    }finally{
+      conversationState.loading=false;
+    }
+  }
+
+  async function loadConversation(conversationId,{refreshList=true}={}){
+    if(!/^conv_[0-9a-f]{32}$/.test(conversationId))return;
+    composerStatus.textContent='Abriendo conversación cifrada… · 0 tokens IA';
+    try{
+      const data=await api('/mcma/v1/conversations/'+encodeURIComponent(conversationId),{method:'GET',headers:{}});
+      const archive=data.archive||{};
+      const summary=archive.conversation||{};
+      const interactions=Array.isArray(archive.interactions)?archive.interactions:[];
+      setConversationId(conversationId);
+      conversationTitle.textContent=summary.title||'Conversación';
+      clearChatMessages();
+
+      for(const interaction of interactions){
+        appendChatMessage('user',interaction.question||'');
+        appendChatMessage('assistant',interaction.answer?.value,interactionMeta(interaction));
+      }
+      if(interactions.length===0)renderChatEmpty();
+
+      conversationReadCost.textContent='0 tokens IA · 0 créditos';
+      composerStatus.textContent='Historial abierto · 0 tokens IA · no se reinjecta automáticamente al modelo.';
+      if(refreshList)renderConversationList();
+      else markActiveConversation();
+      chatWorkspace.classList.remove('sidebar-open');
+      conversationSidebarToggle.setAttribute('aria-expanded','false');
+      questionInput.focus();
+    }catch(error){
+      composerStatus.textContent='No se pudo abrir la conversación: '+error.message;
+    }
   }
 
   function routeLabel(route){
@@ -858,13 +1156,13 @@
       const data=await api('/mcma/v1/me',{method:'GET',headers:{}});
       setSessionState('active','Sesión activa');
       showIdentity(data.identity||{});
-      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;mainTabs.hidden=false;
+      login.hidden=true;logout.hidden=false;registerBox.hidden=true;account.hidden=false;mainTabs.hidden=false;accountDrawer.hidden=false;
       $('library').textContent=data.user.library_id;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
       activateTab('ask');
-      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin()]);
+      await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadConversations()]);
     }catch(error){
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;accountDrawer.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
       const signedOut=new URLSearchParams(location.search).get('signed_out')==='1';
       if(error.status===401){
         setSessionState('inactive',signedOut?'Sesión cerrada':'Sin sesión');
@@ -881,29 +1179,63 @@
   }
 
   form.addEventListener('submit',async event=>{
-    event.preventDefault();send.disabled=true;answer.textContent='Procesando…';answerMeta.hidden=true;
+    event.preventDefault();
+    const question=questionInput.value.trim();
+    if(question==='')return;
+
+    const conversationId=currentConversationId();
+    if(chatMessages.querySelector('.chat-empty-state'))clearChatMessages();
+    appendChatMessage('user',question);
+    const pending=appendChatMessage('assistant','MCMA está pensando…');
+    pending.article.classList.add('pending');
+
+    send.disabled=true;
+    answer.textContent='Procesando…';
+    answerMeta.hidden=true;
+    composerStatus.textContent='MCMA está respondiendo…';
+    questionInput.value='';
+    questionInput.style.height='';
+
     try{
       const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
-        question:$('question').value,current:$('current').checked,remember:$('remember').checked,
-        conversation_id:currentConversationId()
+        question,current:$('current').checked,remember:$('remember').checked,
+        conversation_id:conversationId
       })});
       const result=data.result||{};
-      answer.textContent=result.answer?.value ?? JSON.stringify(result,null,2);
+      const answerValue=result.answer?.value ?? JSON.stringify(result,null,2);
+      pending.article.classList.remove('pending');
+      pending.content.textContent=displayChatValue(answerValue);
+      setChatMessageMeta(pending,resultMessageMeta(result));
+      answer.textContent=displayChatValue(answerValue);
       renderAnswerMeta(result);
       await loadBilling();
+
       if(result.interaction_archive?.recorded===true){
         const cid=result.interaction_archive.conversation_id;
-        if(/^conv_[0-9a-f]{32}$/.test(cid)){
-          try{sessionStorage.setItem('mcma_conversation_id',cid);}catch(error){}
-          currentConversationId();
-        }
+        if(/^conv_[0-9a-f]{32}$/.test(cid))setConversationId(cid);
         memoryState.tree=null;
+        conversationTitle.textContent=shortConversationTitle(question);
+        composerStatus.textContent='Respuesta archivada en la conversación actual.';
+        await loadConversations({openCurrent:false});
+      }else{
+        composerStatus.textContent='Respuesta recibida, pero el archivo persistente no confirmó esta interacción.';
       }
+
       if(result.stored===true)memoryState.items=[];
       if(!memoryExplorer.hidden&&memoryState.mode==='tree')await loadMemoryTree();
       else if(!memoryExplorer.hidden&&memoryState.mode==='list'&&result.stored===true)await loadMemories(1);
-    }catch(error){answer.textContent=error.message;answerMeta.hidden=true;}
-    finally{send.disabled=false;}
+    }catch(error){
+      pending.article.classList.remove('pending');
+      pending.article.classList.add('error');
+      pending.content.textContent=error.message;
+      answer.textContent=error.message;
+      answerMeta.hidden=true;
+      composerStatus.textContent='Error al responder: '+error.message;
+    }finally{
+      send.disabled=false;
+      questionInput.focus();
+      chatMessages.scrollTop=chatMessages.scrollHeight;
+    }
   });
 
   register.addEventListener('click',async()=>{
@@ -951,9 +1283,25 @@
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   interactionApprove.addEventListener('click',()=>validateInteraction('approve'));
   interactionDiscard.addEventListener('click',()=>validateInteraction('discard'));
-  newConversation.addEventListener('click',()=>{
-    createConversationId();
-    $('question').focus();
+  newConversation.addEventListener('click',startNewConversation);
+  conversationSearch.addEventListener('input',()=>{
+    conversationState.filter=conversationSearch.value;
+    renderConversationList();
+  });
+  conversationSidebarToggle.addEventListener('click',()=>{
+    const open=!chatWorkspace.classList.contains('sidebar-open');
+    chatWorkspace.classList.toggle('sidebar-open',open);
+    conversationSidebarToggle.setAttribute('aria-expanded',open?'true':'false');
+  });
+  questionInput.addEventListener('input',()=>{
+    questionInput.style.height='auto';
+    questionInput.style.height=Math.min(questionInput.scrollHeight,180)+'px';
+  });
+  questionInput.addEventListener('keydown',event=>{
+    if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){
+      event.preventDefault();
+      if(!send.disabled)form.requestSubmit();
+    }
   });
 
   memorySearchForm.addEventListener('submit',event=>{
@@ -982,7 +1330,7 @@
     setSessionState('pending','Cerrando sesión…');
     try{
       await fetch('logout',{method:'POST',credentials:'same-origin'});
-      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
+      account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;accountDrawer.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
       setSessionState('inactive','Sesión cerrada');
       login.hidden=false;logout.hidden=true;
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=true);
@@ -993,6 +1341,7 @@
     }
   });
 
+  prepareAccountDrawer();
   currentConversationId();
   loadMe();
 })();

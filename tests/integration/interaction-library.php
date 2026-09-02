@@ -136,6 +136,20 @@ try{
     interaction_ok(isset($beforeTree['tree']['Conversaciones']['Por fecha']),'Conversation date view missing');
     interaction_ok(isset($beforeTree['tree']['Knowledge']),'Knowledge shelf missing');
 
+    $conversationList=$archive->conversations('owner');
+    interaction_ok(($conversationList['total']??0)===1,'Conversation index should group 53 turns into one conversation');
+    interaction_ok(($conversationList['ai_tokens_used']??-1)===0,'Conversation list used AI tokens');
+    interaction_ok(($conversationList['credit_units_charged']??-1)===0,'Conversation list charged credits');
+    interaction_ok(($conversationList['conversations'][0]['conversation_id']??null)===$conversation,'Conversation list id mismatch');
+    interaction_ok(($conversationList['conversations'][0]['interaction_count']??0)===53,'Conversation turn count mismatch');
+
+    $conversationDetail=$archive->conversation('owner',$conversation);
+    interaction_ok(count($conversationDetail['interactions']??[])===53,'Conversation detail did not return all canonical interactions');
+    interaction_ok(($conversationDetail['ai_tokens_used']??-1)===0,'Conversation detail used AI tokens');
+    interaction_ok(($conversationDetail['credit_units_charged']??-1)===0,'Conversation detail charged credits');
+    $detailRefs=array_map(static fn(array $item): string => (string)($item['logical_ref']??''),$conversationDetail['interactions']);
+    interaction_ok(in_array($ref,$detailRefs,true),'Conversation detail lost canonical interaction ref');
+
     $generator=new InteractionCatalogGenerationProvider();
     $embedding=new InteractionCatalogEmbeddingProvider();
     $approved=$archive->validate(
@@ -169,6 +183,10 @@ try{
     )['logical_ref'];
     $discarded=$archive->validate('owner',$discardRef,'discard');
     interaction_ok(($discarded['validation_state']??null)==='retracted','Discarded interaction was not retracted');
+
+    $afterSecondConversation=$archive->conversations('owner');
+    interaction_ok(($afterSecondConversation['total']??0)===2,'Second conversation was not added to encrypted conversation index');
+    interaction_ok(($afterSecondConversation['ai_tokens_used']??-1)===0,'Updated conversation index browse used AI tokens');
 
     $verify=$lib->verify();
     interaction_ok(($verify['ok']??false)===true,'Library verify failed after interaction archive operations');

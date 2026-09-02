@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260902-3">
+  <link rel="stylesheet" href="app.css?v=20260902-4">
 </head>
 <body>
   <main class="shell">
@@ -55,10 +55,18 @@
     </section>
 
     <nav id="mainTabs" class="main-tabs" role="tablist" aria-label="Secciones de MCMA" hidden>
-      <button id="tabAsk" type="button" role="tab" class="tab-button active" data-tab-target="ask" aria-controls="askPanel" aria-selected="true">Preguntar</button>
+      <button id="tabAsk" type="button" role="tab" class="tab-button active" data-tab-target="ask" aria-controls="askPanel" aria-selected="true">Chat</button>
       <button id="tabMemory" type="button" role="tab" class="tab-button" data-tab-target="memory" aria-controls="memoryExplorer" aria-selected="false">Biblioteca</button>
       <button id="tabContext" type="button" role="tab" class="tab-button" data-tab-target="context" aria-controls="contextPanel" aria-selected="false">Contexto MCMA</button>
     </nav>
+
+    <details id="accountDrawer" class="account-drawer" hidden>
+      <summary>
+        <span>Cuenta, billing y API</span>
+        <small>Plan, créditos, Stripe y claves de acceso</small>
+      </summary>
+      <div id="accountDrawerContent" class="account-drawer-content"></div>
+    </details>
 
     <section id="memoryExplorer" class="card memory-explorer tab-panel" role="tabpanel" aria-labelledby="tabMemory" data-tab-panel="memory" hidden>
       <div class="row between memory-title-row">
@@ -299,32 +307,94 @@
       <div id="keyList"></div>
     </section>
 
-    <section id="askPanel" class="card tab-panel" role="tabpanel" aria-labelledby="tabAsk" data-tab-panel="ask">
-      <form id="askForm">
-        <label for="question">Pregunta</label>
-        <textarea id="question" maxlength="32768" required placeholder="Escribe una pregunta o «Guarda esto: …»"></textarea>
-        <div class="conversation-session-bar">
-          <span>Sesión de conversación: <strong id="conversationLabel">—</strong></span>
-          <button id="newConversation" type="button" class="secondary-button">Nueva conversación</button>
+    <section id="askPanel" class="chat-workspace tab-panel" role="tabpanel" aria-labelledby="tabAsk" data-tab-panel="ask">
+      <aside id="conversationSidebar" class="chat-sidebar" aria-label="Conversaciones MCMA">
+        <div class="chat-sidebar-brand">
+          <span class="chat-brand-mark" aria-hidden="true">M</span>
+          <span>
+            <strong>MCMA OpenMemory</strong>
+            <small>Archivo cifrado · file-first</small>
+          </span>
         </div>
-        <div class="row">
-          <label><input id="current" type="checkbox"> Exigir información actual</label>
-          <label><input id="remember" type="checkbox" checked> Recordar respuesta nueva</label>
-          <button id="send" type="submit">Preguntar</button>
-        </div>
-      </form>
-    </section>
 
-    <section id="answerPanel" class="card answer-card tab-panel" role="tabpanel" aria-labelledby="tabAsk" data-tab-panel="ask">
-      <div id="answerMeta" class="answer-meta" hidden>
-        <span id="answerSource" class="route-badge">—</span>
-        <span id="answerTokens" class="metric-badge">0 tokens</span>
-        <span id="answerCredits" class="metric-badge">0 créditos</span>
-        <span id="answerRemembered" class="metric-badge" hidden>Memoria guardada</span>
+        <div class="chat-sidebar-controls">
+          <button id="newConversation" type="button" class="btn-new-conversation">
+            <span aria-hidden="true">＋</span>
+            Nueva conversación
+          </button>
+          <label class="conversation-search" for="conversationSearch">
+            <span aria-hidden="true">⌕</span>
+            <input id="conversationSearch" type="search" maxlength="160" autocomplete="off" placeholder="Buscar conversaciones…">
+          </label>
+        </div>
+
+        <section id="conversationProjectsWrap" class="chat-sidebar-section" hidden>
+          <div class="chat-sidebar-label">Proyectos</div>
+          <div id="conversationProjects" class="conversation-projects"></div>
+        </section>
+
+        <section class="chat-sidebar-section conversations-section">
+          <div class="chat-sidebar-label-row">
+            <span class="chat-sidebar-label">Conversaciones</span>
+            <span class="zero-ai-mini">0 IA</span>
+          </div>
+          <div id="conversationList" class="conversation-list" aria-live="polite">
+            <div class="conversation-empty">Cargando archivo…</div>
+          </div>
+        </section>
+
+        <div class="chat-sidebar-footer">
+          <strong>Historial persistente</strong>
+          <span>Leer y navegar no consume tokens ni créditos.</span>
+        </div>
+      </aside>
+
+      <div class="chat-main-panel">
+        <header class="chat-conversation-header">
+          <button id="conversationSidebarToggle" class="chat-sidebar-toggle" type="button" aria-label="Mostrar conversaciones" aria-expanded="false">☰</button>
+          <div class="chat-title-group">
+            <span class="chat-eyebrow">Chat · archivo persistente</span>
+            <h2 id="conversationTitle">Nueva conversación</h2>
+            <span class="conversation-id-line">ID <strong id="conversationLabel">—</strong></span>
+          </div>
+          <span id="conversationReadCost" class="zero-ai-badge">0 tokens IA · 0 créditos</span>
+        </header>
+
+        <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions">
+          <div class="chat-empty-state">
+            <span class="chat-empty-mark" aria-hidden="true">M</span>
+            <h3>¿Qué quieres recordar o preguntar?</h3>
+            <p>MCMA puede responder, recuperar memoria y guardar esta conversación cifrada en tu biblioteca.</p>
+          </div>
+        </div>
+
+        <form id="askForm" class="chat-composer">
+          <div class="chat-composer-meta">
+            <span id="composerStatus" aria-live="polite">Listo · el historial visible no se reinjecta automáticamente al modelo.</span>
+            <div id="answerMeta" class="answer-meta chat-usage-meta" hidden>
+              <span id="answerSource" class="route-badge">—</span>
+              <span id="answerTokens" class="metric-badge">0 tokens</span>
+              <span id="answerCredits" class="metric-badge">0 créditos</span>
+              <span id="answerRemembered" class="metric-badge" hidden>Memoria guardada</span>
+            </div>
+          </div>
+
+          <div class="chat-input-shell">
+            <textarea id="question" maxlength="32768" required rows="1" placeholder="Escribe tu mensaje o «Guarda esto: …»" aria-label="Mensaje para MCMA"></textarea>
+          </div>
+
+          <div class="chat-composer-actions">
+            <div class="chat-composer-options">
+              <label class="chat-option"><input id="current" type="checkbox"> Exigir información actual</label>
+              <label class="chat-option"><input id="remember" type="checkbox" checked> Recordar respuesta nueva</label>
+            </div>
+            <button id="send" type="submit" class="chat-send-button">Enviar <span aria-hidden="true">↑</span></button>
+          </div>
+          <pre id="answer" hidden aria-hidden="true"></pre>
+        </form>
       </div>
-      <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js?v=20260902-3" defer></script>
+  <script src="app.js?v=20260902-4" defer></script>
 </body>
 </html>

@@ -189,6 +189,27 @@ final class WebApplication
             ]);
         }
 
+        if($method==='GET'&&$path==='/mcma/v1/conversations'){
+            $principal=$this->sessionPrincipal($request);
+            return HttpResponse::json([
+                'ok'=>true,
+                'archive'=>(new InteractionArchiveService($principal['library']))->conversations('owner'),
+            ]);
+        }
+
+        if($method==='GET'&&preg_match('#^/mcma/v1/conversations/(conv_[0-9a-f]{32})$#',$path,$m)){
+            $principal=$this->sessionPrincipal($request);
+            try{
+                $conversation=(new InteractionArchiveService($principal['library']))->conversation('owner',$m[1]);
+            }catch(RuntimeException $e){
+                if(str_starts_with($e->getMessage(),'Conversation not found:')){
+                    throw new WebException(404,'conversation_not_found','Conversation not found');
+                }
+                throw $e;
+            }
+            return HttpResponse::json(['ok'=>true,'archive'=>$conversation]);
+        }
+
         if($method==='GET'&&$path==='/mcma/v1/library-tree'){
             $principal=$this->sessionPrincipal($request);
             return HttpResponse::json([
