@@ -175,7 +175,9 @@ The response UI also reports the route that actually answered the request:
 - **Memoria exacta** — direct reusable memory, normally zero provider tokens;
 - **Memoria semántica** — semantic retrieval; embedding tokens may be charged;
 - **IA + memoria MCMA** — generation used guarded validated memory context;
-- **IA / Nova Micro** — generation provider answered without injected memory context.
+- **IA + conversación** — generation used a bounded set of selected episodic conversation turns;
+- **IA + memoria + conversación** — both guarded Knowledge context and bounded conversation continuity were supplied;
+- **IA / Nova Micro** — generation provider answered without injected memory/conversation context.
 
 When billing is enabled, the UI displays the per-request token and credit totals returned by the billing context.
 
@@ -308,7 +310,20 @@ credit_units_charged = 0
 
 Neither route accepts a library id, actor or storage location, and neither returns the private system-index reference. A different user's session resolves a different MCMA Library and therefore cannot list or open another user's conversation archive.
 
-Opening a historical conversation is a **UI/navigation operation only**. MCMA does not silently concatenate the archived history into `AskService` prompts. A new question sent while that conversation is open reuses its `conversation_id` for durable grouping, while model context continues to follow the existing exact/semantic/current-information rules. Future conversational-history injection must be explicit, permission-aware, relevance-selected and token-budgeted.
+Opening a historical conversation remains a zero-AI **UI/navigation operation**. A new question sent while that conversation is open reuses its `conversation_id` for durable grouping. If exact/semantic memory cannot answer and generation is required, MCMA can now build bounded conversational context rather than concatenating the archive.
+
+The default selection pipeline considers at most 12 recent indexed candidates, re-reads each candidate as actor `ai`, rejects permission-denied/retracted/disputed turns, keeps 2 recent continuity anchors, admits older turns when deterministic lexical relevance is at least `0.08`, ranks by relevance + recency, and selects at most 6 turns within a conservative 6000-unit context budget. These defaults are server-owned and configurable; the browser cannot override them per request.
+
+~~~text
+MCMA_WEB_CONVERSATION_CONTEXT_ENABLED=true
+MCMA_WEB_CONVERSATION_CONTEXT_TOKEN_BUDGET=6000
+MCMA_WEB_CONVERSATION_CONTEXT_MAX_TURNS=6
+MCMA_WEB_CONVERSATION_CONTEXT_CANDIDATES=12
+MCMA_WEB_CONVERSATION_CONTEXT_MIN_RELEVANCE=0.08
+MCMA_WEB_CONVERSATION_CONTEXT_RECENT_ANCHORS=2
+~~~
+
+The selection itself is deterministic and does not call an embedding/generation provider. Selected episodic turns are sent as untrusted reference data with validation/confidence metadata. They are continuity context, not automatically approved Knowledge.
 
 
 The default **Tree** view uses:
@@ -405,7 +420,7 @@ After every `/mcma/v1/ask` request, MCMA writes a compact encrypted trace to:
 memory://system/context-traces
 ~~~
 
-The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary and the exact validated memory context supplied to generation when one was injected. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
+The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary, the exact validated memory context supplied to generation and the exact bounded conversation turns selected when either was injected. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
 
 Only the latest 50 **context traces** are retained in this first implementation. They are an operational transparency window, not the durable conversation archive. Complete Ask/response interactions are stored separately under `memory://interactions/...` without the 50-entry cap. The context-trace object is protected as owner-only system memory. Existing libraries are hardened on first use; new default permission policies include the restriction directly.
 
@@ -465,7 +480,7 @@ The provider receives the memory as clearly delimited reference data plus valida
 
 Billing remains fail-safe: the lazy reservation includes a conservative generation-context allowance, and fallback metering includes the serialized context when a provider cannot report exact usage.
 
-This is the first Context Builder, not the final multi-record RAG layer. Future work remains for token-budgeted multi-memory assembly, provenance ordering and recent-turn/session context.
+The guarded validated-memory Context Builder is now complemented by the bounded conversational Context Builder. The remaining future work is the broader **multi-memory RAG** layer: assembling multiple durable Knowledge/user-memory objects with provenance/freshness ordering under one shared token budget. Recent-turn/session continuity itself is no longer a future item.
 
 Provider selection is server-side:
 
