@@ -225,7 +225,7 @@ The user prefix is based on the HMAC-derived ID.
 
 Tests explicitly verify that issuer and subject strings do not appear in stored MCMA bytes.
 
-## Live deployment verification — 2026-09-01
+## Live deployment verification — 2026-09-02
 
 The multi-user web path has been verified in production on EC2 at `https://mailit.click/mcma/`.
 
@@ -250,6 +250,8 @@ S3-backed encrypted MCMA library
 The OpenMemory web runtime uses its own PHP-FPM service/socket and a dedicated KeyStore configuration. Historical V1/V2 compatibility endpoints remain on their separate legacy runtime and can continue using their historical configuration without introducing a shared master key into OpenMemory multi-user mode.
 
 A live registered user was resolved successfully to an isolated library, and its billing/account state was read and updated without SQL.
+
+Persistent Chat follows the same boundary. Conversation list/detail routes do not accept a browser-selected user id, library id, actor or storage path. Integration coverage verifies that a second authenticated user sees an empty independent conversation list and receives 404 when attempting to open another user's conversation id. Production also verifies that the conversation endpoint returns HTTP 401 without an authenticated session.
 
 ## Current lifecycle
 

@@ -112,3 +112,18 @@ sudo ./install.sh --skip-packages
 The installer preserves `/etc/mcma/mcma.env`.
 
 If a real EC2 test exposes a bug, fix it in the Git checkout, run the relevant tests, commit, and push over the existing GitHub SSH remote. Never commit `/etc/mcma/mcma.env`, KeyStore files, AWS credentials or Stripe secrets.
+
+## Current public deployment note — 2026-09-02
+
+The public development/production instance at `https://mailit.click/mcma/` predates the installer's recommended `/opt/MCMA-OpenMemory` checkout and currently uses:
+
+~~~text
+checkout: /var/www/memory
+service:  php-fpm-mcma
+public base path: /mcma/
+~~~
+
+This is a valid existing deployment layout. The installer continues to use `/opt/MCMA-OpenMemory` for fresh installs; documentation and scripts should not assume the live historical checkout must be relocated merely to match that default.
+
+The persistent Chat release was updated there with `git pull --ff-only`, focused integration tests, a dedicated PHP-FPM restart and public health/asset/authentication checks.
+

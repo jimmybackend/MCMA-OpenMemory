@@ -1,8 +1,28 @@
 # MCMA — Current State
 
-Date: 2026-08-29
+Date: 2026-09-02
 
-Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + AI metering/credits/SuperAdmin + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + persistent zero-AI Chat history + AI metering/credits/SuperAdmin + Stripe + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+
+## Production deployment — 2026-09-02
+
+The live deployment at `https://mailit.click/mcma/` is running the persistent Chat code verified from commit `263de1074554d7b4156999cb05e6a2f037f4ce74`.
+
+Verified directly on the EC2 production checkout:
+
+- exact deployed code SHA matched `263de1074554d7b4156999cb05e6a2f037f4ce74`;
+- PHP lint passed for `InteractionArchiveService.php`, `WebApplication.php` and the web front controller;
+- `tests/integration/interaction-library.php` passed;
+- `tests/integration/web-application.php` passed;
+- `tests/integration/web-static-base-path.php` passed;
+- dedicated `php-fpm-mcma` service restarted and reported `Ready to handle connections`;
+- public health returned `ok=true`, `multi_user=true`, `billing_enabled=true`, `stripe_enabled=true`;
+- the current live instance reports `api_keys_enabled=false`;
+- public HTML served the new Chat/sidebar markup plus `app.css?v=20260902-4` and `app.js?v=20260902-4`;
+- CloudFront fetched the new JavaScript and the origin response uses `no-cache, no-store, must-revalidate`;
+- unauthenticated `GET /mcma/v1/conversations` returned HTTP 401 with `authentication_required`.
+
+GitHub CI was also green for the feature PR and again after its squash merge to `main`.
 
 ## Semantic retrieval
 
@@ -115,7 +135,7 @@ Local mode does not require Bedrock credentials. Memory storage remains independ
 
 CI tests use simulated providers and make no real Bedrock network calls.
 
-The next operational milestones are real EC2 smoke tests with Bedrock, Ollama and llama.cpp. All use the same MCMA memory architecture and any implemented StorageAdapter.
+The real EC2 S3 + Titan + Nova Micro + billing path is verified. Remaining provider-specific operational smoke tests are Ollama and llama.cpp; both continue to use the same MCMA memory architecture and any implemented StorageAdapter.
 
 
 ## PHP object-oriented architecture
@@ -186,7 +206,7 @@ The primary **Chat** view now includes a conversation sidebar, search, temporal 
 
 The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
 
-The remaining web milestone is a real EC2 HTTPS + live OIDC smoke test.
+The live EC2 HTTPS + Google OIDC flow is verified. The 2026-09-02 deployment additionally verifies the persistent Chat assets, conversation-index API protection and focused integration coverage. Manual browser UX verification of creating/reopening multiple conversations remains an operational check, not a missing backend implementation.
 
 
 ## Metering and billing

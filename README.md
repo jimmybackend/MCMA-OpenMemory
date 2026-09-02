@@ -15,12 +15,12 @@ A public MCMA-OpenMemory deployment is available at:
 
 **https://mailit.click/mcma/**
 
-Sign in with Google to create or open an isolated encrypted user library and test the web system. The current public Free plan includes the configured AI allowance, while browsing/decrypting already stored memory through **Mi memoria** does not call an AI model.
+Sign in with Google to create or open an isolated encrypted user library and test the web system. The current public Free plan includes the configured AI allowance, while browsing/decrypting already stored memory through **Biblioteca** or reopening archived conversations in **Chat** does not call an AI model.
 
 MCMA-OpenMemory is free/open-source software released under the **MIT License**. The live deployment is a running instance of the same open repository; storage/provider credentials and server secrets are not part of the repository.
 
 
-## Production status — 2026-09-01
+## Production status — 2026-09-02
 
 A live MCMA-OpenMemory web deployment is operational at `https://mailit.click/mcma/`.
 
@@ -39,6 +39,8 @@ Verified end to end on EC2:
 A live billing request was measured successfully: 117 provider tokens, 117 credits charged and 13 USD micros recorded, with the account balance moving from 100,000 to 99,883.
 
 The production web runtime is isolated from the historical V1/V2 compatibility endpoints by a dedicated PHP-FPM service/socket.
+
+The persistent **Chat** workspace was deployed and verified on 2026-09-02 from code commit `263de1074554d7b4156999cb05e6a2f037f4ce74`. The deployment serves the MiChat-inspired MCMA layout, encrypted conversation index, conversation search/grouping and the authenticated zero-AI history routes. Focused interaction/web/static integration tests passed on EC2, `php-fpm-mcma` restarted healthy, public assets were served with the `20260902-4` cache-bust, and unauthenticated access to `/mcma/v1/conversations` correctly returned HTTP 401.
 
 
 ## Core model

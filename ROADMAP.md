@@ -149,6 +149,12 @@
 - [x] server-only AI/storage/provider selection
 - [x] origin checking for POST requests
 - [x] browser chat UI
+- [x] MiChat-inspired MCMA Chat workspace without importing MiChat database/backend
+- [x] encrypted derived per-user conversation index backed by canonical interaction references
+- [x] zero-AI conversation list/detail routes
+- [x] conversation search, temporal grouping, optional project filters and stable composer
+- [x] reload-safe current conversation selection through sessionStorage
+- [x] archived conversation reopening without automatic full-history prompt injection
 - [x] session status/profile chip, favicon and answer route/token badges
 - [x] zero-AI memory explorer with decrypted question/answer browsing
 - [x] persistent encrypted question/answer interaction archive beyond the 50 context traces
@@ -162,7 +168,7 @@
 - [x] tree/list toggle preserving existing knowledge search workflow
 - [x] memory text search, temperature/validation filters and pagination
 - [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
-- [x] Preguntar / Mi memoria / Contexto MCMA primary tab navigation
+- [x] Chat / Biblioteca / Contexto MCMA primary tab navigation
 - [x] delegated click + keyboard tab activation with ARIA tab semantics
 - [x] mutable UI cache revalidation guidance for Nginx/CloudFront
 - [x] encrypted per-user context traces for the latest 50 questions
@@ -170,6 +176,7 @@
 - [x] owner-only context trace policy and zero-AI context inspection
 - [x] no database dependency
 - [x] real EC2 HTTPS + live Google OIDC smoke test (verified 2026-09-01)
+- [x] real EC2 persistent Chat + conversation-index deployment smoke test (verified 2026-09-02)
 
 ## Metering + Billing + Commercial API — first implementation complete
 - [x] encrypted daily usage ledger per user
@@ -228,6 +235,7 @@
 ## Next
 - [x] guarded single-memory Context Builder for supported/verified revalidation candidates
 - [x] persistent encrypted recent-turn/session archive without storing an unbounded plaintext transcript
+- [x] private encrypted derived conversation index with incremental maintenance and stale/missing rebuild
 - [ ] token-budgeted selection of recent interaction turns for generation context
 - [ ] token-budgeted RAG context assembly with provenance and freshness metadata
 - [x] explicit owner validation/promotion/retraction workflow in web memory explorer

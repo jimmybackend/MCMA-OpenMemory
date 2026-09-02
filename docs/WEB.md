@@ -288,7 +288,7 @@ The browser keeps a conversation id in tab-scoped session storage. Reloading the
 
 ### Chat workspace and conversation index
 
-The primary web tab is **Chat**. Its layout uses a left conversation sidebar, **Nueva conversación**, local search, temporal groups (Hoy, Ayer, Últimos 7 días, Anteriores), optional project chips, a central message stream and a stable bottom composer. The visual proportions reuse presentational ideas from MiChat, but MCMA does not import MiChat SQL, authentication, agents, chat.php, task.php or persistence.
+The primary web tab is **Chat**. Its layout uses a left conversation sidebar, **Nueva conversación**, local search, temporal groups (Hoy, Ayer, Últimos 7 días, Anteriores), optional project chips, a central message stream and a stable bottom composer. Account/billing controls remain available outside the primary message stream so the Chat view stays focused without removing plan, Stripe or API-key functionality. The visual proportions reuse presentational ideas from MiChat, but MCMA does not import MiChat SQL, authentication, agents, chat.php, task.php or persistence.
 
 The sidebar is backed by a **private encrypted derived conversation index**. The index contains conversation metadata and canonical `memory://interactions/...` references, not duplicate question/answer objects. Each newly archived turn updates this index incrementally. If the index is absent or its canonical-reference fingerprint/count no longer matches the actor-visible interaction archive, MCMA rebuilds it from the canonical encrypted interactions.
 
@@ -393,7 +393,7 @@ The explorer is web-session-only: an authenticated session resolves exactly one 
 
 ## Context transparency tab
 
-The authenticated web UI has three main tabs: `Preguntar`, `Mi memoria` and `Contexto MCMA`.
+The authenticated web UI has three main tabs: `Chat`, `Biblioteca` and `Contexto MCMA`.
 
 Tab navigation uses one delegated click listener on the tablist plus ArrowLeft/ArrowRight/Home/End keyboard navigation. Each tab exposes ARIA tab/tabpanel relationships. This avoids per-button listener drift and makes the navigation resilient when panels are expanded later.
 
@@ -557,7 +557,7 @@ CI contains:
 - cross-origin POST rejection;
 - assertion that raw provider subjects do not appear in stored MCMA bytes.
 
-Live production verification completed on 2026-09-01:
+Live production verification completed across 2026-09-01 and the persistent-Chat deployment on 2026-09-02:
 
 - `https://mailit.click/mcma/` serves the web application over HTTPS;
 - Google OIDC login and callback complete successfully;
@@ -565,7 +565,12 @@ Live production verification completed on 2026-09-01:
 - the browser maintains an encrypted HttpOnly MCMA session cookie;
 - `GET /mcma/v1/health` returns HTTP 200 with `multi_user=true` and `billing_enabled=true`;
 - the application uses a dedicated PHP-FPM service/socket, separate from historical V1/V2 compatibility routes;
-- S3 storage, Titan embeddings and Nova Micro generation work end to end.
+- S3 storage, Titan embeddings and Nova Micro generation work end to end;
+- code commit `263de1074554d7b4156999cb05e6a2f037f4ce74` was deployed for the persistent Chat workspace;
+- focused interaction-library, web-application and static-base-path tests passed directly on EC2;
+- the public page served `conversationSidebar`, `conversationSearch`, `chatMessages`, the **Chat** tab and cache-busted `20260902-4` assets;
+- unauthenticated `GET /mcma/v1/conversations` returned HTTP 401, confirming the history API remains session-protected;
+- the live health response reported `stripe_enabled=true` and `api_keys_enabled=false` for the current production configuration.
 
 
 ## Billing and external API
