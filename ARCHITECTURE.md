@@ -146,3 +146,35 @@ The index cannot authorize context use: every canonical turn is re-read through 
 
 The system conversation index is private derived state and is not exposed through the normal library browser or returned as a logical reference to clients. Its current derived format keeps at most 32 recent `{ref, at}` candidate pointers per conversation in addition to the canonical interaction-reference list.
 
+## Multi-memory RAG assembly
+
+Multi-memory RAG is a generation-context layer above the existing semantic index; it does not create a second knowledge store.
+
+~~~text
+SemanticIndexService::topK
+        ↓
+actor-visible ranked metadata
+        ↓
+strict direct semantic gate
+        ↓ miss
+MultiMemoryContextBuilder
+        ↓
+readAs(ai, logical_ref)
+        ↓
+validation + confidence
+        ↓
+similarity + confidence + freshness + provenance + validation score
+        ↓
+memory-count + context-budget packing
+        ↓
+multi_memory_context
+        ↓
+Bedrock / Ollama / llama.cpp
+~~~
+
+The semantic query vector is generated once and reused by both direct selection and RAG assembly. The RAG pool may use a wider discovery similarity floor, but `answerFromTopK()` preserves the original direct similarity/rerank gates.
+
+The derived semantic index is candidate-discovery infrastructure only. Every selected memory is re-read canonically with the requesting actor before its answer or provenance can reach the model.
+
+Multi-memory context and bounded conversation context are independent inputs and may coexist in one generation request. Billing reserves for both configured budgets when embedding is the first paid provider call, and final generation metering includes the actual serialized contexts.
+
