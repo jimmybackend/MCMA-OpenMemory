@@ -422,6 +422,50 @@ th{color:var(--muted);font-weight:600}
   white-space:nowrap;
 }
 
+.conversation-session-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 12px;
+  padding:9px 10px;
+  border:1px solid #303a48;
+  border-radius:9px;
+  background:#11151c;
+  color:var(--muted);
+  font-size:.78rem;
+}
+.conversation-session-bar strong{
+  color:#9cc8ff;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-weight:700;
+}
+.conversation-session-bar button{
+  padding:6px 9px;
+  font-size:.75rem;
+  white-space:nowrap;
+}
+.library-catalog{
+  margin:14px 0;
+  padding:11px;
+  border:1px solid #2d3745;
+  border-radius:10px;
+  background:#10151c;
+}
+.library-catalog .answer-meta{
+  margin:0;
+  padding:0;
+  border:0;
+}
+#interactionActions{
+  margin:14px 0 4px;
+  padding-top:12px;
+  border-top:1px solid var(--border);
+}
+#interactionValidationStatus{
+  flex:1 1 220px;
+  margin:0;
+}
 .memory-view-switch{
   display:inline-flex;
   gap:6px;
@@ -770,6 +814,7 @@ th{color:var(--muted);font-weight:600}
 }
 
 @media(max-width:560px){
+  .conversation-session-bar{align-items:flex-start;flex-direction:column}
   .memory-controls{grid-template-columns:1fr}
   .memory-controls input{grid-column:auto}
   .memory-metadata{grid-template-columns:1fr 1fr}
