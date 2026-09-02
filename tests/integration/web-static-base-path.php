@@ -16,7 +16,7 @@ check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-pa
 check(str_contains($index,'href="app.css?v=20260901-5"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260901-5"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260902-1"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
