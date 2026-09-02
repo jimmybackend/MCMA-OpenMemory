@@ -8,6 +8,7 @@ use MCMA\Core\Ask\AskService;
 use MCMA\Core\Billing\AdminService;
 use MCMA\Core\Billing\ApiKeyService;
 use MCMA\Core\Billing\BillableAskService;
+use MCMA\Core\Billing\BillableExplicitMemoryService;
 use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\StripeCheckoutService;
@@ -15,6 +16,7 @@ use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Context\ContextTraceService;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
+use MCMA\Core\Memory\ExplicitMemoryService;
 use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Semantic\SemanticIndexService;
 use RuntimeException;
@@ -287,11 +289,28 @@ final class WebApplication
             ]);
         }
 
+        if($method==='POST'&&$path==='/mcma/v1/memory') return $this->explicitMemory($request);
         if($method==='POST'&&$path==='/mcma/v1/ask') return $this->ask($request);
 
         if(str_starts_with($path,'/mcma/v1/admin/')) return $this->adminRoute($request,$method,$path);
 
         throw new WebException(404,'not_found','Route not found');
+    }
+
+    private function explicitMemory(HttpRequest $request): HttpResponse
+    {
+        $this->assertOrigin($request);
+        $principal=$this->requestPrincipal($request);
+        $input=$request->json(65536);
+        $text=trim((string)($input['text']??$input['content']??''));
+        if($text===''||strlen($text)>32768){
+            throw new WebException(400,'invalid_memory_text','text is required and must be <= 32768 bytes');
+        }
+
+        $requestId='req_'.bin2hex(random_bytes(16));
+        $result=$this->captureExplicitMemory($principal,$text,$requestId);
+        $result=$this->recordContextTrace($principal,$requestId,$text,false,true,$result);
+        return HttpResponse::json(['ok'=>true,'result'=>$result]);
     }
 
     private function ask(HttpRequest $request): HttpResponse
@@ -303,6 +322,13 @@ final class WebApplication
         if($question===''||strlen($question)>32768) throw new WebException(400,'invalid_question','question is required and must be <= 32768 bytes');
         $current=$this->boolField($input,'current',false);
         $remember=$this->boolField($input,'remember',true);
+        $requestId='req_'.bin2hex(random_bytes(16));
+
+        if(ExplicitMemoryService::isExplicitSaveRequest($question)){
+            $result=$this->captureExplicitMemory($principal,$question,$requestId);
+            $result=$this->recordContextTrace($principal,$requestId,$question,false,true,$result);
+            return HttpResponse::json(['ok'=>true,'result'=>$result]);
+        }
 
         $embedding=$this->providers->embedding($this->providerOptions,true);
         $generator=$this->providers->generation($this->providerOptions);
@@ -315,8 +341,6 @@ final class WebApplication
             'reuse_policy'=>(string)($this->providerOptions['capture-reuse']??'reuse-unless-stale'),
             'provenance'=>[],
         ];
-
-        $requestId='req_'.bin2hex(random_bytes(16));
 
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
@@ -352,6 +376,39 @@ final class WebApplication
             );
         }
 
+        $result=$this->recordContextTrace($principal,$requestId,$question,$current,$remember,$result);
+        return HttpResponse::json(['ok'=>true,'result'=>$result]);
+    }
+
+    private function captureExplicitMemory(array $principal,string $text,string $requestId): array
+    {
+        $embedding=$this->providers->embedding($this->providerOptions,true);
+        $generator=$this->providers->generation($this->providerOptions);
+
+        if($this->billingEnabled){
+            if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
+            $this->billing->ensureAccount($principal['library']);
+            return (new BillableExplicitMemoryService(
+                $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens
+            ))->capture(
+                $requestId,
+                $principal['kind'],
+                $text,
+                array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null)
+            );
+        }
+
+        return (new ExplicitMemoryService($principal['library'],$generator,$embedding))->capture('owner',$text);
+    }
+
+    private function recordContextTrace(
+        array $principal,
+        string $requestId,
+        string $question,
+        bool $current,
+        bool $remember,
+        array $result
+    ): array {
         try{
             $trace=(new ContextTraceService($principal['library']))->record(
                 $requestId,$question,$current,$remember,$result
@@ -365,8 +422,7 @@ final class WebApplication
             error_log('MCMA context trace error: '.$e->getMessage());
             $result['context_trace']=['recorded'=>false];
         }
-
-        return HttpResponse::json(['ok'=>true,'result'=>$result]);
+        return $result;
     }
 
     private function adminRoute(HttpRequest $request,string $method,string $path): HttpResponse
