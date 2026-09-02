@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260901-5">
+  <link rel="stylesheet" href="app.css?v=20260902-2">
 </head>
 <body>
   <main class="shell">
@@ -64,78 +64,140 @@
       <div class="row between memory-title-row">
         <div>
           <h2>Mi memoria</h2>
-          <p>Navega y descifra tus recuerdos sin usar IA.</p>
+          <p>Navega por tus carpetas lógicas y abre recuerdos descifrados sin usar IA.</p>
         </div>
         <span id="memoryCount" class="zero-ai-badge">0 recuerdos · 0 tokens IA</span>
       </div>
 
-      <form id="memorySearchForm" class="memory-controls">
-        <input id="memoryQuery" type="search" maxlength="256" placeholder="Buscar texto en preguntas y respuestas…">
-        <select id="memoryTemperature" aria-label="Filtrar por temperatura">
-          <option value="all">Todas las temperaturas</option>
-          <option value="hot">Hot</option>
-          <option value="warm">Warm</option>
-          <option value="cold">Cold</option>
-          <option value="frozen">Frozen</option>
-        </select>
-        <select id="memoryValidation" aria-label="Filtrar por validación">
-          <option value="all">Todos los estados</option>
-          <option value="unverified">Unverified</option>
-          <option value="plausible">Plausible</option>
-          <option value="supported">Supported</option>
-          <option value="verified">Verified</option>
-          <option value="disputed">Disputed</option>
-          <option value="retracted">Retracted</option>
-        </select>
-        <button type="submit">Buscar</button>
-        <button id="memoryReset" type="button" class="secondary-button">Limpiar</button>
-      </form>
+      <div class="memory-view-switch" role="group" aria-label="Vista de memoria">
+        <button id="memoryTreeView" type="button" class="memory-view-button active" aria-pressed="true">🌳 Árbol</button>
+        <button id="memoryListView" type="button" class="memory-view-button" aria-pressed="false">☰ Lista</button>
+      </div>
 
-      <div class="memory-layout">
-        <aside class="memory-list-panel">
-          <div id="memoryList" class="memory-list">
-            <p class="memory-empty">Cargando memoria…</p>
-          </div>
-          <div class="memory-pagination">
-            <button id="memoryPagePrev" type="button" class="secondary-button">← Página</button>
-            <span id="memoryPageLabel">1 / 1</span>
-            <button id="memoryPageNext" type="button" class="secondary-button">Página →</button>
-          </div>
-        </aside>
+      <div id="memoryTreeViewPanel">
+        <div class="memory-layout memory-tree-layout">
+          <aside class="memory-list-panel memory-tree-panel">
+            <div class="memory-tree-heading">
+              <strong>memory://user</strong>
+              <span>Carpetas temáticas</span>
+            </div>
+            <div id="memoryTree" class="memory-tree" role="tree" aria-label="Árbol de memoria personal">
+              <p class="memory-empty">Cargando árbol…</p>
+            </div>
+          </aside>
 
-        <article id="memoryDetail" class="memory-detail">
-          <div id="memoryDetailEmpty" class="memory-detail-empty">
-            Selecciona una pregunta para ver su respuesta descifrada.
-          </div>
-
-          <div id="memoryDetailContent" hidden>
-            <div class="memory-detail-top">
-              <div id="memoryDetailBadges" class="answer-meta"></div>
-              <span class="zero-ai-badge">0 tokens IA</span>
+          <article id="memoryTreeDetail" class="memory-detail">
+            <div id="memoryTreeDetailEmpty" class="memory-detail-empty">
+              Selecciona un recuerdo del árbol para descifrarlo.
             </div>
 
-            <h3 id="memoryDetailQuestion"></h3>
-            <div class="memory-answer-label">Respuesta descifrada</div>
-            <pre id="memoryDetailAnswer" class="memory-answer"></pre>
+            <div id="memoryTreeDetailContent" hidden>
+              <div class="memory-detail-top">
+                <div id="memoryTreeDetailBadges" class="answer-meta"></div>
+                <span class="zero-ai-badge">0 tokens IA</span>
+              </div>
 
-            <dl class="memory-metadata">
-              <div><dt>Estado</dt><dd id="memoryDetailValidation">—</dd></div>
-              <div><dt>Confianza</dt><dd id="memoryDetailConfidence">—</dd></div>
-              <div><dt>Temperatura</dt><dd id="memoryDetailTemperature">—</dd></div>
-              <div><dt>Frescura</dt><dd id="memoryDetailFreshness">—</dd></div>
-              <div><dt>Guardada</dt><dd id="memoryDetailCaptured">—</dd></div>
-              <div><dt>Reutilizable</dt><dd id="memoryDetailReusable">—</dd></div>
-            </dl>
+              <h3 id="memoryTreeDetailTitle">—</h3>
+              <div class="memory-path" id="memoryTreeDetailPath">—</div>
 
-            <div class="memory-detail-actions">
-              <button id="memoryItemPrev" type="button" class="secondary-button">← Anterior</button>
-              <button id="memoryConfirm" type="button" class="confirm-button">✓ Confirmar</button>
-              <button id="memoryDiscard" type="button" class="danger-button">Descartar</button>
-              <button id="memoryItemNext" type="button" class="secondary-button">Siguiente →</button>
+              <div class="memory-answer-label">Recuerdo descifrado</div>
+              <pre id="memoryTreeDetailAnswer" class="memory-answer"></pre>
+
+              <div id="memoryTreeSourceWrap" hidden>
+                <div class="memory-answer-label">Texto original guardado</div>
+                <pre id="memoryTreeDetailSource" class="memory-answer memory-source"></pre>
+              </div>
+
+              <dl class="memory-metadata">
+                <div><dt>Capa cognitiva</dt><dd id="memoryTreeDetailLayer">—</dd></div>
+                <div><dt>Ámbito</dt><dd id="memoryTreeDetailScope">—</dd></div>
+                <div><dt>Temperatura</dt><dd id="memoryTreeDetailTemperature">—</dd></div>
+                <div><dt>Madurez</dt><dd id="memoryTreeDetailMaturity">—</dd></div>
+                <div><dt>Revisión</dt><dd id="memoryTreeDetailRevision">—</dd></div>
+                <div><dt>Actualizada</dt><dd id="memoryTreeDetailUpdated">—</dd></div>
+              </dl>
+
+              <details class="memory-technical">
+                <summary>Detalles técnicos</summary>
+                <dl class="memory-metadata">
+                  <div><dt>Object ID</dt><dd id="memoryTreeDetailObject">—</dd></div>
+                  <div><dt>Storage hash</dt><dd id="memoryTreeDetailHash">—</dd></div>
+                </dl>
+              </details>
             </div>
-            <p id="memoryValidationStatus" class="memory-validation-status"></p>
-          </div>
-        </article>
+          </article>
+        </div>
+      </div>
+
+      <div id="memoryListViewPanel" hidden>
+        <form id="memorySearchForm" class="memory-controls">
+          <input id="memoryQuery" type="search" maxlength="256" placeholder="Buscar texto en preguntas y respuestas…">
+          <select id="memoryTemperature" aria-label="Filtrar por temperatura">
+            <option value="all">Todas las temperaturas</option>
+            <option value="hot">Hot</option>
+            <option value="warm">Warm</option>
+            <option value="cold">Cold</option>
+            <option value="frozen">Frozen</option>
+          </select>
+          <select id="memoryValidation" aria-label="Filtrar por validación">
+            <option value="all">Todos los estados</option>
+            <option value="unverified">Unverified</option>
+            <option value="plausible">Plausible</option>
+            <option value="supported">Supported</option>
+            <option value="verified">Verified</option>
+            <option value="disputed">Disputed</option>
+            <option value="retracted">Retracted</option>
+          </select>
+          <button type="submit">Buscar</button>
+          <button id="memoryReset" type="button" class="secondary-button">Limpiar</button>
+        </form>
+
+        <div class="memory-layout">
+          <aside class="memory-list-panel">
+            <div id="memoryList" class="memory-list">
+              <p class="memory-empty">Cargando memoria…</p>
+            </div>
+            <div class="memory-pagination">
+              <button id="memoryPagePrev" type="button" class="secondary-button">← Página</button>
+              <span id="memoryPageLabel">1 / 1</span>
+              <button id="memoryPageNext" type="button" class="secondary-button">Página →</button>
+            </div>
+          </aside>
+
+          <article id="memoryDetail" class="memory-detail">
+            <div id="memoryDetailEmpty" class="memory-detail-empty">
+              Selecciona una pregunta para ver su respuesta descifrada.
+            </div>
+
+            <div id="memoryDetailContent" hidden>
+              <div class="memory-detail-top">
+                <div id="memoryDetailBadges" class="answer-meta"></div>
+                <span class="zero-ai-badge">0 tokens IA</span>
+              </div>
+
+              <h3 id="memoryDetailQuestion"></h3>
+              <div class="memory-answer-label">Respuesta descifrada</div>
+              <pre id="memoryDetailAnswer" class="memory-answer"></pre>
+
+              <dl class="memory-metadata">
+                <div><dt>Estado</dt><dd id="memoryDetailValidation">—</dd></div>
+                <div><dt>Confianza</dt><dd id="memoryDetailConfidence">—</dd></div>
+                <div><dt>Temperatura</dt><dd id="memoryDetailTemperature">—</dd></div>
+                <div><dt>Frescura</dt><dd id="memoryDetailFreshness">—</dd></div>
+                <div><dt>Guardada</dt><dd id="memoryDetailCaptured">—</dd></div>
+                <div><dt>Reutilizable</dt><dd id="memoryDetailReusable">—</dd></div>
+              </dl>
+
+              <div class="memory-detail-actions">
+                <button id="memoryItemPrev" type="button" class="secondary-button">← Anterior</button>
+                <button id="memoryConfirm" type="button" class="confirm-button">✓ Confirmar</button>
+                <button id="memoryDiscard" type="button" class="danger-button">Descartar</button>
+                <button id="memoryItemNext" type="button" class="secondary-button">Siguiente →</button>
+              </div>
+              <p id="memoryValidationStatus" class="memory-validation-status"></p>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -248,6 +310,6 @@
       <pre id="answer">La respuesta aparecerá aquí.</pre>
     </section>
   </main>
-  <script src="app.js?v=20260902-1" defer></script>
+  <script src="app.js?v=20260902-2" defer></script>
 </body>
 </html>
