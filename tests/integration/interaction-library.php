@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
+use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
+use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Interaction\InteractionArchiveService;
 use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Knowledge\KnowledgeService;
@@ -35,6 +37,21 @@ final class InteractionCatalogGenerationProvider implements GenerationProvider
             ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),
             'usage'=>['inputTokens'=>20,'outputTokens'=>30,'totalTokens'=>50],
         ];
+    }
+}
+
+final class ConversationContextGenerationProvider implements GenerationProvider
+{
+    public array $lastContext=[];
+    public int $calls=0;
+
+    public function id(): string { return 'test:conversation-context:v1'; }
+
+    public function generate(string $question,array $context=[]): array
+    {
+        $this->calls++;
+        $this->lastContext=$context;
+        return ['text'=>'Respuesta usando contexto conversacional seleccionado.'];
     }
 }
 
@@ -149,6 +166,78 @@ try{
     interaction_ok(($conversationDetail['credit_units_charged']??-1)===0,'Conversation detail charged credits');
     $detailRefs=array_map(static fn(array $item): string => (string)($item['logical_ref']??''),$conversationDetail['interactions']);
     interaction_ok(in_array($ref,$detailRefs,true),'Conversation detail lost canonical interaction ref');
+
+    $contextConversation='conv_'.str_repeat('e',32);
+    $contextRefs=[];
+    $contextTurns=[
+        ['Configuramos nginx y el certificado TLS en mailit.click.','El certificado TLS quedó asociado al virtual host de nginx.'],
+        ['También hablamos de una receta de cocina.','La receta no está relacionada con el servidor.'],
+        ['El servidor web atiende HTTPS en el puerto 443.','El puerto 443 quedó documentado.'],
+        ['Después revisamos el despliegue de MCMA.','El despliegue seguía estable.'],
+        ['El último paso fue reiniciar php-fpm-mcma.','El servicio quedó listo para conexiones.'],
+    ];
+    foreach($contextTurns as $i=>$turn){
+        $contextRefs[]=(string)$archive->archive(
+            'owner',
+            'req_'.str_pad(dechex(0x100+$i),32,'0',STR_PAD_LEFT),
+            $contextConversation,
+            $turn[0],
+            [
+                'route'=>'provider',
+                'provider_called'=>true,
+                'provider_id'=>'test:nova',
+                'answer'=>['format'=>'text','value'=>$turn[1]],
+                'stored'=>false,
+            ]
+        )['logical_ref'];
+    }
+
+    $policy=$lib->permissions('owner');
+    $policy['resources'][]=[
+        'resource'=>$contextRefs[4],
+        'subject'=>'ai',
+        'deny'=>['read'],
+    ];
+    $lib->setPermissions($policy,'owner');
+
+    $contextBuilder=new ConversationContextBuilder($lib,2200,3,5,0.20,2);
+    $selectedContext=$contextBuilder->build(
+        'ai',$contextConversation,'¿Qué hicimos con nginx y el certificado TLS?'
+    );
+    interaction_ok(is_array($selectedContext),'Conversation context builder returned no context');
+    interaction_ok(($selectedContext['selection']['selected_turns']??0)<=3,'Conversation context exceeded max turns');
+    interaction_ok(($selectedContext['selection']['estimated_tokens_upper_bound']??999999)<=2200,'Conversation context exceeded token budget');
+    $selectedRefs=array_map(static fn(array $turn): string => (string)($turn['logical_ref']??''),$selectedContext['turns']??[]);
+    interaction_ok(!in_array($contextRefs[4],$selectedRefs,true),'Conversation context bypassed ai read permission');
+    interaction_ok(in_array($contextRefs[0],$selectedRefs,true),'Relevant older nginx/TLS turn was not selected');
+    interaction_ok(count($selectedRefs)<count($contextTurns),'Conversation context injected the full history');
+
+    $conversationGenerator=new ConversationContextGenerationProvider();
+    $conversationAsk=new AskService(
+        new KnowledgeService($lib),
+        null,
+        null,
+        $conversationGenerator,
+        null,
+        $contextBuilder
+    );
+    $conversationResult=$conversationAsk->ask(
+        'ai',
+        '¿Qué hicimos con nginx y el certificado TLS?',
+        false,
+        0.75,
+        0.78,
+        5,
+        false,
+        [],
+        null,
+        null,
+        $contextConversation
+    );
+    interaction_ok($conversationGenerator->calls===1,'Conversation-aware Ask did not call generation');
+    interaction_ok(is_array($conversationGenerator->lastContext['conversation_context']??null),'AskService did not pass selected conversation context');
+    interaction_ok(($conversationResult['context_used']['conversation']??false)===true,'Ask result did not report conversation context use');
+    interaction_ok(count($conversationResult['context_used']['conversation_context']['turns']??[])===count($selectedRefs),'Context transparency did not preserve selected turns');
 
     $generator=new InteractionCatalogGenerationProvider();
     $embedding=new InteractionCatalogEmbeddingProvider();
