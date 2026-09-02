@@ -23,7 +23,7 @@ final class BillingRequestContext
         private readonly int $maxOutputTokens,
         private readonly int $additionalGenerationContextReserveBytes = 0
     ) {
-        if($this->additionalGenerationContextReserveBytes<0||$this->additionalGenerationContextReserveBytes>65536){
+        if($this->additionalGenerationContextReserveBytes<0||$this->additionalGenerationContextReserveBytes>131072){
             throw new BillingException('Invalid additional generation context reserve','invalid_context_reserve',500);
         }
         $this->collector = new UsageCollector();
