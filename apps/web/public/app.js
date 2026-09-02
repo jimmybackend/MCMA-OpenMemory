@@ -539,12 +539,13 @@
       const validation=data.validation||{};
       const billing=validation.billing||{};
       const usage=billing.usage||{};
-      interactionValidationStatus.textContent=(action==='approve'?'Conocimiento aprobado':'Conocimiento descartado')+
+      const statusText=(action==='approve'?'Conocimiento aprobado':'Conocimiento descartado')+
         ' · '+number(usage.total_tokens||0)+' tokens · '+number(billing.credit_units_charged||0)+' créditos';
       const ref=memoryState.selectedRef;
       memoryState.tree=null;
       await loadMemoryTree();
       await loadMemoryTreeDetail(ref);
+      interactionValidationStatus.textContent=statusText;
       await loadBilling();
     }catch(error){
       interactionValidationStatus.textContent=error.message;
