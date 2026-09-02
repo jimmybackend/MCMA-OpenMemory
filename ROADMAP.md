@@ -236,8 +236,13 @@
 - [x] guarded single-memory Context Builder for supported/verified revalidation candidates
 - [x] persistent encrypted recent-turn/session archive without storing an unbounded plaintext transcript
 - [x] private encrypted derived conversation index with incremental maintenance and stale/missing rebuild
-- [ ] token-budgeted selection of recent interaction turns for generation context
-- [ ] token-budgeted RAG context assembly with provenance and freshness metadata
+- [x] recent conversation candidate window in encrypted index for bounded context selection
+- [x] permission-aware canonical turn reads for AI conversational context
+- [x] deterministic recent-anchor + lexical relevance selection
+- [x] conservative context token budget and max-turn limits
+- [x] selected-turn metering and Contexto MCMA transparency
+- [x] token-budgeted selection of recent interaction turns for generation context
+- [ ] token-budgeted multi-memory RAG context assembly with provenance and freshness metadata
 - [x] explicit owner validation/promotion/retraction workflow in web memory explorer
 - [x] real EC2 + Bedrock end-to-end web smoke test (S3 + Titan + Nova Micro + billing, verified 2026-09-01)
 - [ ] real EC2 + Ollama end-to-end smoke test
