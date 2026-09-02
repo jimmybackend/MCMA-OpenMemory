@@ -115,7 +115,34 @@ sidebar / reopened chronological turns
 
 Question and answer content is stored once in the canonical interaction object. The conversation index stores summary metadata plus canonical interaction references; it does not duplicate the transcript. It is incrementally maintained and can be rebuilt from actor-visible canonical interactions when its count/fingerprint is missing or stale.
 
-Conversation list/detail navigation performs authenticated storage reads/decryption only and reports zero AI tokens and zero AI credits. Opening an archived conversation keeps its `conversation_id` for future grouping but does not silently inject the full archived transcript into the generation prompt. Recent-turn prompt assembly remains a separate future context-builder concern with permission, relevance and token-budget controls.
+Conversation list/detail navigation performs authenticated storage reads/decryption only and reports zero AI tokens and zero AI credits. Opening an archived conversation keeps its `conversation_id` for future grouping and still does not inject the full archived transcript.
 
-The system conversation index is private derived state and is not exposed through the normal library browser or returned as a logical reference to clients.
+When exact/semantic memory cannot answer and generation is required, the bounded conversational path is:
+
+~~~text
+conversation_id
+      ↓
+private conversation index
+(recent refs only; discovery)
+      ↓
+canonical readAs(ai, ref)
+      ↓
+permission filter
+      ↓
+exclude retracted/disputed turns
+      ↓
+recent anchors + lexical relevance
+      ↓
+rank by relevance + recency
+      ↓
+max turns + conservative token budget
+      ↓
+conversation_context
+      ↓
+GenerationProvider
+~~~
+
+The index cannot authorize context use: every canonical turn is re-read through the requesting actor. The selected conversation data is episodic continuity, not verified Knowledge, and is sent as untrusted reference data. Bedrock Converse, Ollama and llama.cpp share this provider-neutral context contract.
+
+The system conversation index is private derived state and is not exposed through the normal library browser or returned as a logical reference to clients. Its current derived format keeps at most 32 recent `{ref, at}` candidate pointers per conversation in addition to the canonical interaction-reference list.
 
