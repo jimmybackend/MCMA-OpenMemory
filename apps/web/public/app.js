@@ -10,13 +10,20 @@
   const memoryExplorer=$('memoryExplorer'),memorySearchForm=$('memorySearchForm'),memoryQuery=$('memoryQuery');
   const memoryTemperature=$('memoryTemperature'),memoryValidation=$('memoryValidation'),memoryReset=$('memoryReset');
   const memoryCount=$('memoryCount'),memoryList=$('memoryList'),memoryPagePrev=$('memoryPagePrev'),memoryPageNext=$('memoryPageNext'),memoryPageLabel=$('memoryPageLabel');
+  const memoryTreeView=$('memoryTreeView'),memoryListView=$('memoryListView'),memoryTreeViewPanel=$('memoryTreeViewPanel'),memoryListViewPanel=$('memoryListViewPanel'),memoryTree=$('memoryTree');
+  const memoryTreeDetailEmpty=$('memoryTreeDetailEmpty'),memoryTreeDetailContent=$('memoryTreeDetailContent'),memoryTreeDetailBadges=$('memoryTreeDetailBadges');
+  const memoryTreeDetailTitle=$('memoryTreeDetailTitle'),memoryTreeDetailPath=$('memoryTreeDetailPath'),memoryTreeDetailAnswer=$('memoryTreeDetailAnswer');
+  const memoryTreeSourceWrap=$('memoryTreeSourceWrap'),memoryTreeDetailSource=$('memoryTreeDetailSource');
+  const memoryTreeDetailLayer=$('memoryTreeDetailLayer'),memoryTreeDetailScope=$('memoryTreeDetailScope'),memoryTreeDetailTemperature=$('memoryTreeDetailTemperature');
+  const memoryTreeDetailMaturity=$('memoryTreeDetailMaturity'),memoryTreeDetailRevision=$('memoryTreeDetailRevision'),memoryTreeDetailUpdated=$('memoryTreeDetailUpdated');
+  const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
   const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
   const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
   const memoryDetailValidation=$('memoryDetailValidation'),memoryDetailConfidence=$('memoryDetailConfidence');
   const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
-  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null};
+  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,selectedRef:null};
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
   const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
@@ -61,7 +68,10 @@
       button.tabIndex=active?0:-1;
     }
 
-    if(name==='memory'&&memoryState.items.length===0)loadMemories(1);
+    if(name==='memory'){
+      if(memoryState.mode==='tree'&&memoryState.tree===null)loadMemoryTree();
+      if(memoryState.mode==='list'&&memoryState.items.length===0)loadMemories(1);
+    }
     if(name==='context')loadContext();
   }
 
@@ -228,6 +238,179 @@
     return new Intl.DateTimeFormat('es-MX',{
       timeZone:'UTC',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'
     }).format(date)+' UTC';
+  }
+
+  function switchMemoryView(mode){
+    memoryState.mode=mode==='list'?'list':'tree';
+    const treeMode=memoryState.mode==='tree';
+    memoryTreeViewPanel.hidden=!treeMode;
+    memoryListViewPanel.hidden=treeMode;
+    memoryTreeView.classList.toggle('active',treeMode);
+    memoryListView.classList.toggle('active',!treeMode);
+    memoryTreeView.setAttribute('aria-pressed',treeMode?'true':'false');
+    memoryListView.setAttribute('aria-pressed',treeMode?'false':'true');
+
+    if(treeMode){
+      memoryCount.textContent=number(memoryState.treeTotal)+' recuerdos · 0 tokens IA';
+      if(memoryState.tree===null)loadMemoryTree();
+    }else{
+      if(memoryState.items.length===0)loadMemories(1);else renderMemoryList();
+    }
+  }
+
+  function humanizeTreeSegment(value,file=false){
+    let text=String(value||'');
+    if(file)text=text.replace(/-[0-9a-f]{16}$/i,'');
+    text=text.replace(/-/g,' ').trim();
+    return text||'recuerdo';
+  }
+
+  function clearMemoryTreeDetail(){
+    memoryState.selectedRef=null;
+    memoryTreeDetailContent.hidden=true;
+    memoryTreeDetailEmpty.hidden=false;
+    for(const node of memoryTree.querySelectorAll('.memory-tree-file'))node.classList.remove('selected');
+  }
+
+  function appendMemoryTreeNode(container,segment,node,segments,depth){
+    if(!node||typeof node!=='object')return;
+    const children=Object.keys(node).filter(key=>key!=='@object_id').sort((a,b)=>a.localeCompare(b,'es'));
+    const hasObject=typeof node['@object_id']==='string';
+    const logicalRef='memory://'+segments.join('/');
+
+    if(children.length>0){
+      const details=document.createElement('details');
+      details.className='memory-tree-folder';
+      details.open=depth<1;
+      const summary=document.createElement('summary');
+      summary.textContent='📁 '+humanizeTreeSegment(segment);
+      details.appendChild(summary);
+      const group=document.createElement('div');
+      group.className='memory-tree-children';
+      group.setAttribute('role','group');
+
+      if(hasObject){
+        const file=document.createElement('button');
+        file.type='button';
+        file.className='memory-tree-file';
+        file.dataset.memoryRef=logicalRef;
+        file.textContent='📄 '+humanizeTreeSegment(segment,true);
+        file.addEventListener('click',()=>loadMemoryTreeDetail(logicalRef));
+        group.appendChild(file);
+      }
+
+      for(const child of children){
+        appendMemoryTreeNode(group,child,node[child],[...segments,child],depth+1);
+      }
+      details.appendChild(group);
+      container.appendChild(details);
+      return;
+    }
+
+    if(hasObject){
+      const file=document.createElement('button');
+      file.type='button';
+      file.className='memory-tree-file';
+      file.dataset.memoryRef=logicalRef;
+      file.textContent='📄 '+humanizeTreeSegment(segment,true);
+      file.addEventListener('click',()=>loadMemoryTreeDetail(logicalRef));
+      container.appendChild(file);
+    }
+  }
+
+  function renderMemoryTree(){
+    memoryTree.replaceChildren();
+    const tree=memoryState.tree&&typeof memoryState.tree==='object'?memoryState.tree:{};
+    const roots=Object.keys(tree).filter(key=>key!=='@object_id').sort((a,b)=>a.localeCompare(b,'es'));
+
+    if(roots.length===0){
+      const empty=document.createElement('p');
+      empty.className='memory-empty';
+      empty.textContent='Todavía no hay recuerdos personales organizados en memory://user/.';
+      memoryTree.appendChild(empty);
+    }else{
+      for(const segment of roots)appendMemoryTreeNode(memoryTree,segment,tree[segment],['user',segment],0);
+    }
+
+    memoryCount.textContent=number(memoryState.treeTotal)+' recuerdos · 0 tokens IA';
+  }
+
+  async function loadMemoryTree(){
+    memoryCount.textContent='Descifrando índice del árbol… · 0 tokens IA';
+    try{
+      const data=await api('/mcma/v1/memory-tree',{method:'GET',headers:{}});
+      const result=data.memory||{};
+      memoryState.tree=result.tree&&typeof result.tree==='object'?result.tree:{};
+      memoryState.treeTotal=Number(result.total||0);
+      renderMemoryTree();
+    }catch(error){
+      memoryState.tree=null;
+      memoryTree.replaceChildren();
+      const failed=document.createElement('p');
+      failed.className='memory-empty';
+      failed.textContent='No se pudo abrir el árbol: '+error.message;
+      memoryTree.appendChild(failed);
+      memoryCount.textContent='Error al leer árbol';
+    }
+  }
+
+  function treeDisplayContent(content){
+    if(typeof content==='string')return content;
+    if(content&&typeof content==='object'&&typeof content.content==='string')return content.content;
+    if(content===null||content===undefined)return '—';
+    return JSON.stringify(content,null,2);
+  }
+
+  function renderMemoryTreeDetail(memory){
+    memoryState.selectedRef=memory.logical_ref||null;
+    memoryTreeDetailEmpty.hidden=true;
+    memoryTreeDetailContent.hidden=false;
+
+    for(const node of memoryTree.querySelectorAll('.memory-tree-file')){
+      node.classList.toggle('selected',node.dataset.memoryRef===memoryState.selectedRef);
+    }
+
+    const metadata=memory.metadata&&typeof memory.metadata==='object'?memory.metadata:{};
+    const content=memory.content;
+    const canonical=content&&typeof content==='object'&&!Array.isArray(content)?content:{};
+    const classification=canonical.classification&&typeof canonical.classification==='object'?canonical.classification:{};
+    const lastSegment=String(memory.logical_ref||'').split('/').pop()||'recuerdo';
+
+    memoryTreeDetailTitle.textContent=typeof canonical.title==='string'&&canonical.title.trim()!==''?canonical.title:humanizeTreeSegment(lastSegment,true);
+    memoryTreeDetailPath.textContent=memory.logical_ref||'—';
+    memoryTreeDetailAnswer.textContent=treeDisplayContent(content);
+
+    const source=canonical.source&&typeof canonical.source==='object'&&typeof canonical.source.original==='string'
+      ?canonical.source.original:'';
+    memoryTreeSourceWrap.hidden=source==='';
+    memoryTreeDetailSource.textContent=source;
+
+    memoryTreeDetailLayer.textContent=metadata.cognitive_layer||classification.cognitive_layer||'—';
+    memoryTreeDetailScope.textContent=metadata.scope||classification.scope||'—';
+    memoryTreeDetailTemperature.textContent=metadata.temperature||classification.temperature||'—';
+    memoryTreeDetailMaturity.textContent=metadata.maturity||'—';
+    memoryTreeDetailRevision.textContent=String(metadata.revision||1);
+    memoryTreeDetailUpdated.textContent=memoryDate(metadata.updated_at||metadata.created_at);
+    memoryTreeDetailObject.textContent=memory.object_id||'—';
+    memoryTreeDetailHash.textContent=memory.storage_hash||'—';
+
+    const badges=[];
+    const categories=Array.isArray(classification.category_path)?classification.category_path:[];
+    if(categories.length)badges.push(memoryBadge('📁 '+categories.join(' / ')));
+    badges.push(memoryBadge(memoryTreeDetailTemperature.textContent));
+    badges.push(memoryBadge(memoryTreeDetailLayer.textContent));
+    memoryTreeDetailBadges.replaceChildren(...badges);
+  }
+
+  async function loadMemoryTreeDetail(logicalRef){
+    memoryTreeDetailEmpty.textContent='Descifrando recuerdo…';
+    try{
+      const data=await api('/mcma/v1/memory-object?ref='+encodeURIComponent(logicalRef),{method:'GET',headers:{}});
+      renderMemoryTreeDetail(data.memory||{});
+    }catch(error){
+      clearMemoryTreeDetail();
+      memoryTreeDetailEmpty.textContent='No se pudo descifrar el recuerdo: '+error.message;
+    }
   }
 
   function clearMemoryDetail(){
@@ -566,7 +749,11 @@
       answer.textContent=result.answer?.value ?? JSON.stringify(result,null,2);
       renderAnswerMeta(result);
       await loadBilling();
-      if(result.stored===true)await loadMemories(1);
+      if(result.stored===true){
+        memoryState.tree=null;
+        memoryState.items=[];
+        if(memoryState.mode==='tree')await loadMemoryTree();else await loadMemories(1);
+      }
     }catch(error){answer.textContent=error.message;answerMeta.hidden=true;}
     finally{send.disabled=false;}
   });
@@ -611,6 +798,9 @@
     activateTab(button.dataset.tabTarget);
     button.focus();
   });
+
+  memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
+  memoryListView.addEventListener('click',()=>switchMemoryView('list'));
 
   memorySearchForm.addEventListener('submit',event=>{
     event.preventDefault();
