@@ -246,8 +246,9 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
     private static function memoryContextText(array $context): ?string
     {
         $memory=$context['memory_context']??null;
+        $multiMemory=$context['multi_memory_context']??null;
         $conversation=$context['conversation_context']??null;
-        if(!is_array($memory)&&!is_array($conversation)) return null;
+        if(!is_array($memory)&&!is_array($multiMemory)&&!is_array($conversation)) return null;
 
         $payload=[
             'source'=>'mcma',
@@ -261,11 +262,15 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
             'reasons'=>is_array($memory)&&is_array($memory['reasons']??null)?array_values($memory['reasons']):[],
         ];
 
+        if(is_array($multiMemory)&&is_array($multiMemory['memories']??null)&&$multiMemory['memories']!==[]){
+            $payload['multi_memory']=$multiMemory;
+        }
+
         if(is_array($conversation)&&is_array($conversation['turns']??null)&&$conversation['turns']!==[]){
             $payload['conversation']=$conversation;
         }
 
-        if($payload['answer']===''&&!isset($payload['conversation'])) return null;
+        if($payload['answer']===''&&!isset($payload['multi_memory'])&&!isset($payload['conversation'])) return null;
         return json_encode($payload,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     }
 
