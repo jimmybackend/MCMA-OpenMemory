@@ -76,12 +76,14 @@ final class ExplicitMemoryService
         $organization = $this->organize($sourceText);
         $classification = $organization['classification'];
 
-        $fingerprint = substr(hash('sha256', self::normalizeFingerprintText($sourceText)), 0, 12);
+        $fingerprint = substr(hash('sha256', self::normalizeFingerprintText($sourceText)), 0, 16);
         $slug = self::slugify($organization['title']);
         $bucket = self::BUCKETS[$classification['cognitive_layer']];
-        $logicalRef = 'memory://user/' . $bucket . '/' . $slug . '-' . $fingerprint;
+        $logicalRef = $this->findExplicitRefByFingerprint($actor,$fingerprint)
+            ?? ('memory://user/' . $bucket . '/' . $slug . '-' . $fingerprint);
 
         [$maxAge, $reusePolicy] = self::freshnessPolicy($classification['freshness_class']);
+        if($classification['temperature']==='frozen') $reusePolicy='never-direct';
         $retrievalQuestion = $organization['retrieval_question'];
         $knowledgeRef = KnowledgeRecord::logicalRef($retrievalQuestion);
 
@@ -165,8 +167,9 @@ final class ExplicitMemoryService
                 $reusePolicy,
                 [$logicalRef]
             );
+            $this->library->setTemperatureAs('librarian',$knowledgeRef,$classification['temperature']);
 
-            if ($this->embeddingProvider !== null) {
+            if ($this->embeddingProvider !== null && $classification['temperature'] !== 'frozen') {
                 try {
                     $semantic = (new SemanticIndexService($this->library))->indexOne(
                         $this->embeddingProvider,
@@ -401,6 +404,19 @@ PROMPT;
         $candidate = trim(is_string($candidate) ? $candidate : $requestText);
         if ($candidate === '' && self::isExplicitSaveRequest($requestText)) return '';
         return $candidate !== '' ? $candidate : $requestText;
+    }
+
+    private function findExplicitRefByFingerprint(string $actor,string $fingerprint): ?string
+    {
+        $suffix='-'.$fingerprint;
+        foreach($this->library->listAs($actor) as $entry){
+            foreach($entry['logical_refs']??[] as $ref){
+                if(is_string($ref)&&str_starts_with($ref,'memory://user/')&&str_ends_with($ref,$suffix)){
+                    return $ref;
+                }
+            }
+        }
+        return null;
     }
 
     private function hasRef(string $actor, string $logicalRef): bool
