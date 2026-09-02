@@ -29,7 +29,7 @@ final class ExplicitMemoryGenerationProvider implements GenerationProvider
 
         return [
             'text'=>json_encode([
-                'title'=>'MCMA semantic precision decision',
+                'title'=>$this->calls===1?'MCMA semantic precision decision':'Semantic precision decision for MCMA',
                 'normalized_content'=>'MCMA must use floating-point values for semantic similarity so a single topic can retain greater precision, and semantic retrieval must preserve all configured filters.',
                 'retrieval_question'=>'What semantic precision and filtering decision was made for MCMA?',
                 'cognitive_layer'=>'90-projects',
