@@ -90,6 +90,7 @@ $conversationOnlyRequester=function(string $method,string $url,array $headers,st
     if(!str_contains($userText,'MCMA MEMORY CONTEXT')) throw new RuntimeException('Conversation-only MCMA context marker missing');
     if(!str_contains($userText,'"conversation_id":"conv_'.str_repeat('e',32).'"')) throw new RuntimeException('Conversation id missing from Bedrock context');
     if(!str_contains($userText,'"question":"Earlier nginx turn"')) throw new RuntimeException('Selected conversation turn missing from Bedrock context');
+    if(!str_contains($userText,'"strategy":"multi-memory-rag-v1"')||!str_contains($userText,'"question":"Selected RAG memory"')) throw new RuntimeException('Bedrock multi-memory RAG context missing');
     if(!str_contains($systemText,'untrusted reference data')) throw new RuntimeException('Conversation-only safety instruction missing');
     $conversationOnlySeen=true;
     return [200,json_encode([
@@ -103,6 +104,27 @@ $conversationOnlyProvider=new BedrockConverseGenerationProvider(
     null,null,null,$conversationOnlyRequester
 );
 $conversationOnlyResult=$conversationOnlyProvider->generate('What did we do next?',[
+    'multi_memory_context'=>[
+        'query'=>'Combined context query',
+        'selection'=>[
+            'strategy'=>'multi-memory-rag-v1',
+            'selected_memories'=>1,
+            'token_budget'=>8000,
+            'estimated_tokens_upper_bound'=>300,
+        ],
+        'memories'=>[[
+            'logical_ref'=>'memory://knowledge/q-'.str_repeat('b',64),
+            'question'=>'Selected RAG memory',
+            'answer'=>'Selected RAG answer.',
+            'similarity'=>0.91,
+            'rag_score'=>0.88,
+            'validation_state'=>'verified',
+            'confidence'=>0.95,
+            'freshness_class'=>'stable',
+            'stale'=>false,
+            'provenance'=>[['source_type'=>'documentation','reference'=>'docs/test.md']],
+        ]],
+    ],
     'conversation_context'=>[
         'conversation_id'=>'conv_'.str_repeat('e',32),
         'selection'=>[

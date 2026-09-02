@@ -457,6 +457,7 @@
     const tokens=Number(usage.total_tokens ?? usage.totalTokens ?? 0);
     const credits=Number(billing.credit_units_charged ?? 0);
     const memoryContext=result.context_used?.memory===true;
+    const multiMemoryContext=result.context_used?.multi_memory===true;
     const conversationContext=result.context_used?.conversation===true;
 
     answerSource.className='route-badge';
@@ -469,8 +470,12 @@
     }else if(route==='memory-semantic'){
       answerSource.textContent='Memoria semántica';
       answerSource.classList.add('route-semantic');
-    }else if(route==='provider'&&(memoryContext||conversationContext)){
-      answerSource.textContent=memoryContext&&conversationContext?'IA + memoria + conversación':(memoryContext?'IA + memoria MCMA':'IA + conversación');
+    }else if(route==='provider'&&(memoryContext||multiMemoryContext||conversationContext)){
+      const parts=['IA'];
+      if(multiMemoryContext)parts.push('RAG multi-memoria');
+      else if(memoryContext)parts.push('memoria MCMA');
+      if(conversationContext)parts.push('conversación');
+      answerSource.textContent=parts.join(' + ');
       answerSource.classList.add('route-ai-memory');
     }else if(route==='provider'){
       const provider=String(result.provider_id||'');
@@ -1054,6 +1059,29 @@
       );
     }
 
+    const multiMemory=used.multi_memory_context;
+    const memories=Array.isArray(multiMemory?.memories)?multiMemory.memories:[];
+    if(used.multi_memory===true&&memories.length>0){
+      const rendered=memories.map((memory,index)=>{
+        const provenance=Array.isArray(memory.provenance)
+          ?memory.provenance.map(source=>(source.source_type||'fuente')+': '+(source.reference||'')).join(' · ')
+          :'';
+        const answer=typeof memory.answer==='string'?memory.answer:JSON.stringify(memory.answer??'');
+        return 'MEMORIA '+(index+1)+' · RAG '+Number(memory.rag_score||0).toFixed(3)+' · similitud '+Number(memory.similarity||0).toFixed(3)+' · confianza '+Number(memory.confidence||0).toFixed(2)+'\n'
+          +'Estado: '+(memory.validation_state||'—')+' · frescura '+(memory.freshness_class||'—')+(memory.stale?' · stale':'')+'\n'
+          +'Procedencia: '+(provenance||'—')+'\n'
+          +'Pregunta: '+(memory.question||'')+'\n'
+          +'Respuesta: '+answer;
+      }).join('\n\n');
+      sections.push('RAG MULTI-MEMORIA SELECCIONADO\n'+rendered);
+      const selection=multiMemory.selection||{};
+      badges.push(
+        memoryBadge(number(memories.length)+' memorias RAG','route-badge route-ai-memory'),
+        memoryBadge(number(selection.estimated_tokens_upper_bound||0)+' tokens máx. RAG'),
+        memoryBadge(selection.strategy||'multi-memory-rag')
+      );
+    }
+
     const conversation=used.conversation_context;
     const turns=Array.isArray(conversation?.turns)?conversation.turns:[];
     if(used.conversation===true&&turns.length>0){
@@ -1148,7 +1176,7 @@
       for(const trace of traces){
         const el=contextListItem(
           trace.question||'Pregunta',
-          memoryDate(trace.at)+' · '+routeLabel(trace.route)+((trace.context_used?.memory===true||trace.context_used?.conversation===true)?' · contexto MCMA':''),
+          memoryDate(trace.at)+' · '+routeLabel(trace.route)+((trace.context_used?.memory===true||trace.context_used?.multi_memory===true||trace.context_used?.conversation===true)?' · contexto MCMA':''),
           ()=>renderContextTrace(trace)
         );
         el.dataset.traceId=trace.trace_id||'';

@@ -2,23 +2,24 @@
 
 Date: 2026-09-02
 
-Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + persistent zero-AI Chat history + AI metering/credits/SuperAdmin + Stripe + Permissions/Vault + Knowledge Reuse + semantic Top-K + ask orchestration + optional Bedrock, Ollama or llama.cpp AI.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + persistent Chat + bounded conversational context + scored multi-memory RAG + AI metering/credits/SuperAdmin + Stripe + Permissions/Vault + Knowledge Reuse + semantic Top-K + provider-neutral ask orchestration.**
 
 ## Production deployment — 2026-09-02
 
-The live deployment at `https://mailit.click/mcma/` is running the persistent Chat code verified from commit `263de1074554d7b4156999cb05e6a2f037f4ce74`.
+The live deployment at `https://mailit.click/mcma/` is running commit `b54302cca5979280ebafffbc4eaabcffd080be49`, which includes persistent Chat plus bounded conversational context for generation fallback.
 
 Verified directly on the EC2 production checkout:
 
-- exact deployed code SHA matched `263de1074554d7b4156999cb05e6a2f037f4ce74`;
-- PHP lint passed for `InteractionArchiveService.php`, `WebApplication.php` and the web front controller;
-- `tests/integration/interaction-library.php` passed;
-- `tests/integration/web-application.php` passed;
-- `tests/integration/web-static-base-path.php` passed;
+- exact deployed code SHA matched `b54302cca5979280ebafffbc4eaabcffd080be49`;
+- PHP lint passed for the conversation Context Builder, interaction archive, Ask/billing and web application classes;
+- persistent interaction/context integration passed;
+- Ask orchestration passed;
+- Bedrock Converse, Ollama and llama.cpp context-provider simulations passed;
+- web multi-user routing, static base-path, Free quota and billing/admin integrations passed;
 - dedicated `php-fpm-mcma` service restarted and reported `Ready to handle connections`;
 - public health returned `ok=true`, `multi_user=true`, `billing_enabled=true`, `stripe_enabled=true`;
 - the current live instance reports `api_keys_enabled=false`;
-- public HTML served the new Chat/sidebar markup plus `app.css?v=20260902-4` and `app.js?v=20260902-4`;
+- public HTML served the bounded-context UI plus `app.css?v=20260902-5` and `app.js?v=20260902-5`;
 - CloudFront fetched the new JavaScript and the origin response uses `no-cache, no-store, must-revalidate`;
 - unauthenticated `GET /mcma/v1/conversations` returned HTTP 401 with `authentication_required`.
 
@@ -31,6 +32,8 @@ MCMA performs exact lookup first. Semantic retrieval is attempted only after an 
 The semantic index is encrypted, derived and provider-specific. Incremental updates regenerate only the affected KnowledgeRecord vector when its storage_hash changes.
 
 Top-K candidate visibility is reconstructed through actor-aware APIs. Permissions, validation, confidence and freshness remain mandatory after similarity ranking.
+
+Multi-memory RAG reuses the same query embedding and ranked pool. Direct semantic reuse keeps its strict threshold; generation-only RAG discovery may use a wider floor. RAG candidates are canonically re-read through `ai`, filtered to supported/verified + minimum confidence, then prioritized by similarity, confidence, freshness, provenance and validation under a configurable memory-count/token budget.
 
 ## mcma ask
 
@@ -204,13 +207,15 @@ It provides OIDC Authorization Code + PKCE login, RS256/JWKS ID-token validation
 
 The primary **Chat** view now includes a conversation sidebar, search, temporal grouping, project filters, persistent message history and a stable composer. Persistent turns remain canonical under `memory://interactions/...`; a private encrypted derived index stores conversation summaries and canonical references for zero-AI navigation. `GET /mcma/v1/conversations` and `GET /mcma/v1/conversations/conv_<32-hex>` list/open that archive without model calls.
 
-The current development branch also implements bounded conversational context for generation fallback. It never injects the complete transcript automatically. A small recent candidate window is discovered from the encrypted index, canonical turns are re-read through `ai` permissions, retracted/disputed turns are excluded, recent continuity anchors are combined with deterministic lexical relevance, and selection is capped by both max turns and a conservative context budget. Selected context is passed provider-neutrally to Bedrock/Ollama/llama.cpp and included in billing/Contexto MCMA transparency.
+Bounded conversational context is deployed. It never injects the complete transcript automatically. A small recent candidate window is discovered from the encrypted index, canonical turns are re-read through `ai` permissions, retracted/disputed turns are excluded, recent continuity anchors are combined with deterministic lexical relevance, and selection is capped by both max turns and a conservative context budget.
 
 The browser cannot select user id, storage, actor, embedding provider, generation provider, model or credentials.
 
 The live EC2 HTTPS + Google OIDC flow is verified. The 2026-09-02 deployment additionally verifies the persistent Chat assets, conversation-index API protection and focused integration coverage. Manual browser UX verification of creating/reopening multiple conversations remains an operational check, not a missing backend implementation.
 
-The bounded conversational Context Builder described above is implemented and covered by the full **PHP Core Tests** suite in PR #7 (run #143 passed). It is **not yet claimed as deployed on the live EC2 instance**. Production remains on the previously verified Chat deployment until the merged commit is pulled to `/var/www/memory`, tested and restarted.
+The bounded conversational Context Builder is deployed and was re-verified directly on EC2 after pulling `b54302c`, restarting `php-fpm-mcma`, checking health and confirming the `20260902-5` public assets.
+
+The current PR #8 development branch adds scored multi-memory RAG on top of that deployed baseline. Its first full CI run passed, but multi-memory RAG is **not yet claimed as deployed on EC2** until the feature is merged and the resulting main commit is pulled/tested there.
 
 
 ## Metering and billing

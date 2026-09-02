@@ -16,6 +16,7 @@ use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Context\ContextTraceService;
 use MCMA\Core\Context\ConversationContextBuilder;
+use MCMA\Core\Context\MultiMemoryContextBuilder;
 use MCMA\Core\Interaction\InteractionArchiveService;
 use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Knowledge\KnowledgeService;
@@ -517,12 +518,14 @@ final class WebApplication
         ];
 
         $conversationContextBuilder=$this->conversationContextBuilder($principal['library']);
+        $multiMemoryContextBuilder=$this->multiMemoryContextBuilder($principal['library']);
 
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
             $this->billing->ensureAccount($principal['library']);
             $service=new BillableAskService(
-                $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens,$conversationContextBuilder
+                $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens,
+                $conversationContextBuilder,$multiMemoryContextBuilder
             );
             $result=$service->ask(
                 $requestId,
@@ -541,7 +544,10 @@ final class WebApplication
             $knowledge=new KnowledgeService($principal['library']);
             $semantic=$embedding!==null?new SemanticIndexService($principal['library']):null;
             $librarian=$embedding!==null?new Librarian($knowledge,$semantic,$embedding):new Librarian($knowledge);
-            $ask=new AskService($knowledge,$semantic,$embedding,$generator,$librarian,$conversationContextBuilder);
+            $ask=new AskService(
+                $knowledge,$semantic,$embedding,$generator,$librarian,
+                $conversationContextBuilder,$multiMemoryContextBuilder
+            );
             $result=$ask->ask(
                 'ai',$question,$current,
                 (float)($this->providerOptions['min-confidence']??0.75),
@@ -598,6 +604,22 @@ final class WebApplication
             (int)($this->providerOptions['conversation-context-candidates']??12),
             (float)($this->providerOptions['conversation-context-min-relevance']??0.08),
             (int)($this->providerOptions['conversation-context-recent-anchors']??2)
+        );
+    }
+
+    private function multiMemoryContextBuilder(Library $library): ?MultiMemoryContextBuilder
+    {
+        if(($this->providerOptions['rag-multi-memory-enabled']??true)!==true) return null;
+
+        return new MultiMemoryContextBuilder(
+            $library,
+            (int)($this->providerOptions['rag-token-budget']??8000),
+            (int)($this->providerOptions['rag-max-memories']??4),
+            (int)($this->providerOptions['rag-candidates']??8),
+            (float)($this->providerOptions['rag-candidate-similarity']??0.55),
+            (float)($this->providerOptions['rag-min-score']??0.50),
+            (int)($this->providerOptions['rag-max-answer-bytes']??4500),
+            (int)($this->providerOptions['rag-max-provenance']??4)
         );
     }
 

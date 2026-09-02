@@ -480,7 +480,7 @@ The provider receives the memory as clearly delimited reference data plus valida
 
 Billing remains fail-safe: the lazy reservation includes a conservative generation-context allowance, and fallback metering includes the serialized context when a provider cannot report exact usage.
 
-The guarded validated-memory Context Builder is now complemented by the bounded conversational Context Builder. The remaining future work is the broader **multi-memory RAG** layer: assembling multiple durable Knowledge/user-memory objects with provenance/freshness ordering under one shared token budget. Recent-turn/session continuity itself is no longer a future item.
+The guarded validated-memory Context Builder and bounded conversational Context Builder are now complemented by **multi-memory RAG**. Generation fallback can synthesize several actor-visible supported/verified KnowledgeRecords, prioritized by similarity, confidence, freshness, provenance and validation under one RAG budget. The remaining retrieval roadmap is now relation-graph reasoning and broader automatic maturity/temperature policies rather than basic multi-memory assembly.
 
 Provider selection is server-side:
 
@@ -641,3 +641,28 @@ Subscription lifecycle events are also processed. A payment failure records the 
 When `MCMA_BILLING_ENABLED=false`, package listing and Checkout creation are disabled. A correctly signed webhook can still finish a Checkout or renewal that was already in flight.
 
 See `docs/BILLING.md` for package configuration and fulfillment rules.
+
+### Multi-memory RAG in the web Ask path
+
+The browser does not request or choose RAG memories. Server-side `AskService` generates one semantic query embedding, then the same ranked pool serves two different purposes:
+
+1. strict direct semantic reuse using the normal `min-similarity` / optional rerank gate;
+2. if generation is still required, a wider context-only candidate pool for `MultiMemoryContextBuilder`.
+
+The context-only pool never lowers direct-return policy. Each candidate is canonically re-read as actor `ai`, then only `supported` / `verified` records meeting the confidence threshold are eligible.
+
+Default server settings:
+
+~~~text
+MCMA_WEB_RAG_MULTI_MEMORY_ENABLED=true
+MCMA_WEB_RAG_TOKEN_BUDGET=8000
+MCMA_WEB_RAG_MAX_MEMORIES=4
+MCMA_WEB_RAG_CANDIDATES=8
+MCMA_WEB_RAG_CANDIDATE_SIMILARITY=0.55
+MCMA_WEB_RAG_MIN_SCORE=0.50
+MCMA_WEB_RAG_MAX_ANSWER_BYTES=4500
+MCMA_WEB_RAG_MAX_PROVENANCE=4
+~~~
+
+Contexto MCMA displays each selected memory with RAG score, similarity, confidence, freshness and provenance plus the total selected-memory budget. The answer route badge reports `IA + RAG multi-memoria` and may also include `+ conversación` when both context builders are active.
+

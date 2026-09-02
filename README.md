@@ -40,7 +40,7 @@ A live billing request was measured successfully: 117 provider tokens, 117 credi
 
 The production web runtime is isolated from the historical V1/V2 compatibility endpoints by a dedicated PHP-FPM service/socket.
 
-The persistent **Chat** workspace was deployed and verified on 2026-09-02 from code commit `263de1074554d7b4156999cb05e6a2f037f4ce74`. The deployment serves the MiChat-inspired MCMA layout, encrypted conversation index, conversation search/grouping and the authenticated zero-AI history routes. Focused interaction/web/static integration tests passed on EC2, `php-fpm-mcma` restarted healthy, public assets were served with the `20260902-4` cache-bust, and unauthenticated access to `/mcma/v1/conversations` correctly returned HTTP 401.
+The persistent **Chat** workspace and bounded conversational Context Builder are deployed on EC2 at commit `b54302cca5979280ebafffbc4eaabcffd080be49`. Focused context/Ask/provider/web/billing tests passed directly on EC2, `php-fpm-mcma` restarted healthy, and the public UI served the `20260902-5` assets.
 
 
 ## Core model
@@ -138,6 +138,8 @@ Generation connectors include Amazon Bedrock Converse, local Ollama and local ll
 A first guarded Context Builder can pass a previously validated `supported/verified` memory into generation when direct reuse is blocked by freshness/current-data requirements. The context is marked as untrusted reference data, preserves validation/freshness metadata, and is included in billing reservation/metering. Unverified or low-confidence memory is not injected.
 
 The same generation request may also receive the bounded conversational context described above. Selected conversation turns are episodic continuity data, remain explicitly marked as untrusted reference data, are metered as generation input, and are recorded in Contexto MCMA so the user can see exactly which historical turns were supplied.
+
+The next layer is now implemented in PR #8: **multi-memory RAG**. When generation is required, MCMA can combine several trusted actor-visible KnowledgeRecords in one request, rank them using similarity + confidence + freshness + provenance + validation, and cap both the number of selected memories and their conservative context budget. Direct exact/semantic reuse remains stricter and unchanged.
 
 
 ## Local AI

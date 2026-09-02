@@ -53,6 +53,12 @@ final class MeteredGenerationProvider implements GenerationProvider
             if(is_string($encoded)) $parts[]=$encoded;
         }
 
+        $multiMemory=$context['multi_memory_context']??null;
+        if(is_array($multiMemory)){
+            $encoded=json_encode($multiMemory,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+            if(is_string($encoded)) $parts[]=$encoded;
+        }
+
         $conversation=$context['conversation_context']??null;
         if(is_array($conversation)){
             $encoded=json_encode($conversation,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);

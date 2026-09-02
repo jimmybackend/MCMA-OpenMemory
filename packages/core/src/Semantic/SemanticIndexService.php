@@ -391,6 +391,108 @@ final class SemanticIndexService
         ];
     }
 
+    public function answerFromTopK(
+        string $actor,
+        string $question,
+        array $ranked,
+        float $minSimilarity = 0.78,
+        ?float $candidateSimilarity = null,
+        ?float $minRerankScore = null
+    ): array {
+        self::validateHybridThresholds($minSimilarity, $candidateSimilarity, $minRerankScore);
+
+        if (($ranked['found'] ?? false) !== true) {
+            return [
+                'found' => false,
+                'reusable' => false,
+                'decision' => ($ranked['reason'] ?? null) === 'semantic-index-stale' ? 'reindex' : 'miss',
+                'route' => 'semantic',
+                'reasons' => [$ranked['reason'] ?? 'semantic-miss'],
+                'stale_index_entries' => $ranked['stale_index_entries'] ?? 0,
+                'best_similarity' => $ranked['best_similarity'] ?? null,
+                'min_similarity' => $minSimilarity,
+                'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+                'min_rerank_score' => $minRerankScore,
+                'logical_ref' => KnowledgeRecord::logicalRef($question),
+            ];
+        }
+
+        // Candidate discovery may be wider than the direct-answer gate for
+        // multi-memory RAG. A direct semantic answer still requires the normal
+        // similarity threshold or the explicitly configured rerank threshold.
+        $top = null;
+        foreach ($ranked['candidates'] as $candidate) {
+            if (($candidate['reusable'] ?? false) !== true) continue;
+            $similarityPass = (float)($candidate['similarity'] ?? -1.0) >= $minSimilarity;
+            $rerankPass = $minRerankScore !== null
+                && (float)($candidate['rerank_score'] ?? -1.0) >= $minRerankScore;
+            if ($similarityPass || $rerankPass) {
+                $top = $candidate;
+                break;
+            }
+        }
+
+        if (!is_array($top)) {
+            return [
+                'found' => false,
+                'reusable' => false,
+                'decision' => 'miss',
+                'route' => 'semantic',
+                'reasons' => ['no-reusable-candidate-passed-selection-gates'],
+                'stale_index_entries' => $ranked['stale_index_entries'] ?? 0,
+                'best_similarity' => $ranked['best_similarity'] ?? null,
+                'min_similarity' => $minSimilarity,
+                'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+                'min_rerank_score' => $minRerankScore,
+                'logical_ref' => KnowledgeRecord::logicalRef($question),
+            ];
+        }
+
+        $result = [
+            'found' => true,
+            'route' => 'semantic',
+            'logical_ref' => KnowledgeRecord::logicalRef($question),
+            'matched_logical_ref' => $top['logical_ref'],
+            'matched_question' => $top['matched_question'],
+            'object_id' => $top['object_id'],
+            'storage_hash' => $top['storage_hash'],
+            'similarity' => $top['similarity'],
+            'rerank_score' => $top['rerank_score'],
+            'min_similarity' => $minSimilarity,
+            'candidate_similarity' => $candidateSimilarity ?? $minSimilarity,
+            'min_rerank_score' => $minRerankScore,
+            'selection_gate' => (float)$top['similarity'] >= $minSimilarity ? 'similarity' : 'rerank',
+            'reusable' => $top['reusable'],
+            'decision' => $top['decision'],
+            'reasons' => $top['reasons'],
+            'stale' => $top['freshness']['stale'],
+            'intent_key' => str_replace('memory://knowledge/q-', 'sha256:', $top['logical_ref']),
+            'validation_state' => $top['validation_state'],
+            'confidence' => $top['confidence'],
+            'freshness_class' => $top['freshness']['class'],
+            'reuse_policy' => $top['freshness']['reuse_policy'],
+            'top_k_considered' => count($ranked['candidates']),
+        ];
+
+        if ($top['reusable']) {
+            $stored = $this->library->readAs($actor, $top['logical_ref']);
+            $record = $stored['payload']['content'] ?? null;
+            if (!is_array($record)) throw new RuntimeException('Semantic knowledge candidate is malformed');
+            KnowledgeRecord::validate($record);
+            $result['answer'] = $record['answer'];
+            $result['provenance'] = $record['provenance'];
+            $result['relations'] = $record['relations'];
+            foreach($record['relations'] as $relation){
+                if(is_string($relation) && str_starts_with($relation,'memory://user/')){
+                    $result['canonical_memory_ref']=$relation;
+                    break;
+                }
+            }
+        }
+
+        return $result;
+    }
+
     public function answer(
         string $actor,
         string $question,
