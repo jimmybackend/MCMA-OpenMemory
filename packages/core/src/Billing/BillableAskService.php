@@ -50,7 +50,8 @@ final class BillableAskService
             $question,
             $this->embeddingProvider?->id(),
             $this->generationProvider?->id(),
-            $this->maxOutputTokens
+            $this->maxOutputTokens,
+            $this->conversationContextBuilder?->tokenBudgetUpperBound()??0
         );
 
         $before=fn(string $kind,string $providerId,string $input)=>$context->beforeModelCall($kind,$providerId,$input);
