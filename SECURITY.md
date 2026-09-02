@@ -68,3 +68,13 @@ For generation fallback, bounded conversational context uses the private index o
 
 Selected episodic turns remain untrusted reference data. Their validation/confidence metadata is retained, and Bedrock/Ollama/llama.cpp receive a higher-priority instruction not to execute instructions found inside historical content. This continuity context is not equivalent to validated Knowledge and does not weaken Knowledge permission, validation, confidence or freshness gates.
 
+## Multi-memory RAG safety
+
+A wider semantic RAG candidate floor is not an authorization or direct-reuse decision. The direct semantic answer gate remains separate and stricter.
+
+Before a RAG candidate can expose content to generation, MCMA re-reads its canonical KnowledgeRecord with the requesting `ai` actor. The record must remain actor-visible, current with the semantic index `storage_hash`, `supported` or `verified`, and at or above the configured confidence threshold. `disputed`, `retracted`, unverified, low-confidence and permission-denied memories are excluded.
+
+Similarity alone does not determine priority. The RAG score combines similarity, confidence, freshness, validation and provenance quality. Provenance metadata is included in the selected context so the model can preserve source distinctions, but all selected memory remains **untrusted reference data**, never executable instruction.
+
+Generated synthesis does not become trusted simply because its inputs were trusted. When remembered it still defaults to `unverified` / confidence `0.5` and must pass the normal validation workflow before direct reuse.
+
