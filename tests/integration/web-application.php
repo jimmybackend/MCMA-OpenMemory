@@ -283,6 +283,33 @@ try {
     assert_web_app(($explicitEndpointBody['result']['interaction_archive']['recorded']??false) === true, 'Explicit /memory interaction was not archived');
     $interactionRef=(string)($explicitEndpointBody['result']['interaction_archive']['logical_ref']??'');
     assert_web_app(str_starts_with($interactionRef,'memory://interactions/'),'Interaction archive logical ref missing');
+    $conversationId=(string)($explicitEndpointBody['result']['interaction_archive']['conversation_id']??'');
+    assert_web_app((bool)preg_match('/^conv_[0-9a-f]{32}$/',$conversationId),'Archived conversation id missing');
+
+    $conversationList=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/conversations',[],[],['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($conversationList->status()===200,'Conversation list route failed');
+    $conversationListBody=json_decode($conversationList->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($conversationListBody['archive']['total']??0)>=2,'Conversation list did not include archived sessions');
+    assert_web_app(($conversationListBody['archive']['ai_tokens_used']??-1)===0,'Conversation list route used AI tokens');
+    assert_web_app(($conversationListBody['archive']['credit_units_charged']??-1)===0,'Conversation list route charged credits');
+    assert_web_app(!str_contains($conversationList->body(),'memory://system/'),'Conversation list exposed internal system refs');
+
+    $conversationDetail=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/conversations/'.$conversationId,[],[],['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($conversationDetail->status()===200,'Conversation detail route failed');
+    $conversationDetailBody=json_decode($conversationDetail->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($conversationDetailBody['archive']['conversation']['conversation_id']??null)===$conversationId,'Conversation detail id mismatch');
+    assert_web_app(count($conversationDetailBody['archive']['interactions']??[])===1,'Conversation detail turn count mismatch');
+    assert_web_app(
+        ($conversationDetailBody['archive']['interactions'][0]['question']??null)==='Las decisiones de despliegue de MCMA deben documentarse.',
+        'Conversation detail did not decrypt canonical interaction'
+    );
+    assert_web_app(($conversationDetailBody['archive']['ai_tokens_used']??-1)===0,'Conversation detail route used AI tokens');
+    assert_web_app(($conversationDetailBody['archive']['credit_units_charged']??-1)===0,'Conversation detail route charged credits');
+    assert_web_app(!str_contains($conversationDetail->body(),'memory://system/'),'Conversation detail exposed internal system refs');
 
     $libraryTree=$app->handle(new HttpRequest(
         'GET','/mcma/v1/library-tree',[],[],['mcma_session'=>$aliceCookie]
@@ -312,6 +339,17 @@ try {
     ));
     $bobLibraryTreeBody=json_decode($bobLibraryTree->body(),true,64,JSON_THROW_ON_ERROR);
     assert_web_app(($bobLibraryTreeBody['library']['interaction_total']??-1)===0,'Bob could see Alice interaction archive');
+
+    $bobConversationList=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/conversations',[],[],['mcma_session'=>$bobCookie]
+    ));
+    $bobConversationListBody=json_decode($bobConversationList->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($bobConversationListBody['archive']['total']??-1)===0,'Bob could see Alice conversation index');
+
+    $bobConversationDetail=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/conversations/'.$conversationId,[],[],['mcma_session'=>$bobCookie]
+    ));
+    assert_web_app($bobConversationDetail->status()===404,'Bob could open Alice conversation detail');
 
     $bobLibraryObject=$app->handle(new HttpRequest(
         'GET','/mcma/v1/library-object',[],['ref'=>$interactionRef],['mcma_session'=>$bobCookie]
