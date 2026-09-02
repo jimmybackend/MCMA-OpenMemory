@@ -422,6 +422,131 @@ th{color:var(--muted);font-weight:600}
   white-space:nowrap;
 }
 
+.memory-view-switch{
+  display:inline-flex;
+  gap:6px;
+  margin-bottom:14px;
+  padding:4px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#11151c;
+}
+.memory-view-button{
+  padding:7px 11px;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  color:var(--muted);
+  font-size:.8rem;
+  font-weight:700;
+}
+.memory-view-button:hover{
+  background:#1c232d;
+  color:var(--text);
+}
+.memory-view-button.active{
+  border-color:#3c526d;
+  background:#223047;
+  color:#dcecff;
+}
+
+.memory-tree-panel{
+  min-height:440px;
+}
+.memory-tree-heading{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  background:#151a22;
+}
+.memory-tree-heading strong{
+  font-size:.86rem;
+  overflow-wrap:anywhere;
+}
+.memory-tree-heading span{
+  color:var(--muted);
+  font-size:.72rem;
+}
+
+.memory-tree{
+  max-height:590px;
+  overflow:auto;
+  padding:9px 7px 14px;
+}
+.memory-tree-folder{
+  margin:1px 0;
+}
+.memory-tree-folder>summary{
+  padding:7px 8px;
+  border-radius:7px;
+  color:#dce6f3;
+  cursor:pointer;
+  font-size:.84rem;
+  line-height:1.3;
+  overflow-wrap:anywhere;
+}
+.memory-tree-folder>summary:hover{
+  background:#1a212b;
+}
+.memory-tree-children{
+  margin-left:13px;
+  padding-left:8px;
+  border-left:1px solid #2c3643;
+}
+.memory-tree-file{
+  width:100%;
+  display:block;
+  padding:7px 8px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#c5cfdd;
+  text-align:left;
+  font-size:.82rem;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.memory-tree-file:hover{
+  background:#1a212b;
+  color:#fff;
+}
+.memory-tree-file.selected{
+  background:#172235;
+  color:#dcecff;
+  box-shadow:inset 3px 0 0 #60a5fa;
+}
+.memory-path{
+  margin:-4px 0 14px;
+  padding:8px 10px;
+  border:1px solid #2b3542;
+  border-radius:8px;
+  background:#0d1117;
+  color:#8fb9e8;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.73rem;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+.memory-source{
+  min-height:80px;
+  max-height:240px;
+  margin-bottom:14px;
+}
+.memory-technical{
+  margin-top:12px;
+  color:var(--muted);
+}
+.memory-technical summary{
+  cursor:pointer;
+  font-size:.78rem;
+  font-weight:700;
+}
+.memory-technical .memory-metadata{
+  margin-bottom:0;
+}
+
 .memory-controls{
   display:grid;
   grid-template-columns:minmax(220px,1fr) minmax(150px,190px) minmax(150px,190px) auto auto;
@@ -634,6 +759,8 @@ th{color:var(--muted);font-weight:600}
 }
 
 @media(max-width:900px){
+  .memory-tree-panel{min-height:0}
+  .memory-tree{max-height:330px}
   .memory-controls{
     grid-template-columns:1fr 1fr;
   }
