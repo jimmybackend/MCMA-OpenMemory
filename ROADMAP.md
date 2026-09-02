@@ -151,6 +151,9 @@
 - [x] browser chat UI
 - [x] session status/profile chip, favicon and answer route/token badges
 - [x] zero-AI memory explorer with decrypted question/answer browsing
+- [x] permission-filtered visual `memory://user/` tree with collapsible thematic folders
+- [x] zero-AI decrypted canonical memory detail from tree leaves
+- [x] tree/list toggle preserving existing knowledge search workflow
 - [x] memory text search, temperature/validation filters and pagination
 - [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
 - [x] Preguntar / Mi memoria / Contexto MCMA primary tab navigation
