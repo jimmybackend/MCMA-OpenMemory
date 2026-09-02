@@ -137,6 +137,8 @@ Generation connectors include Amazon Bedrock Converse, local Ollama and local ll
 
 A first guarded Context Builder can pass a previously validated `supported/verified` memory into generation when direct reuse is blocked by freshness/current-data requirements. The context is marked as untrusted reference data, preserves validation/freshness metadata, and is included in billing reservation/metering. Unverified or low-confidence memory is not injected.
 
+The same generation request may also receive the bounded conversational context described above. Selected conversation turns are episodic continuity data, remain explicitly marked as untrusted reference data, are metered as generation input, and are recorded in Contexto MCMA so the user can see exactly which historical turns were supplied.
+
 
 ## Local AI
 
@@ -216,7 +218,7 @@ The web UI is organized into three primary tabs. Tab switching is handled client
 
 Conversation turns are stored once under `memory://interactions/...`; the chat sidebar and library shelves are derived views rather than copies. A private encrypted conversation index stores only conversation metadata plus canonical interaction references, so normal sidebar rendering does not decrypt the whole library. Listing/opening conversations uses zero AI tokens and zero AI credits. An archived interaction starts unverified; the owner can approve it as reusable Knowledge or retract it. Deep catalog classification runs only on approval and is metered when billing is enabled. The separate Context trace window remains capped to the latest 50 requests for operational transparency, while the durable interaction archive is not capped at 50.
 
-Opening a previous conversation restores its visible archived turns and keeps using that `conversation_id` for new turns. This UI phase does **not** automatically inject the entire archived conversation into the model prompt; conversational context injection remains a separate future, permission-aware and token-budgeted concern.
+Opening a previous conversation restores its visible archived turns and keeps using that `conversation_id` for new turns. Generation fallback can now use a **bounded conversational Context Builder**: MCMA considers only a small recent candidate window, re-reads candidate turns through the `ai` actor permissions, excludes retracted/disputed turns, keeps a couple of recent continuity anchors, adds lexically relevant older turns, and enforces configurable max-turn and conservative token-budget limits. The full transcript is never injected automatically.
 
 ~~~text
 GET  /login
