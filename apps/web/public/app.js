@@ -1008,8 +1008,15 @@
   function renderMemoryTreeDetail(object){
     memoryState.selectedRef=object.logical_ref||null;
     memoryState.selectedKind=object.kind||null;
+    memoryState.selectedEditableText=editableLibraryContent(object);
     memoryTreeDetailEmpty.hidden=true;
     memoryTreeDetailContent.hidden=false;
+    canonicalMemoryActions.hidden=true;
+    memoryUpdateInChatStatus.textContent='';
+    libraryInlineEditActions.hidden=true;
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.value='';
     interactionActions.hidden=true;
     interactionValidationStatus.textContent='';
     libraryCatalogWrap.hidden=true;
@@ -1074,8 +1081,11 @@
       memoryTreeDetailBadges.replaceChildren(
         memoryBadge('📖 Knowledge'),
         memoryBadge('Estado: '+(epistemic.validation_state||'unverified')),
-        memoryBadge('Confianza: '+Number(epistemic.confidence||0).toFixed(2))
+        memoryBadge('Confianza: '+Number(epistemic.confidence||0).toFixed(2)),
+        memoryBadge('Frescura: '+(record.freshness?.class||'stable')),
+        memoryBadge((epistemic.validation_state==='verified'&&Number(epistemic.confidence||0)>=0.95)?'Reutilizable: Sí':'Reutilizable: requiere revisión')
       );
+      libraryInlineEditActions.hidden=false;
       return;
     }
 
@@ -1095,14 +1105,24 @@
     memoryTreeDetailTemperature.textContent=metadata.temperature||classification.temperature||'—';
     memoryTreeDetailMaturity.textContent=metadata.maturity||'—';
     const categories=Array.isArray(classification.category_path)?classification.category_path:[];
+    const knowledgeState=object.knowledge_state&&typeof object.knowledge_state==='object'?object.knowledge_state:{};
     const badges=[memoryBadge('🧠 Memoria personal')];
     if(categories.length)badges.push(memoryBadge('📁 '+categories.join(' / ')));
     badges.push(memoryBadge(memoryTreeDetailTemperature.textContent),memoryBadge(memoryTreeDetailLayer.textContent));
+    if(knowledgeState.validation_state){
+      badges.push(
+        memoryBadge('Estado: '+knowledgeState.validation_state),
+        memoryBadge('Confianza: '+Number(knowledgeState.confidence||0).toFixed(2)),
+        memoryBadge('Frescura: '+(knowledgeState.freshness_class||'stable')),
+        memoryBadge(knowledgeState.reusable?'Reutilizable: Sí':'Reutilizable: requiere revisión')
+      );
+    }
     memoryTreeDetailBadges.replaceChildren(...badges);
 
     if(typeof object.logical_ref==='string'&&object.logical_ref.startsWith('memory://user/')){
       canonicalMemoryActions.hidden=false;
       memoryUpdateInChat.disabled=false;
+      libraryInlineEditActions.hidden=false;
     }
   }
 
