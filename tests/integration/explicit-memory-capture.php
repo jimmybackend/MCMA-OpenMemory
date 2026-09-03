@@ -375,6 +375,19 @@ try{
         ),
         'Contextual knowledge update wording was not recognized'
     );
+    explicit_memory_ok(
+        \MCMA\Core\Memory\MemoryMutationService::isMutationRequest(
+            'actualiza eso y ponle 14 de octubre del 1977'
+        ),
+        'Bare contextual update wording was not recognized'
+    );
+    explicit_memory_ok(
+        \MCMA\Core\Memory\MemoryMutationService::isMutationRequest(
+            'ponle 14 de octubre del 1977',
+            true
+        ),
+        'Exact Biblioteca selection did not allow a short natural edit command'
+    );
     $legacyUpdate=$mutation->execute(
         'owner',
         'actualiza ese conocimiento con mailit.click ya corrigió pvisit y conserva analytics.',
