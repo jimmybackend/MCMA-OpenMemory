@@ -13,7 +13,7 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-2"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-3"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
 check(str_contains($index,'src="app.js?v=20260903-3"'),'app script is base-path relative and cache-busted');
@@ -27,6 +27,14 @@ check(str_contains($index,'id="memoryTreeDetailContent"'),'decrypted tree detail
 check(str_contains($index,'id="memoryUpdateInChat"'),'Biblioteca exact-memory update action is present');
 check(str_contains($index,'id="memoryEditTarget"'),'Chat exact-memory target banner is present');
 check(str_contains($index,'id="memoryEditTargetClear"'),'Chat exact-memory target clear action is present');
+$inputShellPos=strpos($index,'<div class="chat-input-shell">');
+$sendButtonPos=strpos($index,'<button id="send"');
+$composerActionsPos=strpos($index,'<div class="chat-composer-actions">');
+check(
+    $inputShellPos!==false&&$sendButtonPos!==false&&$composerActionsPos!==false
+        &&$inputShellPos<$sendButtonPos&&$sendButtonPos<$composerActionsPos,
+    'Chat send button is not inside the visible input shell'
+);
 check(str_contains($index,'id="conversationLabel"'),'conversation session label is present');
 check(str_contains($index,'id="conversationSidebar"'),'conversation sidebar is present');
 check(str_contains($index,'id="conversationSearch"'),'conversation search is present');
