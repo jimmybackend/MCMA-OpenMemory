@@ -139,9 +139,7 @@
 - [x] encrypted HttpOnly web sessions
 - [x] multi-user /mcma/v1/me and /mcma/v1/ask
 - [x] same-origin web UI
-- [x] Nginx/PHP-FPM deployment example
-- [x] repository-managed `mailit.click` MCMA V1 Nginx fragment with 180s FastCGI timeouts
-- [x] safe production Nginx adoption/deploy script with backup, validation, rollback and V2 preservation
+- [x] operator-reviewed Nginx/PHP-FPM deployment example only; MCMA does not modify host proxy config
 - [ ] pepper rotation/migration
 - [ ] bulk multi-user recovery workflow
 
