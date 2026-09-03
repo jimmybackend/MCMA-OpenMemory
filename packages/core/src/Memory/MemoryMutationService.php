@@ -26,16 +26,16 @@ final class MemoryMutationService
             && (preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1||str_contains($text,'memory://user/'));
     }
 
-    public function execute(string $actor,string $requestText,?string $contextCanonicalRef=null): array
+    public function execute(string $actor,string $requestText,array|string|null $contextCanonicalRefs=null): array
     {
         $parsed=self::parse($requestText);
-        if(($parsed['target']??null)==='@context'&&is_string($contextCanonicalRef)&&str_starts_with($contextCanonicalRef,'memory://user/')){
-            try{
-                $this->library->readAs($actor,$contextCanonicalRef);
-                $resolved=['status'=>'resolved','logical_ref'=>$contextCanonicalRef,'candidates'=>[]];
-            }catch(Throwable){
-                $resolved=['status'=>'not-found','candidates'=>[]];
-            }
+        if(($parsed['target']??null)==='@context'){
+            $resolved=$this->resolveContextualTarget(
+                $actor,
+                $requestText,
+                $parsed,
+                self::normalizeContextRefs($contextCanonicalRefs)
+            );
         }else{
             $resolved=$this->resolveTarget($actor,(string)($parsed['target']??''));
         }
