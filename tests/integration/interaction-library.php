@@ -466,7 +466,7 @@ try{
     interaction_ok(($discarded['validation_state']??null)==='retracted','Discarded interaction was not retracted');
 
     $afterSecondConversation=$archive->conversations('owner');
-    interaction_ok(($afterSecondConversation['total']??0)===3,'Expected original, context-selection and discarded conversations in encrypted index');
+    interaction_ok(($afterSecondConversation['total']??0)===4,'Expected original, context-selection, canonical-recall and discarded conversations in encrypted index');
     interaction_ok(($afterSecondConversation['ai_tokens_used']??-1)===0,'Updated conversation index browse used AI tokens');
 
     $verify=$lib->verify();
