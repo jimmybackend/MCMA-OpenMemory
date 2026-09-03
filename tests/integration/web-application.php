@@ -323,6 +323,56 @@ try {
         'Exact Biblioteca mutation changed an unrelated canonical memory'
     );
 
+    $contextualLibraryFollowUp=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/ask',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'question'=>'actualiza eso y ponle 15 de octubre del 1977',
+            'remember'=>false,
+            'conversation_id'=>$libraryEditConversation,
+            'request_id'=>'req_'.str_repeat('b',32),
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($contextualLibraryFollowUp->status()===200,'Contextual follow-up mutation returned an HTTP error');
+    $contextualLibraryFollowUpBody=json_decode($contextualLibraryFollowUp->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($contextualLibraryFollowUpBody['result']['route']??null)==='memory-mutation'
+        &&($contextualLibraryFollowUpBody['result']['canonical_memory_ref']??null)===$libraryEditRef,
+        'Contextual follow-up did not stay anchored to the recalled canonical memory'
+    );
+    $aliceLibraryAfterContextualEdit=$users->resolve('https://id.example.test','alice-provider-subject');
+    assert_web_app(
+        str_contains(
+            (string)($aliceLibraryAfterContextualEdit->readAs('owner',$libraryEditRef)['payload']['content']['content']??''),
+            '15 de octubre del 1977'
+        ),
+        'Natural "actualiza eso y ponle" wording did not persist the replacement content'
+    );
+
+    $needsContentRequest=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/ask',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'question'=>'actualiza eso',
+            'remember'=>false,
+            'conversation_id'=>$libraryEditConversation,
+            'request_id'=>'req_'.str_repeat('c',32),
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($needsContentRequest->status()===200,'Incomplete memory update became an internal server error');
+    $needsContentBody=json_decode($needsContentRequest->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($needsContentBody['result']['mutation']['status']??null)==='needs-content'
+        &&($needsContentBody['result']['stored']??true)===false,
+        'Incomplete memory update did not return a safe needs-content response'
+    );
+
     $invalidLibraryEdit=$app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/ask',
