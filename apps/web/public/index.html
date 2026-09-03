@@ -130,6 +130,11 @@
                 <div id="libraryCatalogBadges" class="answer-meta"></div>
               </div>
 
+              <div id="canonicalMemoryActions" class="memory-detail-actions" hidden>
+                <button id="memoryUpdateInChat" type="button" class="confirm-button">Actualizar en Chat</button>
+                <span id="memoryUpdateInChatStatus" class="memory-validation-status"></span>
+              </div>
+
               <div id="interactionActions" class="memory-detail-actions" hidden>
                 <button id="interactionApprove" type="button" class="confirm-button">✓ Aprobar como conocimiento</button>
                 <button id="interactionDiscard" type="button" class="danger-button">Descartar conocimiento</button>
@@ -379,6 +384,15 @@
             </div>
           </div>
 
+          <div id="memoryEditTarget" class="memory-edit-target" hidden>
+            <div>
+              <strong>Memoria seleccionada para actualizar</strong>
+              <span id="memoryEditTargetTitle">—</span>
+              <code id="memoryEditTargetRef">—</code>
+            </div>
+            <button id="memoryEditTargetClear" type="button" class="secondary-button">Quitar</button>
+          </div>
+
           <div class="chat-input-shell">
             <textarea id="question" maxlength="32768" required rows="1" placeholder="Escribe tu mensaje o «Guarda esto: …»" aria-label="Mensaje para MCMA"></textarea>
           </div>
@@ -395,6 +409,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-2" defer></script>
+  <script src="app.js?v=20260903-3" defer></script>
 </body>
 </html>
