@@ -839,11 +839,16 @@
   function clearMemoryTreeDetail(){
     memoryState.selectedRef=null;
     memoryState.selectedKind=null;
+    memoryState.selectedEditableText='';
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
     canonicalMemoryActions.hidden=true;
     memoryUpdateInChatStatus.textContent='';
+    libraryInlineEditActions.hidden=true;
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.value='';
     interactionActions.hidden=true;
     interactionValidationStatus.textContent='';
     libraryCatalogWrap.hidden=true;
@@ -949,6 +954,42 @@
     if(content&&typeof content==='object'&&typeof content.content==='string')return content.content;
     if(content===null||content===undefined)return '—';
     return JSON.stringify(content,null,2);
+  }
+
+  function editableLibraryContent(object){
+    if(object?.kind==='knowledge'){
+      const value=object?.content?.answer?.value;
+      return typeof value==='string'?value:(value===null||value===undefined?'':JSON.stringify(value,null,2));
+    }
+    if(object?.kind==='memory'){
+      const content=object?.content;
+      if(typeof content==='string')return content;
+      if(content&&typeof content==='object'&&typeof content.content==='string')return content.content;
+    }
+    return '';
+  }
+
+  function libraryEditSummary(edit){
+    const billing=edit?.billing||{};
+    const usage=billing.usage||{};
+    const tokens=Number(usage.total_tokens??usage.totalTokens??0);
+    const semantic=edit?.semantic_index;
+    const semanticText=semantic
+      ?'embedding y semántica regenerados'
+      :'sin proveedor de embedding configurado';
+    return 'Guardado · verified · confianza 0.95 · warm · stable · '
+      +semanticText+' · '+number(tokens)+' tokens IA';
+  }
+
+  async function saveLibraryObjectEdit(ref,content){
+    return api('/mcma/v1/library-object/edit',{
+      method:'POST',
+      body:JSON.stringify({
+        ref,
+        content,
+        request_id:'req_'+randomHex(16)
+      })
+    });
   }
 
   function catalogBadges(catalog){
