@@ -61,9 +61,23 @@ try{
     if(($policy['default']??null)!=='deny') throw new RuntimeException('Expected deny-by-default policy');
     mustFail(fn()=> $lib->permissions('ai'),'AI permission policy read');
 
+    // Simulate a legacy persisted policy created before AI memory recall had
+    // both read and summarize capabilities.
+    $legacyPolicy=$policy;
+    $legacyPolicy['roles']['ai']=['allow'=>['summarize']];
+    $lib->setPermissions($legacyPolicy,'owner');
+    mustFail(fn()=> $lib->readAs('ai','memory://topics/security-test'),'Legacy AI role should not read before migration');
+    $upgrade=$lib->ensureAiRecallAccess('owner');
+    if(($upgrade['updated']??false)!==true) throw new RuntimeException('Legacy AI recall role was not upgraded');
+    $aiRestored=$lib->readAs('ai','memory://topics/security-test');
+    if(($aiRestored['payload']['content']??null)!=='hello secure memory') throw new RuntimeException('AI read was not restored by safe policy upgrade');
+
+    $policy=$lib->permissions('owner');
     $policy['resources'][]=['resource'=>'memory://topics/security-test','subject'=>'ai','deny'=>['read']];
     $lib->setPermissions($policy,'owner');
     mustFail(fn()=> $lib->readAs('ai','memory://topics/security-test'),'AI resource deny');
+    $noOverride=$lib->ensureAiRecallAccess('owner');
+    mustFail(fn()=> $lib->readAs('ai','memory://topics/security-test'),'Policy migration overrode explicit AI resource deny');
 
     $vaultEntry=null;
     foreach($lib->list() as $entry){
