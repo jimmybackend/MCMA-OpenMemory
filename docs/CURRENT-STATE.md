@@ -1,8 +1,38 @@
 # MCMA — Current State
 
-Date: 2026-09-02
+Date: 2026-09-03
 
-Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + persistent Chat + bounded conversational context + scored multi-memory RAG + AI metering/credits/SuperAdmin + Stripe + Permissions/Vault + Knowledge Reuse + semantic Top-K + provider-neutral ask orchestration.**
+Status: **Portable multi-cloud storage + encrypted multi-user libraries + OIDC web/API + persistent Chat + deterministic canonical recall + safe versioned conversational mutation + Knowledge/embedding synchronization + bounded conversational context + scored multi-memory RAG + AI metering/credits/SuperAdmin + Stripe + Permissions/Vault + semantic Top-K + provider-neutral ask orchestration.**
+
+## Repository state — 2026-09-03
+
+The active main line now includes the canonical-memory hardening completed after the 2026-09-02 deployment snapshot below.
+
+Implemented and covered by CI:
+
+- broad personal-memory questions can return confirmed actor-visible canonical user memory directly with route memory-canonical and no generation call;
+- legacy/manual canonical memories can participate in recall without promoting derived thematic summaries to canonical status;
+- persisted older user libraries safely gain missing ai read/summarize role capabilities while explicit denies remain authoritative;
+- the interaction archive records the canonical memory reference used by a recall;
+- conversational commands such as "actualiza ese conocimiento" create a new version of the canonical memory instead of a duplicate object;
+- legacy JSON memory updates preserve title, classification and other structure;
+- every successful canonical update synchronizes a stable retrieval question, verified Knowledge mirror and semantic index when embeddings are configured;
+- when several memories were recently recalled, the update payload is matched against all recent canonical candidates instead of blindly mutating the newest one;
+- ambiguous contextual updates refuse to mutate any file.
+
+The regression sequence "mailit.click recall → birth-date recall → mailit.click update" is explicitly tested: the mailit.click canonical object changes and the unrelated birth-date canonical object retains its storage hash.
+
+These changes are repository state. A production deployment must still be verified by checking the EC2 Git SHA, restarting the dedicated PHP-FPM service and exercising the user flow before claiming the same state as live production.
+
+## Multimodal direction
+
+MCMA's next major product direction is a provider-neutral multimodal memory layer for images, PDFs/documents, audio and video.
+
+The original uploaded media will remain the canonical encrypted source. OCR, descriptions, transcripts, thumbnails, semantic chunks and embeddings will be derived/rebuildable objects related back to that source.
+
+The planned Biblioteca will provide zero-AI shelves by file type and category, while Chat will be able to retrieve media by natural-language description and show authorized previews/cards.
+
+See MULTIMODAL-MEMORY.md for the architecture and phases M1–M7.
 
 ## Production deployment — 2026-09-02
 

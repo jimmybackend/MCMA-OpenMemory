@@ -139,3 +139,25 @@ mcma export
 ~~~
 
 AI adds interpretation and memory management; it is not required for the existence of the archive.
+
+## Memory beyond text
+
+The ownership principle applies to media as well as text.
+
+A future MCMA library may contain encrypted canonical photos, PDFs, documents, audio recordings and videos. The original user file remains the source of truth; machine-generated OCR, captions, transcripts, summaries and embeddings are derived observations that can be rebuilt or replaced when providers change.
+
+~~~text
+canonical user asset
+      ↓
+derived description / transcript / OCR
+      ↓
+semantic and relationship indexes
+      ↓
+AI / client retrieval
+~~~
+
+This preserves the same separation already used by text memory: **the archive owns the source; intelligence interprets it**.
+
+Multimodal storage must remain provider-independent. AWS may supply optional hosted connectors, while Local, NAS, WebDAV or other analysis/storage stacks remain valid alternatives.
+
+See MULTIMODAL-MEMORY.md.

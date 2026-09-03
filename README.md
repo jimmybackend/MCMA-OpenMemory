@@ -143,8 +143,19 @@ The same generation request may also receive the bounded conversational context 
 
 The next layer is now merged in `main` from PR #8: **multi-memory RAG**. When generation is required, MCMA can combine several trusted actor-visible KnowledgeRecords in one request, rank them using similarity + confidence + freshness + provenance + validation, and cap both the number of selected memories and their conservative context budget. Direct exact/semantic reuse remains stricter and unchanged.
 
-Broad memory questions such as **“¿Qué sabes de mailit.click?”** use a separate bounded recall intent. MCMA searches the authenticated user's actor-visible Knowledge and durable interaction archive for that entity/topic, keeps validation/confidence/provenance metadata, excludes retracted/disputed material, and asks the configured generation provider to synthesize the selected memories instead of stopping at one exact/semantic hit. The selected material remains untrusted reference data and is visible in **Contexto MCMA**.
+Broad memory questions such as **“¿Qué sabes de mailit.click?”** now try actor-visible canonical personal memory first. A confirmed canonical match under memory://user/... is returned directly with route memory-canonical and no generation call, preventing a provider's public-training knowledge from overriding the user's own stored memory. If no direct canonical recall is available, MCMA can continue through Knowledge, semantic, interaction and generation routes under the existing validation/permission gates.
 
+Conversational owner mutations are versioned. A follow-up such as **“actualiza ese conocimiento”** is anchored to recent canonical memories; when several different memories were recalled, MCMA validates the update content against the candidate references instead of blindly modifying the most recent one. Successful updates refresh the related Knowledge/semantic layer, while ambiguous updates change nothing.
+
+## Multimodal memory direction
+
+MCMA is designed to extend the same canonical/derived architecture beyond text to **images, PDFs/documents, audio and video**.
+
+The original uploaded file will remain the encrypted canonical source. OCR, captions, transcripts, thumbnails, summaries, labels and embeddings will be derived/rebuildable artifacts linked back to it. Biblioteca is planned to expose zero-AI shelves by file type/category, while Chat will retrieve matching media by natural-language description and show authorized preview cards.
+
+The design remains provider-neutral. AWS services such as Rekognition, Textract, Transcribe and multimodal Bedrock models are candidate connectors for the hosted implementation, not dependencies of the MCMA standard.
+
+See docs/MULTIMODAL-MEMORY.md and ROADMAP.md.
 
 ## Local AI
 

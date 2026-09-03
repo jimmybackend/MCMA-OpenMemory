@@ -276,21 +276,59 @@ Questions whose intent is explicitly broad, for example:
 
 ~~~text
 ¿Qué sabes de mailit.click?
+¿Qué sabe de fechas de nacimiento?
 Dime todo lo que recuerdas sobre MCMA.
 What do you know about project X?
 ~~~
 
-must not stop at the first reusable exact/semantic candidate when a generation provider is available. `BroadMemoryRecallBuilder` extracts the requested subject, searches actor-visible encrypted Knowledge plus the durable interaction archive, excludes `retracted` / `disputed` material, preserves validation/confidence/provenance metadata, deduplicates repeated content and packs a bounded selection.
+first attempt **deterministic canonical personal-memory recall**.
 
-Default web limits are:
+BroadMemoryRecallBuilder searches actor-visible canonical memory under memory://user/... and uses strong textual/entity matching. Confirmed canonical memories are authoritative user memory and are returned directly when they satisfy the recall gate.
 
 ~~~text
-selected items  8
-byte budget     16000
+broad recall question
+  ↓
+actor-visible canonical memory://user/...
+  ↓
+confirmed + relevant?
+  ├── yes → memory-canonical
+  │         provider_called=false
+  │         zero generation tokens
+  ↓ no direct canonical recall
+Knowledge / interactions / semantic / generation routes
 ~~~
 
-Verified/supported Knowledge is ranked ahead of unverified episodic interactions. Episodic material may still be included as explicitly labeled untrusted recollection because the user asked for an inventory/synthesis of what MCMA remembers; it never bypasses the stricter direct-reuse/RAG trust gates.
+This prevents a generation model from replacing confirmed user memory with stale public-training knowledge.
 
-The provider receives this selection as `broad_recall_context`, and the exact same selection is recorded in `context_used.broad_recall_context` for **Contexto MCMA** transparency. Its serialized bytes are part of generation input metering. If the synthesis is remembered, selected memory references are retained in provenance/relations.
+The direct canonical result exposes canonical_memory_ref and canonical_memory_refs so the interaction archive can retain which memory produced the answer.
 
-This broad recall is intentionally different from unbounded transcript injection: only matching actor-visible items are selected, the number/bytes are capped, and the full archive is never copied into the prompt.
+Derived thematic summaries remain derived evidence and are not promoted into canonical user memory merely because they contain a content field.
+
+### Conversational updates after recall
+
+A follow-up such as:
+
+~~~text
+Actualiza ese conocimiento con: ...
+~~~
+
+is actor-aware and versioned.
+
+When the conversation contains only one recent canonical memory reference, that reference is an unambiguous contextual target.
+
+When several canonical memories were recalled recently, MCMA must **not** update the newest one merely because it was read last. The update payload is compared against recent canonical candidates using logical reference, title, retrieval question, category path and canonical content.
+
+Only a strong, unique match may be changed. An ambiguous update returns candidate references and stores nothing.
+
+After a successful canonical update MCMA:
+
+- preserves the canonical object identity;
+- increments revision and links previous_storage_hash;
+- preserves or derives a stable retrieval question;
+- updates verified Knowledge related to the same canonical memory;
+- refreshes the semantic index when embeddings are configured;
+- keeps the retrieval identity stable across later revisions.
+
+A future Biblioteca action will bind an explicitly selected canonical object to **Actualizar en Chat**, making the UI-selected memory authoritative instead of relying on conversational resolution.
+
+For the multimodal extension of this same model, see MULTIMODAL-MEMORY.md.
