@@ -463,6 +463,69 @@ try{
         'Second legacy revision did not synchronize the full Knowledge answer'
     );
 
+    // An explicit Biblioteca selection is authoritative. It must override
+    // unrelated recent conversational anchors and mutate only the selected
+    // canonical memory.
+    $selectedBirthRef='memory://user/familia/fechas-de-nacimiento/seleccion-biblioteca';
+    $recentMailitRef='memory://user/proyectos/mailit-click/seleccion-biblioteca-decoy';
+    $lib->writeAs(
+        'owner',$selectedBirthRef,
+        [
+            'title'=>'Fechas de nacimiento',
+            'content'=>'Contenido incorrecto que debe corregirse desde Biblioteca.',
+            'classification'=>['category_path'=>['familia','fechas-de-nacimiento']],
+        ],
+        'json','warm','40-semantic','user','confirmed'
+    );
+    $lib->writeAs(
+        'owner',$recentMailitRef,
+        [
+            'title'=>'Pendientes de mailit.click',
+            'content'=>'mailit.click tiene pendientes de analytics y drive.',
+            'classification'=>['category_path'=>['proyectos','mailit-click']],
+        ],
+        'json','hot','90-projects','project','confirmed'
+    );
+    $selectedBirthBefore=$lib->readAs('owner',$selectedBirthRef);
+    $recentMailitBefore=$lib->readAs('owner',$recentMailitRef);
+
+    $selectedUpdate=$mutation->execute(
+        'owner',
+        'Actualiza esta memoria con: Fechas de nacimiento familiares corregidas y completas.',
+        [$recentMailitRef],
+        $selectedBirthRef
+    );
+    explicit_memory_ok(
+        ($selectedUpdate['canonical_memory_ref']??null)===$selectedBirthRef,
+        'Explicit Biblioteca selection did not override unrelated recent context'
+    );
+    $selectedBirthAfter=$lib->readAs('owner',$selectedBirthRef);
+    $recentMailitAfter=$lib->readAs('owner',$recentMailitRef);
+    explicit_memory_ok(
+        !hash_equals((string)$selectedBirthBefore['storage_hash'],(string)$selectedBirthAfter['storage_hash']),
+        'Explicitly selected canonical memory was not versioned'
+    );
+    explicit_memory_ok(
+        hash_equals((string)$recentMailitBefore['storage_hash'],(string)$recentMailitAfter['storage_hash']),
+        'Unrelated recent context was modified despite explicit Biblioteca selection'
+    );
+    explicit_memory_ok(
+        str_contains((string)($selectedBirthAfter['payload']['content']['content']??''),'corregidas y completas'),
+        'Explicit Biblioteca update content was not persisted'
+    );
+
+    $invalidSelected=$mutation->execute(
+        'owner',
+        'Actualiza esta memoria con: no debe escribirse.',
+        [$selectedBirthRef],
+        'memory://knowledge/q-invalid'
+    );
+    explicit_memory_ok(
+        ($invalidSelected['stored']??true)===false
+        &&($invalidSelected['mutation']['status']??null)==='not-found',
+        'Invalid explicit Biblioteca target should fail closed'
+    );
+
     $deletedMutation = $mutation->execute('owner', 'elimina memoria ' . $originalRef);
     explicit_memory_ok(($deletedMutation['mutation']['action'] ?? null) === 'delete', 'Delete mutation action mismatch');
     $deletedStored = $lib->readAs('owner', $originalRef);
