@@ -273,6 +273,40 @@ final class Library
         });
     }
 
+    public function ensureAiRecallAccess(string $actor = 'owner'): array
+    {
+        $policy=$this->permissionPolicyRaw();
+        if($policy===null) return ['updated'=>false,'reason'=>'access-control-not-initialized'];
+
+        PermissionEngine::assertAllowed($policy,$actor,'manage_permissions','memory://access/permissions');
+
+        $role=is_array($policy['roles']['ai']??null)?$policy['roles']['ai']:[];
+        $allow=is_array($role['allow']??null)?array_values($role['allow']):[];
+        $deny=is_array($role['deny']??null)?array_values($role['deny']):[];
+        $changed=false;
+
+        foreach(['read','summarize'] as $capability){
+            // Preserve an intentional role-level deny. Resource-level denies are
+            // also preserved untouched and remain more specific than this role.
+            if(in_array('*',$deny,true)||in_array($capability,$deny,true)) continue;
+            if(!in_array('*',$allow,true)&&!in_array($capability,$allow,true)){
+                $allow[]=$capability;
+                $changed=true;
+            }
+        }
+
+        if(!$changed) return ['updated'=>false,'reason'=>'ai-role-current'];
+
+        $role['allow']=array_values(array_unique($allow));
+        $policy['roles']['ai']=$role;
+        $result=$this->setPermissions($policy,$actor);
+        return [
+            'updated'=>true,
+            'reason'=>'legacy-ai-role-upgraded',
+            'revision'=>(int)($result['revision']??0),
+        ];
+    }
+
     public function permissionDecision(string $actor, string $action, string $resource): array
     {
         PermissionEngine::validateRequest($actor, $action, $resource);
