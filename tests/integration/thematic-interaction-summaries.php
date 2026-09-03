@@ -101,6 +101,7 @@ try{
     thematic_ok(($payload['interaction_ref']??null)===$interactionRef,'Summary lost canonical interaction reference');
     thematic_ok(($payload['conversation_id']??null)===$conversation,'Summary conversation id mismatch');
     thematic_ok(($payload['interaction_id']??null)===$request,'Summary interaction id mismatch');
+    thematic_ok(($payload['request_id']??null)===$request,'Summary request id mismatch');
     thematic_ok(!array_key_exists('question',$payload),'Summary duplicated full question field');
     thematic_ok(!array_key_exists('answer',$payload),'Summary duplicated full answer field');
     thematic_ok(is_string($payload['summary']??null)&&trim((string)$payload['summary'])!=='','Summary text missing');
@@ -126,6 +127,7 @@ try{
     $approvedPayload=$afterApprove['payload']['content']??[];
     thematic_ok(($approvedPayload['validation']['state']??null)==='verified','Summary was not updated to verified');
     thematic_ok(($approvedPayload['validation']['trusted_for_conclusions']??false)===true,'Verified summary was not enabled for future conclusions');
+    thematic_ok(($afterApprove['payload']['metadata']['maturity']??null)==='confirmed','Verified summary metadata maturity is not confirmed');
     thematic_ok(
         (int)($afterApprove['payload']['metadata']['revision']??0)>(int)($first['payload']['metadata']['revision']??0),
         'Approval did not version the thematic summary'
