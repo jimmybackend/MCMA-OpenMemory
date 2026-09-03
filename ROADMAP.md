@@ -90,6 +90,10 @@
 - [x] recipe-family context preserved across save-command parsing
 - [x] server/hostname context preserved for configuration memories
 - [x] semantic recovery tested across dynamic thematic folders
+- [x] natural-language owner update/delete intent for canonical personal memory
+- [x] versioned mutation preserving object_id, revision and previous_storage_hash
+- [x] semantic/Knowledge mirror refresh or retraction after mutation
+- [x] ambiguous mutation target refusal instead of best-guess destructive write
 
 ## Ask orchestration — first implementation complete
 - [x] provider-neutral GenerationProvider
@@ -102,6 +106,8 @@
 - [x] Amazon Bedrock Converse generation connector
 - [x] Bedrock bearer and SigV4 generation authentication
 - [x] mcma ask CLI
+- [x] broad entity/topic recall intent for “what do you know about X?” synthesis
+- [x] bounded actor-visible Knowledge + interaction recall with validation/provenance metadata
 
 ## Local AI — first implementation complete
 - [x] Ollama local embedding provider
@@ -157,6 +163,8 @@
 - [x] archived conversation reopening without automatic full-history prompt injection
 - [x] session status/profile chip, favicon and answer route/token badges
 - [x] per-answer copy and browser-native read-aloud controls
+- [x] client request_id idempotency and encrypted response recovery after proxy/network timeout
+- [x] pending request recovery across same-tab reload without duplicate generation
 - [x] zero-AI memory explorer with decrypted question/answer browsing
 - [x] persistent encrypted question/answer interaction archive beyond the 50 context traces
 - [x] tab-scoped conversation IDs + explicit Nueva conversación control
@@ -184,6 +192,8 @@
 - [x] encrypted daily usage ledger per user
 - [x] input/output/cached/embedding token metering
 - [x] exact provider counts when available, explicit estimates otherwise
+- [x] per-provider/model usage components persisted into interactions and context traces
+- [x] model usage transparency even when billing/credit charging is disabled
 - [x] integer credits and integer currency micros
 - [x] lazy credit reservation before first AI call
 - [x] settlement and reservation release
