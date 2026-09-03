@@ -504,7 +504,6 @@ final class WebApplication
 
         $requestId=$this->requestId($input);
         $conversationId=$this->conversationId($input);
-        $responseLanguage=$this->responseLanguage($input,$request);
         $existing=(new InteractionArchiveService($principal['library']))->interactionByRequestId('owner',$conversationId,$requestId);
         if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
         $result=$this->captureExplicitMemory($principal,$text,$requestId);
@@ -524,6 +523,7 @@ final class WebApplication
         $remember=$this->boolField($input,'remember',true);
         $requestId=$this->requestId($input);
         $conversationId=$this->conversationId($input);
+        $responseLanguage=$this->responseLanguage($input,$request);
 
         $archiveService=new InteractionArchiveService($principal['library']);
         $existing=$archiveService->interactionByRequestId('owner',$conversationId,$requestId);
