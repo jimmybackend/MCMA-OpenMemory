@@ -85,7 +85,8 @@ check(str_contains($css,'.account-modal'),'account settings modal styling is pre
 check(str_contains($css,'.sidebar-account-row'),'sidebar private account row styling is present');
 check(str_contains($css,'Desktop density at browser zoom 100%'),'desktop density section is present');
 check(str_contains($css,'grid-template-columns:250px minmax(0,1fr)'),'desktop Chat sidebar is compact');
-check(str_contains($css,'max-height:196px'),'desktop conversation list is capped near four rows');
+check(str_contains($css,'.chat-sidebar-section.conversations-section'),'conversation section styling is present');
+check(str_contains($css,'flex:1 1 auto'),'conversation section fills remaining sidebar height');
 check(str_contains($css,'.conversation-scroll-button'),'conversation paging controls are styled');
 check(str_contains($css,'flex:1 1 auto'),'conversation area can fill remaining sidebar height');
 check(str_contains($css,'-webkit-line-clamp:2'),'long Biblioteca names are visually clamped');
