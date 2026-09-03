@@ -86,6 +86,24 @@ try{
     ]);
 
     $billing=new BillingService($catalog);
+
+    // Production-shape regression: current MCMA can reserve 16,384 fixed bytes
+    // plus 6,000 conversation + 8,000 multi-memory + 16,000 broad-recall bytes.
+    // With 5,000 max output tokens and 71,947 credits remaining, this request
+    // must not be rejected merely because byte context was double-counted.
+    $productionContextReserve=16384+6000+8000+16000;
+    $productionEstimate=$billing->estimateReservation(
+        '¿Qué sabes de mailit.click?',
+        'quota:embed:v1',
+        'quota:gen:v1',
+        5000,
+        $productionContextReserve
+    );
+    qassert(
+        (int)($productionEstimate['credit_units']??PHP_INT_MAX)<=71947,
+        'Production-shaped reservation falsely exceeds 71,947 available credits'
+    );
+
     $first=$billing->summary($library);
     qassert(($first['available_units']??0)===100,'Free monthly allowance was not granted');
     qassert(($first['quota']['monthly_credit_allowance']??0)===100,'Free allowance target missing');
