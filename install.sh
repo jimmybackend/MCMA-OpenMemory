@@ -22,13 +22,14 @@ Options:
   --install-dir PATH   Deployment checkout path (default: /opt/MCMA-OpenMemory)
   --env-file PATH      Protected runtime env file (default: /etc/mcma/mcma.env)
   --env-source PATH    Install a pre-populated env file if --env-file does not exist
-  --domain HOST        Nginx server_name; also used for local health test
-  --skip-packages      Do not install nginx/php packages
-  --skip-nginx         Do not create/reload nginx configuration
+  --domain HOST        Deprecated compatibility flag; host proxy is operator-managed
+  --skip-packages      Do not install PHP runtime packages
+  --skip-nginx         Deprecated compatibility flag; MCMA never modifies Nginx
   -h, --help           Show this help
 
-The installer never overwrites an existing runtime env file and never invents
-AWS, OIDC, Stripe or other provider credentials.
+The installer never overwrites an existing runtime env file, never invents
+AWS, OIDC, Stripe or other provider credentials, and never writes or reloads
+the host Nginx configuration. Use config/nginx/mcma-web.conf.example manually.
 EOF
 }
 
@@ -66,16 +67,16 @@ install_packages() {
   ((SKIP_PACKAGES==1)) && { log "Skipping package installation."; return; }
 
   if command -v dnf >/dev/null 2>&1; then
-    log "Installing nginx, PHP-FPM and PHP runtime packages with dnf."
-    dnf install -y nginx php php-cli php-fpm php-opcache php-mbstring
+    log "Installing PHP-FPM and PHP runtime packages with dnf."
+    dnf install -y php php-cli php-fpm php-opcache php-mbstring
     dnf install -y php-curl >/dev/null 2>&1 || true
   elif command -v apt-get >/dev/null 2>&1; then
-    log "Installing nginx, PHP-FPM and PHP runtime packages with apt."
+    log "Installing PHP-FPM and PHP runtime packages with apt."
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y nginx php-cli php-fpm php-curl php-mbstring php-opcache
+    apt-get install -y php-cli php-fpm php-curl php-mbstring php-opcache
   else
-    die "Supported package manager not found (dnf or apt-get). Use --skip-packages after installing PHP 8.2+, PHP-FPM and nginx manually."
+    die "Supported package manager not found (dnf or apt-get). Use --skip-packages after installing PHP 8.2+ and PHP-FPM manually."
   fi
 }
 
@@ -250,49 +251,11 @@ EOF
 }
 
 configure_nginx() {
-  ((SKIP_NGINX==1)) && { log "Skipping nginx configuration."; return; }
-  if [[ "$DOMAIN" == "_" ]]; then
-    SKIP_NGINX=1
-    warn "No web domain was configured; nginx MCMA virtual host was not created. Use --domain HOST or set MCMA_WEB_PUBLIC_ORIGIN, then rerun."
-    return
-  fi
-  command -v nginx >/dev/null 2>&1 || die "nginx is not installed."
-
-  local pass
-  pass="$(fpm_listen)"
-  cat >/etc/nginx/conf.d/mcma.conf <<EOF
-server {
-    listen 80;
-    server_name $DOMAIN;
-    root $INSTALL_DIR/apps/web/public;
-    index index.html;
-    client_max_body_size 1m;
-
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer" always;
-    add_header X-Frame-Options "DENY" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'" always;
-
-    location / { try_files \$uri \$uri/ /index.php?\$query_string; }
-
-    location = /index.php {
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root/index.php;
-        fastcgi_param HTTP_PROXY "";
-        fastcgi_pass $pass;
-    }
-
-    location ~ \.php\$ { return 404; }
-    location ~ /\. { deny all; }
-}
-EOF
-
-  nginx -t
-  systemctl enable nginx >/dev/null
-  systemctl restart nginx
-  systemctl is-active --quiet nginx || die "nginx failed to start."
-  log "nginx configured for server_name $DOMAIN"
+  # Host reverse-proxy configuration is deliberately outside MCMA's authority.
+  # The project ships only a generic example. Production operators must review,
+  # adapt, install, validate and reload their own Nginx/Apache/CDN configuration.
+  SKIP_NGINX=1
+  warn "MCMA does not modify Nginx. Review config/nginx/mcma-web.conf.example and apply it manually if appropriate."
 }
 
 web_env_ready() {
@@ -314,14 +277,14 @@ smoke_tests() {
   [[ "$status" -eq 2 ]] || die "CLI smoke test returned unexpected status $status."
   grep -q 'MCMA 1.0 CLI' /tmp/mcma-install-cli.txt || die "CLI smoke test output is invalid."
 
-  if web_env_ready && command -v curl >/dev/null 2>&1 && ((SKIP_NGINX==0)); then
+  if false; then
     local host="$DOMAIN" response
     [[ "$host" != "_" ]] || host="localhost"
     response="$(curl -fsS -H "Host: $host" http://127.0.0.1/mcma/v1/health)" || die "Web health check failed."
     grep -q '"ok":true' <<<"$response" || die "Web health response is not healthy."
     log "Web health check passed."
   else
-    warn "Web health check skipped until web/OIDC variables are complete."
+    warn "Web health check is not performed by the installer because host web-server configuration is operator-managed."
   fi
 }
 
@@ -340,7 +303,8 @@ main() {
   log "Deployment checkout: $INSTALL_DIR"
   log "Runtime environment: $ENV_FILE"
   log "Key directory: $KEY_DIR"
-  if ! web_env_ready; then warn "Complete web/OIDC/provider values in $ENV_FILE, then rerun: sudo $INSTALL_DIR/install.sh --skip-packages"; fi
+  if ! web_env_ready; then warn "Complete web/OIDC/provider values in $ENV_FILE before starting the web application."; fi
+  log "Nginx is not modified by MCMA. Example only: $INSTALL_DIR/config/nginx/mcma-web.conf.example"
   log "Diagnostics: sudo $INSTALL_DIR/scripts/mcma-doctor.sh"
 }
 
