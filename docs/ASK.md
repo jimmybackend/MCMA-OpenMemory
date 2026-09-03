@@ -268,3 +268,29 @@ The budget uses `estimated-bytes-upper-bound`, so MCMA never labels the pre-prov
 
 If the generated synthesis is remembered, its new KnowledgeRecord remains `unverified` by default but records the selected RAG memories as `source_type=memory` provenance and memory relations. This makes later validation auditable instead of losing the evidence chain.
 
+
+
+## Broad memory recall intent
+
+Questions whose intent is explicitly broad, for example:
+
+~~~text
+¿Qué sabes de mailit.click?
+Dime todo lo que recuerdas sobre MCMA.
+What do you know about project X?
+~~~
+
+must not stop at the first reusable exact/semantic candidate when a generation provider is available. `BroadMemoryRecallBuilder` extracts the requested subject, searches actor-visible encrypted Knowledge plus the durable interaction archive, excludes `retracted` / `disputed` material, preserves validation/confidence/provenance metadata, deduplicates repeated content and packs a bounded selection.
+
+Default web limits are:
+
+~~~text
+selected items  8
+byte budget     16000
+~~~
+
+Verified/supported Knowledge is ranked ahead of unverified episodic interactions. Episodic material may still be included as explicitly labeled untrusted recollection because the user asked for an inventory/synthesis of what MCMA remembers; it never bypasses the stricter direct-reuse/RAG trust gates.
+
+The provider receives this selection as `broad_recall_context`, and the exact same selection is recorded in `context_used.broad_recall_context` for **Contexto MCMA** transparency. Its serialized bytes are part of generation input metering. If the synthesis is remembered, selected memory references are retained in provenance/relations.
+
+This broad recall is intentionally different from unbounded transcript injection: only matching actor-visible items are selected, the number/bytes are capped, and the full archive is never copied into the prompt.
