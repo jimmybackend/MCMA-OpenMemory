@@ -14,10 +14,10 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-8"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-9"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260903-6"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260903-7"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -35,6 +35,9 @@ check(str_contains($index,'id="conversationPageDown"'),'conversation page-down c
 check(str_contains($index,'id="conversationRenameOpen"'),'Chat conversation rename action is present');
 check(str_contains($index,'id="conversationRenameForm"'),'Chat conversation rename form is present');
 check(str_contains($index,'id="interactionRenameConversation"'),'Biblioteca conversation rename action is present');
+check(str_contains($index,'id="libraryRenameOpen"'),'tree Biblioteca rename action is present');
+check(str_contains($index,'id="memoryRenameOpen"'),'list Biblioteca rename action is present');
+check(str_contains($index,'id="memoryDetailOriginalQuestion"'),'renamed Knowledge preserves visible original question');
 check(str_contains($index,'id="contextCatalogStatus"'),'Contexto catalog progress indicator is present');
 check(str_contains($index,'id="accountSettingsClose"'),'account settings modal close button is present');
 check(str_contains($index,'id="identityName">usuario</strong>'),'sidebar identity shows only a private account handle');
@@ -84,6 +87,9 @@ check(str_contains($css,'Desktop density at browser zoom 100%'),'desktop density
 check(str_contains($css,'grid-template-columns:250px minmax(0,1fr)'),'desktop Chat sidebar is compact');
 check(str_contains($css,'max-height:196px'),'desktop conversation list is capped near four rows');
 check(str_contains($css,'.conversation-scroll-button'),'conversation paging controls are styled');
+check(str_contains($css,'flex:1 1 auto'),'conversation area can fill remaining sidebar height');
+check(str_contains($css,'-webkit-line-clamp:2'),'long Biblioteca names are visually clamped');
+check(str_contains($css,'.memory-original-question'),'original Knowledge question styling is present');
 check(str_contains($css,'.conversation-rename-form'),'conversation rename form is styled');
 check(str_contains($css,'.context-catalog-status'),'Contexto catalog progress is styled');
 check(str_contains($css,'height:clamp(520px,calc(100dvh - 100px),980px)'),'compact desktop Chat fills available viewport');
@@ -116,6 +122,11 @@ check(str_contains($app,"api('/mcma/v1/conversations'"),'conversation archive li
 check(str_contains($app,"api('/mcma/v1/conversations/'+encodeURIComponent(conversationId)"),'conversation archive detail endpoint is wired');
 check(str_contains($app,"method:'PATCH'"),'conversation rename uses PATCH');
 check(str_contains($app,'scrollConversationPage'),'conversation history page scrolling is wired');
+check(str_contains($app,'pageSize:4'),'conversation history is paged four at a time');
+check(str_contains($app,'filtered.slice('),'conversation renderer uses a four-item window');
+check(str_contains($app,"api('/mcma/v1/library-object/rename'"),'Biblioteca rename endpoint is wired');
+check(str_contains($app,'item.display_title||item.question'),'Biblioteca list prefers short display title');
+check(str_contains($app,'memoryDetailOriginalQuestion'),'original semantic question remains visible after rename');
 check(str_contains($app,"const order=['Hoy','Anteriores']"),'conversation history groups are only Hoy and Anteriores');
 check(str_contains($app,'renameSelectedLibraryConversation'),'Biblioteca conversation rename is wired');
 check(str_contains($app,'contextCatalogStatus'),'Contexto catalog progress is rendered');
