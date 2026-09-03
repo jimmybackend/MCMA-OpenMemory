@@ -27,6 +27,7 @@
 ## Retrieval and memory model
 
 - MEMORY-TAXONOMY.md — cognitive memory classification.
+- MULTIMODAL-MEMORY.md — planned encrypted image/document/audio/video assets, derived analysis, retrieval, previews and hosted storage/media billing.
 - ENCRYPTED-INDEX.md — encrypted catalogs, semantic/derived indexing and the private conversation index used by persistent Chat.
 - KNOWLEDGE-REUSE.md — memory-first answer reuse.
 - STORAGE-ADAPTERS.md — provider-independent storage contract.
