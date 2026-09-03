@@ -258,23 +258,25 @@ final class ThematicSummaryService
 
     private static function summaryText(array $interaction,string $topic): string
     {
-        $question=self::excerpt((string)($interaction['question']??''),180);
+        // Keep the canonical question only in memory://interactions. A thematic
+        // summary may retain a bounded answer-derived key point, but it must not
+        // reconstruct a second question+answer transcript.
         $answer=$interaction['answer']['value']??null;
         $answerText=is_string($answer)?$answer:(json_encode($answer,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?:'');
-        $answerText=self::excerpt($answerText,260);
+        $answerText=self::excerpt($answerText,220);
 
         $parts=['Tema: '.$topic.'.'];
-        if($question!=='') $parts[]='Se trató: '.$question;
-        if($answerText!=='') $parts[]='Resultado resumido: '.$answerText;
-        return self::excerpt(implode(' ',$parts),520);
+        if($answerText!=='') $parts[]='Punto derivado: '.$answerText;
+        else $parts[]='Interacción archivada para análisis temático posterior.';
+        return self::clean(implode(' ',$parts),320);
     }
 
     private static function title(array $catalog,array $interaction,string $topic): string
     {
         $title=self::clean((string)($catalog['title']??''),120);
-        if($title!=='') return $title;
-        $question=self::clean((string)($interaction['question']??''),100);
-        return $question!==''?$question:'Resumen sobre '.$topic;
+        $question=self::clean((string)($interaction['question']??''),120);
+        if($title!==''&&$title!==$question) return $title;
+        return 'Resumen sobre '.$topic;
     }
 
     private static function excerpt(string $value,int $max): string
