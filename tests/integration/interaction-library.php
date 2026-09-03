@@ -259,6 +259,45 @@ try{
     interaction_ok(($approved['catalog']['people'][0]??null)==='Jimmy','Approval catalog person missing');
     interaction_ok($generator->calls===1,'Approval should classify exactly once');
 
+    $canonicalMailitRef='memory://user/configuraciones/servidores/mailit-click-recuerdo';
+    $lib->writeAs(
+        'owner',
+        $canonicalMailitRef,
+        [
+            'explicit_memory_version'=>'1.1',
+            'title'=>'Configuración de mailit.click',
+            'content'=>'mailit.click usa Nginx, CloudFront, PHP-FPM y memoria cifrada MCMA.',
+            'source'=>['type'=>'explicit-user-request','original'=>'mailit.click usa Nginx, CloudFront, PHP-FPM y memoria cifrada MCMA.'],
+            'classification'=>[
+                'category_path'=>['configuraciones','servidores','mailit.click'],
+                'cognitive_layer'=>'40-semantic',
+                'scope'=>'user',
+                'temperature'=>'hot',
+                'freshness_class'=>'dynamic',
+                'reason'=>'Prueba de memoria explícita canónica sin espejo Knowledge',
+            ],
+            'retrieval'=>[
+                'question'=>'¿Qué configuración debe recordarse sobre mailit.click?',
+                'knowledge_ref'=>'memory://knowledge/q-'.str_repeat('f',64),
+            ],
+            'organization'=>[
+                'status'=>'organized-by-model',
+                'provider_id'=>'test',
+                'model_output_valid'=>true,
+            ],
+        ],
+        'json','hot','40-semantic','user','confirmed'
+    );
+    $canonicalOnlyRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabes de mailit.click?',0.75);
+    interaction_ok(is_array($canonicalOnlyRecall),'Canonical-only broad recall returned no context');
+    $canonicalItems=array_values(array_filter(
+        $canonicalOnlyRecall['items']??[],
+        static fn(array $item): bool => ($item['kind']??null)==='canonical-user-memory'
+    ));
+    interaction_ok(count($canonicalItems)>=1,'Broad recall ignored canonical user memory without Knowledge mirror');
+    interaction_ok(($canonicalItems[0]['logical_ref']??null)===$canonicalMailitRef,'Broad recall returned wrong canonical user memory');
+    interaction_ok(str_contains((string)($canonicalItems[0]['answer']??''),'CloudFront'),'Canonical user memory content was not supplied to recall');
+
     $knowledge=new KnowledgeService($lib);
     $reuse=$knowledge->directAnswer('owner',$question);
     interaction_ok(($reuse['decision']??null)==='reuse','Approved interaction did not become reusable knowledge');
