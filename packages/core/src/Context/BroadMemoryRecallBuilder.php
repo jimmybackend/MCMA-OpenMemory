@@ -136,39 +136,56 @@ final class BroadMemoryRecallBuilder
         $content=$payload['content']??null;
         $metadata=is_array($payload['metadata']??null)?$payload['metadata']:[];
 
-        if(!is_array($content)) return null;
+        $maturity=(string)($metadata['maturity']??'raw');
+        $scope=(string)($metadata['scope']??'user');
+        $layer=(string)($metadata['cognitive_layer']??'40-semantic');
+        $temperature=(string)($metadata['temperature']??'hot');
+        $confirmed=$maturity==='confirmed';
+        $metadataCanonical=$confirmed&&in_array($scope,['user','project'],true);
 
         // Derived thematic summaries are intentionally not canonical memory.
         // They may live under memory://user/... for browsing, but broad recall
         // must resolve back to original user memories/interactions instead.
         if(
-            isset($content['thematic_summary_version'])
+            (is_array($content)&&isset($content['thematic_summary_version']))
             || preg_match('#^memory://user/temas/[^/]+/resumenes/#',$logicalRef)===1
         ){
             return null;
         }
 
-        $answer=$content['content']??null;
-        if(!is_string($answer)||trim($answer)==='') return null;
+        $title='';$classification=[];$retrieval=[];$source=[];$answer='';$isExplicit=false;
+        if(is_array($content)){
+            if(($content['lifecycle']['status']??null)==='deleted') return null;
+            $answer=is_string($content['content']??null)?trim((string)$content['content']):'';
+            $title=is_string($content['title']??null)?trim((string)$content['title']):'';
+            $classification=is_array($content['classification']??null)?$content['classification']:[];
+            $retrieval=is_array($content['retrieval']??null)?$content['retrieval']:[];
+            $source=is_array($content['source']??null)?$content['source']:[];
+            $isExplicit=isset($content['explicit_memory_version']);
+        }elseif(is_string($content)){
+            // Older MCMA libraries can contain canonical plain-text memories.
+            // Their cognitive metadata is the canonicality signal.
+            $answer=trim($content);
+        }else{
+            return null;
+        }
+        if($answer==='') return null;
 
-        $title=is_string($content['title']??null)?trim((string)$content['title']):'';
-        $classification=is_array($content['classification']??null)?$content['classification']:[];
-        $isExplicit=isset($content['explicit_memory_version']);
-        $isLegacyCanonical=$title!==''||$classification!==[];
-        if(!$isExplicit&&!$isLegacyCanonical) return null;
+        $isLegacyStructured=$title!==''||$classification!==[];
+        if(!$isExplicit&&!$isLegacyStructured&&!$metadataCanonical) return null;
 
-        $retrieval=is_array($content['retrieval']??null)?$content['retrieval']:[];
         $retrievalQuestion=is_string($retrieval['question']??null)?(string)$retrieval['question']:'';
         $categories=is_array($classification['category_path']??null)
             ?implode(' ',array_values(array_filter($classification['category_path'],'is_string')))
             :'';
-        $source=is_array($content['source']??null)?$content['source']:[];
-        $original=is_string($source['original']??null)?(string)$source['original']:'';
+        $sourceOriginal=is_string($source['original']??null)?(string)$source['original']:'';
 
-        $searchable=implode("\n",[$logicalRef,$title,$retrievalQuestion,$categories,$answer,$original]);
+        $searchable=implode("\n",[
+            $logicalRef,$title,$retrievalQuestion,$categories,$answer,$sourceOriginal,
+            $layer,$scope,$temperature,$maturity,
+        ]);
         if(!self::containsText($searchable,$subject)) return null;
 
-        $confirmed=(string)($metadata['maturity']??'')==='confirmed';
         return [
             'kind'=>'canonical-user-memory',
             'logical_ref'=>$logicalRef,
@@ -179,12 +196,20 @@ final class BroadMemoryRecallBuilder
             'confidence'=>$confirmed?0.95:0.5,
             'stale'=>false,
             'at'=>(string)($metadata['updated_at']??$metadata['created_at']??''),
+            'memory_metadata'=>[
+                'maturity'=>$maturity,
+                'scope'=>$scope,
+                'cognitive_layer'=>$layer,
+                'temperature'=>$temperature,
+            ],
             'provenance'=>[[
                 'source_type'=>'user',
                 'reference'=>$logicalRef,
                 'note'=>$isExplicit
                     ?'Canonical actor-visible explicit personal memory'
-                    :'Canonical actor-visible legacy personal memory',
+                    :($metadataCanonical
+                        ?'Canonical actor-visible memory selected by cognitive metadata'
+                        :'Canonical actor-visible legacy personal memory'),
             ]],
         ];
     }
@@ -217,7 +242,28 @@ final class BroadMemoryRecallBuilder
         $state=(string)($item['validation_state']??'unverified');
         $score=match($state){'verified'=>400,'supported'=>300,'unverified'=>100,default=>0};
         if(($item['kind']??null)==='knowledge') $score+=20;
-        if(($item['kind']??null)==='canonical-user-memory') $score+=40;
+        if(($item['kind']??null)==='canonical-user-memory'){
+            $score+=40;
+            $meta=is_array($item['memory_metadata']??null)?$item['memory_metadata']:[];
+            if(($meta['maturity']??null)==='confirmed') $score+=80;
+            $score+=match((string)($meta['cognitive_layer']??'')){
+                '90-projects'=>25,
+                '40-semantic'=>20,
+                default=>5,
+            };
+            $score+=match((string)($meta['scope']??'')){
+                'project'=>15,
+                'user'=>10,
+                default=>0,
+            };
+            $score+=match((string)($meta['temperature']??'')){
+                'hot'=>12,
+                'warm'=>8,
+                'cold'=>4,
+                'frozen'=>-20,
+                default=>0,
+            };
+        }
         if(($item['stale']??false)===true) $score-=80;
         $score+=(int)round(max(0.0,min(1.0,(float)($item['confidence']??0.0)))*50);
         return $score;

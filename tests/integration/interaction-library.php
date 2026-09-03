@@ -259,6 +259,22 @@ try{
     interaction_ok(($approved['catalog']['people'][0]??null)==='Jimmy','Approval catalog person missing');
     interaction_ok($generator->calls===1,'Approval should classify exactly once');
 
+    $plainConfirmedRef='memory://user/sistemas/mailit-click-datos-confirmados';
+    $lib->writeAs(
+        'owner',
+        $plainConfirmedRef,
+        'mailit.click también conserva configuración operativa confirmada del sistema.',
+        'text','cold','90-projects','user','confirmed'
+    );
+
+    $semanticConfirmedRef='memory://user/knowledge/mailit-click-semantico';
+    $lib->writeAs(
+        'owner',
+        $semanticConfirmedRef,
+        ['title'=>'Conocimiento semántico de mailit.click','content'=>'mailit.click tiene conocimiento semántico confirmado y activo.'],
+        'json','hot','40-semantic','user','confirmed'
+    );
+
     $legacyMailitRef='memory://user/sistemas/correo/mantenimiento/actualizaciones-y-reparaciones-mailit-click';
     $lib->writeAs(
         'owner',
@@ -282,6 +298,22 @@ try{
     interaction_ok(($legacyItems[0]['kind']??null)==='canonical-user-memory','Legacy memory was not treated as canonical user memory');
     interaction_ok(($legacyItems[0]['validation_state']??null)==='verified','Confirmed legacy memory lost trusted maturity');
     interaction_ok(str_contains((string)($legacyItems[0]['answer']??''),'pvisit'),'Legacy mailit.click content was not supplied to recall');
+
+    $metadataRefs=array_values(array_map(
+        static fn(array $item): string => (string)($item['logical_ref']??''),
+        $legacyRecall['items']??[]
+    ));
+    interaction_ok(in_array($plainConfirmedRef,$metadataRefs,true),'Confirmed plain-text project memory was not recalled');
+    interaction_ok(in_array($semanticConfirmedRef,$metadataRefs,true),'Confirmed semantic memory was not recalled');
+    $plainItem=array_values(array_filter(
+        $legacyRecall['items']??[],
+        static fn(array $item): bool => ($item['logical_ref']??null)===$plainConfirmedRef
+    ))[0]??null;
+    interaction_ok(is_array($plainItem),'Confirmed plain-text metadata memory missing');
+    interaction_ok(($plainItem['memory_metadata']['maturity']??null)==='confirmed','Recall did not preserve memory maturity');
+    interaction_ok(($plainItem['memory_metadata']['scope']??null)==='user','Recall did not preserve memory scope');
+    interaction_ok(($plainItem['memory_metadata']['cognitive_layer']??null)==='90-projects','Recall did not preserve cognitive layer');
+    interaction_ok(($plainItem['memory_metadata']['temperature']??null)==='cold','Recall did not preserve memory temperature');
 
     // A derived thematic summary may mention the same subject, but broad recall
     // must not treat it as another canonical personal memory.
@@ -344,8 +376,16 @@ try{
         static fn(array $item): bool => ($item['kind']??null)==='canonical-user-memory'
     ));
     interaction_ok(count($canonicalItems)>=1,'Broad recall ignored canonical user memory without Knowledge mirror');
-    interaction_ok(($canonicalItems[0]['logical_ref']??null)===$canonicalMailitRef,'Broad recall returned wrong canonical user memory');
-    interaction_ok(str_contains((string)($canonicalItems[0]['answer']??''),'CloudFront'),'Canonical user memory content was not supplied to recall');
+    $explicitCanonical=array_values(array_filter(
+        $canonicalItems,
+        static fn(array $item): bool => ($item['logical_ref']??null)===$canonicalMailitRef
+    ));
+    interaction_ok(count($explicitCanonical)===1,'Broad recall lost explicit canonical user memory');
+    interaction_ok(str_contains((string)($explicitCanonical[0]['answer']??''),'CloudFront'),'Explicit canonical user memory content was not supplied to recall');
+    interaction_ok(
+        ($canonicalItems[0]['memory_metadata']['maturity']??null)==='confirmed',
+        'Highest-ranked canonical memory should be confirmed'
+    );
 
     $knowledge=new KnowledgeService($lib);
     $reuse=$knowledge->directAnswer('owner',$question);
