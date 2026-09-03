@@ -66,6 +66,7 @@ final class MemoryMutationService
         if(is_array($current)&&is_string($current['retrieval']['knowledge_ref']??null)){
             $knowledgeRef=$current['retrieval']['knowledge_ref'];
         }
+        $previousKnowledgeRef=$knowledgeRef;
 
         if($parsed['action']==='delete'){
             if(is_array($current)){
@@ -173,17 +174,53 @@ final class MemoryMutationService
             );
             $knowledgeRef=(string)($mirror['logical_ref']??$knowledgeRef);
             $retrievalSync['knowledge_ref']=$knowledgeRef;
+
+            // Keep Knowledge temperature aligned with the canonical memory,
+            // then report the final revision/hash rather than the pre-temperature
+            // capture hash.
+            $this->library->setTemperatureAs('librarian',$knowledgeRef,$temperature);
+            $finalMirror=$this->library->readAs('librarian',$knowledgeRef);
             $retrievalSync['knowledge_mirror']=[
                 'logical_ref'=>$knowledgeRef,
-                'object_id'=>$mirror['object_id']??null,
-                'storage_hash'=>$mirror['storage_hash']??null,
+                'object_id'=>$finalMirror['object_id']??null,
+                'storage_hash'=>$finalMirror['storage_hash']??null,
+                'revision'=>(int)($finalMirror['payload']['metadata']['revision']??0),
                 'created'=>(bool)($mirror['created']??false),
                 'validation_state'=>'verified',
                 'confidence'=>0.95,
             ];
 
-            // Keep Knowledge temperature aligned with the canonical memory.
-            $this->library->setTemperatureAs('librarian',$knowledgeRef,$temperature);
+            // If a legacy object pointed at a different Knowledge intent, retire
+            // that stale mirror only when it was related to this same canonical
+            // memory. This prevents two semantic answers from competing after
+            // the retrieval intent has been normalized.
+            if(
+                is_string($previousKnowledgeRef)
+                &&str_starts_with($previousKnowledgeRef,'memory://knowledge/')
+                &&$previousKnowledgeRef!==$knowledgeRef
+            ){
+                try{
+                    $oldStored=$this->library->readAs('librarian',$previousKnowledgeRef);
+                    $oldRecord=$oldStored['payload']['content']??null;
+                    if(is_array($oldRecord)&&in_array($ref,$oldRecord['relations']??[],true)){
+                        $oldQuestion=(string)($oldRecord['intent']['question']??'');
+                        if($oldQuestion!==''){
+                            $knowledge->validateKnowledge(
+                                'librarian',$oldQuestion,'retracted',0.0,
+                                'canonical-memory-retrieval-intent-superseded',
+                                [['source_type'=>'user','reference'=>$ref,'note'=>'Canonical memory now uses a normalized retrieval intent']]
+                            );
+                        }
+                        if($this->embeddingProvider!==null){
+                            (new SemanticIndexService($this->library))->remove(
+                                $this->embeddingProvider,$previousKnowledgeRef,'librarian'
+                            );
+                        }
+                    }
+                }catch(Throwable $e){
+                    $retrievalSync['retired_previous_error']=self::safeError($e);
+                }
+            }
 
             if($this->embeddingProvider!==null){
                 $semanticService=new SemanticIndexService($this->library);
