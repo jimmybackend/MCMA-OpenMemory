@@ -21,6 +21,11 @@ final class BroadMemoryRecallBuilder
 
     public function byteBudgetUpperBound(): int { return $this->maxBytes; }
 
+    public static function isBroadRecallRequest(string $question): bool
+    {
+        return self::subject($question)!==null;
+    }
+
     public function build(string $actor,string $question,float $minConfidence=0.75): ?array
     {
         $subject=self::subject($question);
