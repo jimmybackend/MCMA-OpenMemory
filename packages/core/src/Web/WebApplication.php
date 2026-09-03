@@ -12,6 +12,7 @@ use MCMA\Core\Billing\BillableExplicitMemoryService;
 use MCMA\Core\Billing\BillableInteractionApprovalService;
 use MCMA\Core\Billing\BillableMemoryMutationService;
 use MCMA\Core\Billing\BillingException;
+use MCMA\Core\Billing\BillingRequestContext;
 use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\MeteredEmbeddingProvider;
 use MCMA\Core\Billing\MeteredGenerationProvider;
@@ -272,6 +273,31 @@ final class WebApplication
                 if(str_contains($e->getMessage(),'Memory not found:')) throw new WebException(404,'library_object_not_found','Library object not found');
                 throw $e;
             }
+
+            $content=$stored['payload']['content']??null;
+            $knowledgeState=null;
+            if($kind==='memory'&&is_array($content)){
+                $knowledgeRef=$content['retrieval']['knowledge_ref']??null;
+                if(is_string($knowledgeRef)&&preg_match('#^memory://knowledge/q-([0-9a-f]{64})$#',$knowledgeRef,$km)){
+                    try{
+                        $detail=(new KnowledgeService($principal['library']))->inspectId(
+                            'owner',$km[1],(float)($this->providerOptions['min-confidence']??0.75)
+                        );
+                        $knowledgeState=[
+                            'logical_ref'=>$knowledgeRef,
+                            'validation_state'=>$detail['validation_state']??'unverified',
+                            'confidence'=>(float)($detail['confidence']??0.0),
+                            'temperature'=>$detail['temperature']??'warm',
+                            'freshness_class'=>$detail['freshness_class']??'stable',
+                            'reusable'=>(bool)($detail['reusable']??false),
+                            'captured_at'=>$detail['captured_at']??null,
+                        ];
+                    }catch(Throwable $e){
+                        error_log('MCMA Biblioteca Knowledge mirror detail unavailable: '.$e->getMessage());
+                    }
+                }
+            }
+
             return HttpResponse::json([
                 'ok'=>true,
                 'object'=>[
@@ -280,10 +306,66 @@ final class WebApplication
                     'object_id'=>$stored['object_id']??null,
                     'storage_hash'=>$stored['storage_hash']??null,
                     'metadata'=>$stored['payload']['metadata']??[],
-                    'content'=>$stored['payload']['content']??null,
+                    'content'=>$content,
+                    'knowledge_state'=>$knowledgeState,
                     'ai_tokens_used'=>0,
                     'credit_units_charged'=>0,
                 ],
+            ]);
+        }
+
+        if($method==='POST'&&$path==='/mcma/v1/library-object/edit'){
+            $this->assertOrigin($request);
+            $principal=$this->sessionPrincipal($request);
+            $input=$request->json(65536);
+            $logicalRef=trim((string)($input['ref']??''));
+            $content=trim((string)($input['content']??''));
+            if($content===''||strlen($content)>32768){
+                throw new WebException(400,'invalid_library_edit_content','content is required and must be <= 32768 bytes');
+            }
+
+            $kind=str_starts_with($logicalRef,'memory://user/')?'memory':
+                (preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#',$logicalRef)?'knowledge':null);
+            if($kind===null){
+                throw new WebException(400,'invalid_library_edit_ref','Only personal memory and Knowledge can be edited in Biblioteca');
+            }
+
+            $requestId=$this->requestId($input);
+            if($kind==='memory'){
+                $result=$this->mutateMemory(
+                    $principal,
+                    'Actualiza esta memoria con: '.$content,
+                    $requestId,
+                    [],
+                    $logicalRef,
+                    true
+                );
+                $sync=is_array($result['storage']['retrieval_sync']??null)?$result['storage']['retrieval_sync']:[];
+                return HttpResponse::json([
+                    'ok'=>true,
+                    'edit'=>[
+                        'kind'=>'memory',
+                        'logical_ref'=>$logicalRef,
+                        'validation_state'=>'verified',
+                        'confidence'=>0.95,
+                        'temperature'=>'warm',
+                        'freshness_class'=>'stable',
+                        'reusable'=>true,
+                        'revision'=>(int)($result['storage']['revision']??0),
+                        'knowledge_ref'=>$sync['knowledge_ref']??null,
+                        'semantic_index'=>$sync['semantic_index']??null,
+                        'billing'=>$result['billing']??[
+                            'credit_units_charged'=>0,
+                            'usage'=>['total_tokens'=>0],
+                        ],
+                    ],
+                    'result'=>$result,
+                ]);
+            }
+
+            return HttpResponse::json([
+                'ok'=>true,
+                'edit'=>$this->editKnowledgeObject($principal,$logicalRef,$content,$requestId),
             ]);
         }
 
@@ -671,7 +753,8 @@ final class WebApplication
         string $text,
         string $requestId,
         array $contextCanonicalRefs=[],
-        ?string $selectedCanonicalRef=null
+        ?string $selectedCanonicalRef=null,
+        bool $ownerLibraryEdit=false
     ): array
     {
         $embedding=$this->providers->embedding($this->providerOptions,true);
@@ -684,13 +767,14 @@ final class WebApplication
                 $requestId,$principal['kind'],$text,
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
                 $contextCanonicalRefs,
-                $selectedCanonicalRef
+                $selectedCanonicalRef,
+                $ownerLibraryEdit
             );
         }
         $usageCollector=new UsageCollector();
         $meteredEmbedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
         $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute(
-            'owner',$text,$contextCanonicalRefs,$selectedCanonicalRef
+            'owner',$text,$contextCanonicalRefs,$selectedCanonicalRef,$ownerLibraryEdit
         );
         $result['billing']=[
             'ai_billed'=>false,'credit_units_charged'=>0,
@@ -699,6 +783,92 @@ final class WebApplication
             'reason'=>$usageCollector->components()===[]?'no-ai-provider-called':'metered-without-billing',
         ];
         return $result;
+    }
+
+    private function editKnowledgeObject(
+        array $principal,
+        string $logicalRef,
+        string $content,
+        string $requestId
+    ): array
+    {
+        if(!preg_match('#^memory://knowledge/q-([0-9a-f]{64})$#',$logicalRef,$m)){
+            throw new WebException(400,'invalid_knowledge_edit_ref','A Knowledge reference is required');
+        }
+        $id=$m[1];
+        $embedding=$this->providers->embedding($this->providerOptions,true);
+        $knowledge=new KnowledgeService($principal['library']);
+        $provenance=[[
+            'source_type'=>'user',
+            'reference'=>'web-biblioteca-inline-edit',
+            'note'=>'Owner directly edited this Knowledge record in Biblioteca',
+        ]];
+
+        if($this->billingEnabled){
+            if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
+            $this->billing->ensureAccount($principal['library']);
+            $context=new BillingRequestContext(
+                $this->billing,
+                $principal['library'],
+                $requestId,
+                $principal['kind'],
+                $content,
+                $embedding?->id(),
+                null,
+                0,
+                0
+            );
+            $before=fn(string $kind,string $providerId,string $input)=>$context->beforeModelCall($kind,$providerId,$input);
+            $metered=$embedding!==null
+                ?new MeteredEmbeddingProvider($embedding,$context->collector(),$before)
+                :null;
+            try{
+                $stored=$knowledge->replaceAnswerId('owner',$id,$content,$provenance);
+                $semantic=$metered!==null
+                    ?(new SemanticIndexService($principal['library']))->refreshStoredEntry($metered,$logicalRef,'owner')
+                    :null;
+                $after=$knowledge->inspectId(
+                    'owner',$id,(float)($this->providerOptions['min-confidence']??0.75)
+                );
+                $billing=$context->settle('success',['route'=>'library-edit','kind'=>'knowledge']);
+            }catch(Throwable $e){
+                try{$context->abort($e->getMessage());}catch(Throwable){}
+                throw $e;
+            }
+        }else{
+            $usageCollector=new UsageCollector();
+            $metered=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
+            $stored=$knowledge->replaceAnswerId('owner',$id,$content,$provenance);
+            $semantic=$metered!==null
+                ?(new SemanticIndexService($principal['library']))->refreshStoredEntry($metered,$logicalRef,'owner')
+                :null;
+            $after=$knowledge->inspectId(
+                'owner',$id,(float)($this->providerOptions['min-confidence']??0.75)
+            );
+            $billing=[
+                'ai_billed'=>false,
+                'credit_units_charged'=>0,
+                'usage'=>$usageCollector->summary(),
+                'provider_usage'=>$usageCollector->components(),
+                'reason'=>$usageCollector->components()===[]?'no-ai-provider-called':'metered-without-billing',
+            ];
+        }
+
+        return [
+            'kind'=>'knowledge',
+            'logical_ref'=>$logicalRef,
+            'object_id'=>$stored['object_id']??null,
+            'storage_hash'=>$stored['storage_hash']??null,
+            'previous_storage_hash'=>$stored['previous_storage_hash']??null,
+            'revision'=>(int)($stored['revision']??0),
+            'validation_state'=>'verified',
+            'confidence'=>0.95,
+            'temperature'=>'warm',
+            'freshness_class'=>'stable',
+            'reusable'=>(bool)($after['reusable']??true),
+            'semantic_index'=>$semantic,
+            'billing'=>$billing,
+        ];
     }
 
     private function broadMemoryRecallBuilder(Library $library): ?BroadMemoryRecallBuilder

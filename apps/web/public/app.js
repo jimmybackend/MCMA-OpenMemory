@@ -20,6 +20,8 @@
   const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
   const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
   const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
+  const libraryInlineEditActions=$('libraryInlineEditActions'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
+  const libraryInlineEditForm=$('libraryInlineEditForm'),libraryInlineEditText=$('libraryInlineEditText'),libraryInlineEditSave=$('libraryInlineEditSave'),libraryInlineEditCancel=$('libraryInlineEditCancel');
   const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
@@ -33,7 +35,12 @@
   const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
-  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,selectedRef:null,selectedKind:null};
+  const memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
+  const memoryState={
+    page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,
+    selectedRef:null,selectedKind:null,selectedEditableText:'',
+    selectedListRef:null,selectedListEditableText:''
+  };
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
   const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
@@ -832,11 +839,16 @@
   function clearMemoryTreeDetail(){
     memoryState.selectedRef=null;
     memoryState.selectedKind=null;
+    memoryState.selectedEditableText='';
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
     canonicalMemoryActions.hidden=true;
     memoryUpdateInChatStatus.textContent='';
+    libraryInlineEditActions.hidden=true;
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.value='';
     interactionActions.hidden=true;
     interactionValidationStatus.textContent='';
     libraryCatalogWrap.hidden=true;
@@ -944,6 +956,42 @@
     return JSON.stringify(content,null,2);
   }
 
+  function editableLibraryContent(object){
+    if(object?.kind==='knowledge'){
+      const value=object?.content?.answer?.value;
+      return typeof value==='string'?value:(value===null||value===undefined?'':JSON.stringify(value,null,2));
+    }
+    if(object?.kind==='memory'){
+      const content=object?.content;
+      if(typeof content==='string')return content;
+      if(content&&typeof content==='object'&&typeof content.content==='string')return content.content;
+    }
+    return '';
+  }
+
+  function libraryEditSummary(edit){
+    const billing=edit?.billing||{};
+    const usage=billing.usage||{};
+    const tokens=Number(usage.total_tokens??usage.totalTokens??0);
+    const semantic=edit?.semantic_index;
+    const semanticText=semantic
+      ?'embedding y semántica regenerados'
+      :'sin proveedor de embedding configurado';
+    return 'Guardado · verified · confianza 0.95 · warm · stable · '
+      +semanticText+' · '+number(tokens)+' tokens IA';
+  }
+
+  async function saveLibraryObjectEdit(ref,content){
+    return api('/mcma/v1/library-object/edit',{
+      method:'POST',
+      body:JSON.stringify({
+        ref,
+        content,
+        request_id:'req_'+randomHex(16)
+      })
+    });
+  }
+
   function catalogBadges(catalog){
     const badges=[];
     const groups=[
@@ -960,8 +1008,15 @@
   function renderMemoryTreeDetail(object){
     memoryState.selectedRef=object.logical_ref||null;
     memoryState.selectedKind=object.kind||null;
+    memoryState.selectedEditableText=editableLibraryContent(object);
     memoryTreeDetailEmpty.hidden=true;
     memoryTreeDetailContent.hidden=false;
+    canonicalMemoryActions.hidden=true;
+    memoryUpdateInChatStatus.textContent='';
+    libraryInlineEditActions.hidden=true;
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.value='';
     interactionActions.hidden=true;
     interactionValidationStatus.textContent='';
     libraryCatalogWrap.hidden=true;
@@ -1026,8 +1081,11 @@
       memoryTreeDetailBadges.replaceChildren(
         memoryBadge('📖 Knowledge'),
         memoryBadge('Estado: '+(epistemic.validation_state||'unverified')),
-        memoryBadge('Confianza: '+Number(epistemic.confidence||0).toFixed(2))
+        memoryBadge('Confianza: '+Number(epistemic.confidence||0).toFixed(2)),
+        memoryBadge('Frescura: '+(record.freshness?.class||'stable')),
+        memoryBadge((epistemic.validation_state==='verified'&&Number(epistemic.confidence||0)>=0.95)?'Reutilizable: Sí':'Reutilizable: requiere revisión')
       );
+      libraryInlineEditActions.hidden=false;
       return;
     }
 
@@ -1047,14 +1105,24 @@
     memoryTreeDetailTemperature.textContent=metadata.temperature||classification.temperature||'—';
     memoryTreeDetailMaturity.textContent=metadata.maturity||'—';
     const categories=Array.isArray(classification.category_path)?classification.category_path:[];
+    const knowledgeState=object.knowledge_state&&typeof object.knowledge_state==='object'?object.knowledge_state:{};
     const badges=[memoryBadge('🧠 Memoria personal')];
     if(categories.length)badges.push(memoryBadge('📁 '+categories.join(' / ')));
     badges.push(memoryBadge(memoryTreeDetailTemperature.textContent),memoryBadge(memoryTreeDetailLayer.textContent));
+    if(knowledgeState.validation_state){
+      badges.push(
+        memoryBadge('Estado: '+knowledgeState.validation_state),
+        memoryBadge('Confianza: '+Number(knowledgeState.confidence||0).toFixed(2)),
+        memoryBadge('Frescura: '+(knowledgeState.freshness_class||'stable')),
+        memoryBadge(knowledgeState.reusable?'Reutilizable: Sí':'Reutilizable: requiere revisión')
+      );
+    }
     memoryTreeDetailBadges.replaceChildren(...badges);
 
     if(typeof object.logical_ref==='string'&&object.logical_ref.startsWith('memory://user/')){
       canonicalMemoryActions.hidden=false;
       memoryUpdateInChat.disabled=false;
+      libraryInlineEditActions.hidden=false;
     }
   }
 
@@ -1076,6 +1144,53 @@
     composerStatus.textContent='Edición exacta activa · MCMA actualizará sólo la memoria seleccionada en Biblioteca.';
     questionInput.focus();
     questionInput.setSelectionRange(questionInput.value.length,questionInput.value.length);
+  }
+
+  function openTreeInlineEditor(){
+    if(
+      !memoryState.selectedRef
+      ||!['memory','knowledge'].includes(memoryState.selectedKind)
+    )return;
+    libraryInlineEditText.value=memoryState.selectedEditableText||'';
+    libraryInlineEditForm.hidden=false;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.focus();
+    libraryInlineEditText.setSelectionRange(
+      libraryInlineEditText.value.length,
+      libraryInlineEditText.value.length
+    );
+  }
+
+  function closeTreeInlineEditor(){
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditText.value='';
+  }
+
+  async function saveTreeInlineEditor(event){
+    event.preventDefault();
+    const ref=memoryState.selectedRef;
+    const content=libraryInlineEditText.value.trim();
+    if(!ref||content==='')return;
+
+    libraryInlineEditSave.disabled=true;
+    libraryInlineEditCancel.disabled=true;
+    libraryInlineEditStatus.textContent='Guardando corrección y regenerando embedding…';
+    try{
+      const data=await saveLibraryObjectEdit(ref,content);
+      const summary=libraryEditSummary(data.edit||{});
+      memoryState.items=[];
+      memoryState.tree=null;
+      closeTreeInlineEditor();
+      await loadMemoryTree();
+      await loadMemoryTreeDetail(ref);
+      libraryInlineEditStatus.textContent=summary;
+      await loadBilling();
+    }catch(error){
+      libraryInlineEditStatus.textContent='No se pudo guardar: '+error.message;
+    }finally{
+      libraryInlineEditSave.disabled=false;
+      libraryInlineEditCancel.disabled=false;
+    }
   }
 
   async function loadMemoryTreeDetail(logicalRef){
@@ -1121,9 +1236,13 @@
 
   function clearMemoryDetail(){
     memoryState.selectedId=null;
+    memoryState.selectedListRef=null;
+    memoryState.selectedListEditableText='';
     memoryDetailContent.hidden=true;
     memoryDetailEmpty.hidden=false;
     memoryValidationStatus.textContent='';
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
     for(const node of memoryList.querySelectorAll('.memory-list-item'))node.classList.remove('selected');
   }
 
@@ -1209,9 +1328,16 @@
 
   function renderMemoryDetail(memory){
     memoryState.selectedId=memory.id;
+    memoryState.selectedListRef=memory.logical_ref||null;
+    const selectedValue=memory.answer?.value;
+    memoryState.selectedListEditableText=typeof selectedValue==='string'
+      ?selectedValue
+      :(selectedValue===null||selectedValue===undefined?'':JSON.stringify(selectedValue,null,2));
     memoryDetailEmpty.hidden=true;
     memoryDetailContent.hidden=false;
     memoryValidationStatus.textContent='';
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
 
     for(const node of memoryList.querySelectorAll('.memory-list-item')){
       node.classList.toggle('selected',node.dataset.memoryId===memory.id);
@@ -1249,6 +1375,50 @@
       renderMemoryDetail(data.memory||{});
     }catch(error){
       memoryValidationStatus.textContent='No se pudo descifrar: '+error.message;
+    }
+  }
+
+  function openListInlineEditor(){
+    if(!memoryState.selectedId||!memoryState.selectedListRef)return;
+    memoryInlineEditText.value=memoryState.selectedListEditableText||'';
+    memoryInlineEditForm.hidden=false;
+    memoryValidationStatus.textContent='';
+    memoryInlineEditText.focus();
+    memoryInlineEditText.setSelectionRange(
+      memoryInlineEditText.value.length,
+      memoryInlineEditText.value.length
+    );
+  }
+
+  function closeListInlineEditor(){
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
+  }
+
+  async function saveListInlineEditor(event){
+    event.preventDefault();
+    const ref=memoryState.selectedListRef;
+    const id=memoryState.selectedId;
+    const content=memoryInlineEditText.value.trim();
+    if(!ref||!id||content==='')return;
+
+    memoryInlineEditSave.disabled=true;
+    memoryInlineEditCancel.disabled=true;
+    memoryValidationStatus.textContent='Guardando corrección y regenerando embedding…';
+    try{
+      const data=await saveLibraryObjectEdit(ref,content);
+      const summary=libraryEditSummary(data.edit||{});
+      closeListInlineEditor();
+      await loadMemories(memoryState.page);
+      await loadMemoryDetail(id);
+      memoryValidationStatus.textContent=summary;
+      memoryState.tree=null;
+      await loadBilling();
+    }catch(error){
+      memoryValidationStatus.textContent='No se pudo guardar: '+error.message;
+    }finally{
+      memoryInlineEditSave.disabled=false;
+      memoryInlineEditCancel.disabled=false;
     }
   }
 
@@ -1660,6 +1830,9 @@
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
+  libraryInlineEditOpen.addEventListener('click',openTreeInlineEditor);
+  libraryInlineEditCancel.addEventListener('click',closeTreeInlineEditor);
+  libraryInlineEditForm.addEventListener('submit',saveTreeInlineEditor);
   memoryEditTargetClear.addEventListener('click',()=>{
     clearMemoryEditTarget();
     composerStatus.textContent='Selección exacta quitada · MCMA volverá a resolver la memoria por contexto cuando sea necesario.';
@@ -1708,6 +1881,9 @@
   memoryItemNext.addEventListener('click',()=>selectMemoryRelative(1));
   memoryConfirm.addEventListener('click',()=>validateMemory('confirm'));
   memoryDiscard.addEventListener('click',()=>validateMemory('discard'));
+  memoryInlineEditOpen.addEventListener('click',openListInlineEditor);
+  memoryInlineEditCancel.addEventListener('click',closeListInlineEditor);
+  memoryInlineEditForm.addEventListener('submit',saveListInlineEditor);
 
   window.addEventListener('beforeunload',stopChatSpeech);
 

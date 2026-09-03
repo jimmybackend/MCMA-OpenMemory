@@ -39,7 +39,8 @@ final class MemoryMutationService
         string $actor,
         string $requestText,
         array|string|null $contextCanonicalRefs=null,
-        ?string $selectedCanonicalRef=null
+        ?string $selectedCanonicalRef=null,
+        bool $ownerLibraryEdit=false
     ): array
     {
         $parsed=self::parse($requestText);
@@ -178,10 +179,10 @@ final class MemoryMutationService
 
         $result=$this->library->updateAs(
             $actor,$ref,$next,$format,
-            (string)($metadata['temperature']??'hot'),
+            $ownerLibraryEdit?'warm':(string)($metadata['temperature']??'hot'),
             (string)($metadata['cognitive_layer']??'40-semantic'),
             (string)($metadata['scope']??'user'),
-            (string)($metadata['maturity']??'confirmed')
+            $ownerLibraryEdit?'confirmed':(string)($metadata['maturity']??'confirmed')
         );
 
         $retrievalSync=[
@@ -194,15 +195,21 @@ final class MemoryMutationService
 
         try{
             $classification=is_array($next)&&is_array($next['classification']??null)?$next['classification']:[];
-            $freshness=(string)($classification['freshness_class']??'stable');
+            $freshness=$ownerLibraryEdit?'stable':(string)($classification['freshness_class']??'stable');
             [$maxAge,$reusePolicy]=self::freshnessPolicy($freshness);
-            $temperature=(string)($metadata['temperature']??$classification['temperature']??'hot');
+            $temperature=$ownerLibraryEdit?'warm':(string)($metadata['temperature']??$classification['temperature']??'hot');
             if($temperature==='frozen') $reusePolicy='never-direct';
 
             $knowledge=new KnowledgeService($this->library);
             $mirror=$knowledge->capture(
                 'librarian',$retrievalQuestion,$newContent,'text',0.95,'verified',
-                [['source_type'=>'user','reference'=>$ref,'note'=>'Owner-updated canonical memory']],
+                [[
+                    'source_type'=>'user',
+                    'reference'=>$ref,
+                    'note'=>$ownerLibraryEdit
+                        ?'Owner edited canonical memory directly in Biblioteca'
+                        :'Owner-updated canonical memory'
+                ]],
                 $freshness,$maxAge,$reusePolicy,[$ref]
             );
             $knowledgeRef=(string)($mirror['logical_ref']??$knowledgeRef);

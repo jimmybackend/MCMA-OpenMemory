@@ -469,10 +469,51 @@ final class InteractionArchiveService
 
     public function libraryTree(string $actor): array
     {
+        // Build the cognitive tree from the encrypted root index plus the
+        // derived conversation index. Do not decrypt every interaction and
+        // Knowledge object just to paint navigation: object content is read
+        // only after the user opens a leaf.
+        $entries=$this->library->listAs($actor);
+
+        $personalRaw=[];
+        $interactionRefs=[];
+        $knowledgeRefs=[];
+
+        foreach($entries as $entry){
+            foreach($entry['logical_refs']??[] as $ref){
+                if(!is_string($ref)) continue;
+
+                if(str_starts_with($ref,'memory://user/')){
+                    $segments=explode('/',substr($ref,strlen('memory://user/')));
+                    $node=&$personalRaw;
+                    foreach($segments as $segment){
+                        if($segment==='') continue;
+                        if(!isset($node[$segment])||!is_array($node[$segment])) $node[$segment]=[];
+                        $node=&$node[$segment];
+                    }
+                    $node['@object_id']=$entry['object_id']??null;
+                    unset($node);
+                    continue;
+                }
+
+                if(str_starts_with($ref,'memory://interactions/')){
+                    try{self::assertInteractionRef($ref);$interactionRefs[]=$ref;}catch(Throwable){}
+                    continue;
+                }
+
+                if(preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#',$ref)){
+                    $knowledgeRefs[]=$ref;
+                }
+            }
+        }
+
+        $interactionRefs=array_values(array_unique($interactionRefs));
+        sort($interactionRefs,SORT_STRING);
+        $knowledgeRefs=array_values(array_unique($knowledgeRefs));
+        sort($knowledgeRefs,SORT_STRING);
+
         $tree=[
-            'Memoria personal'=>self::convertCanonicalTree(
-                is_array(($this->library->treeAs($actor)['user']??null))?$this->library->treeAs($actor)['user']:[]
-            ),
+            'Memoria personal'=>self::convertCanonicalTree($personalRaw),
             'Conversaciones'=>[
                 'Por sesión'=>[],
                 'Por fecha'=>[],
@@ -487,90 +528,131 @@ final class InteractionArchiveService
             'Knowledge'=>[],
         ];
 
-        $interactions=[];
-        $knowledge=[];
-        foreach($this->library->listAs($actor) as $entry){
-            foreach($entry['logical_refs']??[] as $ref){
-                if(!is_string($ref)) continue;
-                if(str_starts_with($ref,'memory://interactions/')){
-                    try{$interactions[]=$this->read($actor,$ref)['interaction']+['logical_ref'=>$ref];}catch(Throwable){}
-                    break;
-                }
-                if(preg_match('#^memory://knowledge/q-[0-9a-f]{64}$#',$ref)){
-                    try{
-                        $stored=$this->library->readAs($actor,$ref);
-                        $record=$stored['payload']['content']??null;
-                        if(is_array($record)){
-                            KnowledgeRecord::validate($record);
-                            $knowledge[]=['logical_ref'=>$ref,'record'=>$record];
-                        }
-                    }catch(Throwable){}
-                    break;
-                }
+        $conversationIndex=null;
+        try{
+            $conversationIndex=$this->readConversationIndex($actor);
+        }catch(Throwable $e){
+            // A missing/unavailable derived index must never make Biblioteca
+            // unavailable. The root index still contains canonical refs.
+            error_log('MCMA library tree conversation index unavailable: '.$e->getMessage());
+        }
+        $conversations=is_array($conversationIndex['conversations']??null)
+            ?$conversationIndex['conversations']
+            :[];
+
+        $indexedItems=[];
+        foreach($conversations as $conversation){
+            if(!is_array($conversation)) continue;
+            foreach($conversation['interaction_items']??[] as $item){
+                if(!is_array($item)||!is_string($item['ref']??null)) continue;
+                $indexedItems[$item['ref']]=$item;
             }
         }
 
-        usort($interactions,static fn(array $a,array $b): int =>
-            (strtotime((string)$a['at'])?:0)<=>(strtotime((string)$b['at'])?:0)
-        );
-
         $sessions=[];
-        foreach($interactions as $item){
-            $ref=(string)$item['logical_ref'];
-            $at=(string)$item['at'];
-            $question=(string)$item['question'];
-            $conversation=(string)$item['conversation_id'];
-            $leaf=self::leafLabel($question,(string)$item['interaction_id']);
+        foreach($interactionRefs as $ref){
+            if(!preg_match(
+                '#^memory://interactions/([0-9]{4})/([0-9]{2})/([0-9]{2})/(conv_[0-9a-f]{32})/(req_[0-9a-f]{32})$#',
+                $ref,$m
+            )) continue;
 
-            $sessions[$conversation][]=$item;
+            $year=$m[1];$month=$m[2];$day=$m[3];$conversationId=$m[4];$requestId=$m[5];
+            $item=is_array($indexedItems[$ref]??null)?$indexedItems[$ref]:[];
+            $question=trim((string)($item['question']??''));
+            if($question==='') $question='Turno '.substr($requestId,-8);
+            $at=trim((string)($item['at']??''));
+            if($at==='') $at=$year.'-'.$month.'-'.$day.'T00:00:00Z';
+            $catalog=is_array($item['catalog']??null)?$item['catalog']:[];
+            $validation=is_array($item['validation']??null)?$item['validation']:[];
+            $leaf=self::leafLabel($question,$requestId);
+
+            $sessions[$conversationId][]=[
+                'logical_ref'=>$ref,
+                'question'=>$question,
+                'interaction_id'=>$requestId,
+                'at'=>$at,
+            ];
+
             self::addViewPath($tree['Conversaciones']['Por fecha'],[
-                substr($at,0,4),substr($at,5,2),substr($at,8,2),$conversation,$leaf
+                $year,$month,$day,$conversationId,$leaf
             ],$ref,'interaction');
 
-            $catalog=is_array($item['catalog']??null)?$item['catalog']:[];
-            foreach(self::labels($catalog['topics']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por temas'],[$label,$leaf],$ref,'interaction');
-            foreach(self::labels($catalog['projects']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por proyectos'],[$label,$leaf],$ref,'interaction');
-            foreach(self::labels($catalog['people']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por personas'],[$label,$leaf],$ref,'interaction');
-            foreach(self::labels($catalog['characters']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por personajes'],[$label,$leaf],$ref,'interaction');
-            foreach(self::labels($catalog['entities']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por entidades'],[$label,$leaf],$ref,'interaction');
-            foreach(self::labels($catalog['sources']??[]) as $label) self::addViewPath($tree['Conversaciones']['Por fuente'],[$label,$leaf],$ref,'interaction');
+            foreach(self::labels($catalog['topics']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por temas'],[$label,$leaf],$ref,'interaction');
+            }
+            foreach(self::labels($catalog['projects']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por proyectos'],[$label,$leaf],$ref,'interaction');
+            }
+            foreach(self::labels($catalog['people']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por personas'],[$label,$leaf],$ref,'interaction');
+            }
+            foreach(self::labels($catalog['characters']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por personajes'],[$label,$leaf],$ref,'interaction');
+            }
+            foreach(self::labels($catalog['entities']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por entidades'],[$label,$leaf],$ref,'interaction');
+            }
+            foreach(self::labels($catalog['sources']??[]) as $label){
+                self::addViewPath($tree['Conversaciones']['Por fuente'],[$label,$leaf],$ref,'interaction');
+            }
 
-            $state=(string)($item['validation']['state']??'unverified');
+            $state=(string)($validation['state']??'unverified');
             self::addViewPath($tree['Conversaciones']['Por estado'],[$state,$leaf],$ref,'interaction');
         }
 
-        foreach($sessions as $conversation=>$items){
-            $first=$items[0];
-            $last=$items[count($items)-1];
-            $title=self::sessionLabel($first,$last,count($items));
+        foreach($sessions as $conversationId=>$items){
+            usort($items,static fn(array $a,array $b): int =>
+                (strtotime((string)$a['at'])?:0)<=>(strtotime((string)$b['at'])?:0)
+            );
+
+            $conversation=is_array($conversations[$conversationId]??null)?$conversations[$conversationId]:[];
+            $title=self::cleanLabel((string)($conversation['title']??''));
+            if($title==='') $title=self::shortTitle((string)($items[0]['question']??'Conversación'));
+            $firstAt=(string)($conversation['first_at']??$items[0]['at']??'');
+            $count=(int)($conversation['interaction_count']??count($items));
+            $sessionLabel=substr($firstAt,0,16).' · '.$title.' · '.$count.' turnos';
+
             foreach($items as $item){
                 self::addViewPath(
                     $tree['Conversaciones']['Por sesión'],
-                    [$title,self::leafLabel((string)$item['question'],(string)$item['interaction_id'])],
+                    [$sessionLabel,self::leafLabel((string)$item['question'],(string)$item['interaction_id'])],
                     (string)$item['logical_ref'],'interaction'
                 );
             }
+
+            foreach(self::labels($conversation['projects']??[]) as $project){
+                $first=$items[0]??null;
+                if(is_array($first)){
+                    self::addViewPath(
+                        $tree['Conversaciones']['Por proyectos'],
+                        [$project,$sessionLabel],
+                        (string)$first['logical_ref'],'interaction'
+                    );
+                }
+            }
         }
 
-        foreach(['Por temas','Por proyectos','Por personas','Por personajes','Por entidades'] as $view){
+        foreach(['Por temas','Por proyectos','Por personas','Por personajes','Por entidades','Por fuente'] as $view){
             if($tree['Conversaciones'][$view]===[]) $tree['Conversaciones'][$view]=['Sin clasificar'=>[]];
         }
 
-        foreach($knowledge as $item){
-            $record=$item['record'];
-            $state=(string)($record['epistemic']['validation_state']??'unverified');
-            $captured=(string)($record['epistemic']['captured_at']??'');
-            $label=self::leafLabel((string)$record['intent']['question'],substr((string)$item['logical_ref'],-8));
-            self::addViewPath($tree['Knowledge'],[$state,substr($captured,0,10),$label],(string)$item['logical_ref'],'knowledge');
+        foreach($knowledgeRefs as $ref){
+            $id=substr($ref,strlen('memory://knowledge/q-'));
+            self::addViewPath(
+                $tree['Knowledge'],
+                ['Registros','q-'.substr($id,0,12)],
+                $ref,'knowledge'
+            );
         }
 
         return [
             'root'=>'Biblioteca MCMA',
             'tree'=>$tree,
-            'interaction_total'=>count($interactions),
-            'knowledge_total'=>count($knowledge),
+            'interaction_total'=>count($interactionRefs),
+            'knowledge_total'=>count($knowledgeRefs),
             'ai_tokens_used'=>0,
             'credit_units_charged'=>0,
+            'navigation_mode'=>'index-only',
         ];
     }
 
@@ -745,6 +827,7 @@ final class InteractionArchiveService
                 'interaction_count'=>0,
                 'interaction_refs'=>[],
                 'recent_interactions'=>[],
+                'interaction_items'=>[],
                 'projects'=>[],
             ];
         }
@@ -775,8 +858,37 @@ final class InteractionArchiveService
         });
         if(count($recent)>32) $recent=array_slice($recent,-32);
 
+        $items=is_array($existing['interaction_items']??null)?array_values($existing['interaction_items']):[];
+        $items=array_values(array_filter($items,static fn($item): bool =>
+            is_array($item)&&is_string($item['ref']??null)&&$item['ref']!==$logicalRef
+        ));
+        $validation=is_array($interaction['validation']??null)?$interaction['validation']:[];
+        $items[]=[
+            'ref'=>$logicalRef,
+            'at'=>$at,
+            'question'=>self::shortTitle((string)($interaction['question']??'Interacción')),
+            'catalog'=>[
+                'topics'=>self::labels($catalog['topics']??[]),
+                'projects'=>self::labels($catalog['projects']??[]),
+                'people'=>self::labels($catalog['people']??[]),
+                'characters'=>self::labels($catalog['characters']??[]),
+                'entities'=>self::labels($catalog['entities']??[]),
+                'sources'=>self::labels($catalog['sources']??[]),
+            ],
+            'validation'=>[
+                'state'=>(string)($validation['state']??'unverified'),
+                'confidence'=>(float)($validation['confidence']??0.0),
+            ],
+        ];
+        usort($items,static function(array $a,array $b): int {
+            $timeCompare=(strtotime((string)($a['at']??''))?:0)<=>(strtotime((string)($b['at']??''))?:0);
+            if($timeCompare!==0) return $timeCompare;
+            return (string)($a['ref']??'')<=>(string)($b['ref']??'');
+        });
+
         $existing['interaction_refs']=$refs;
         $existing['recent_interactions']=$recent;
+        $existing['interaction_items']=$items;
         $existing['interaction_count']=count($refs);
         $existing['projects']=array_values(array_unique(array_merge(
             self::labels($existing['projects']??[]),

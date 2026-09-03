@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-4">
+  <link rel="stylesheet" href="app.css?v=20260903-5">
 </head>
 <body>
   <main class="shell">
@@ -111,6 +111,21 @@
               <div class="memory-answer-label" id="libraryAnswerLabel">Contenido descifrado</div>
               <pre id="memoryTreeDetailAnswer" class="memory-answer"></pre>
 
+              <div id="libraryInlineEditActions" class="memory-detail-actions library-edit-actions" hidden>
+                <button id="libraryInlineEditOpen" type="button" class="confirm-button">Editar aquí</button>
+                <span id="libraryInlineEditStatus" class="memory-validation-status"></span>
+              </div>
+
+              <form id="libraryInlineEditForm" class="memory-inline-editor" hidden>
+                <label for="libraryInlineEditText">Contenido corregido por el usuario</label>
+                <textarea id="libraryInlineEditText" maxlength="32768" rows="7" required></textarea>
+                <div class="memory-detail-actions">
+                  <button id="libraryInlineEditSave" type="submit" class="confirm-button">Guardar y regenerar semántica</button>
+                  <button id="libraryInlineEditCancel" type="button" class="secondary-button">Cancelar</button>
+                </div>
+                <small>Al guardar: verified · confianza 0.95 · warm · stable. El embedding y el índice semántico se regeneran si hay proveedor configurado.</small>
+              </form>
+
               <div id="memoryTreeSourceWrap" hidden>
                 <div class="memory-answer-label" id="librarySourceLabel">Pregunta / fuente original</div>
                 <pre id="memoryTreeDetailSource" class="memory-answer memory-source"></pre>
@@ -202,6 +217,20 @@
               <h3 id="memoryDetailQuestion"></h3>
               <div class="memory-answer-label">Respuesta descifrada</div>
               <pre id="memoryDetailAnswer" class="memory-answer"></pre>
+
+              <div class="memory-detail-actions library-edit-actions">
+                <button id="memoryInlineEditOpen" type="button" class="confirm-button">Editar aquí</button>
+              </div>
+
+              <form id="memoryInlineEditForm" class="memory-inline-editor" hidden>
+                <label for="memoryInlineEditText">Respuesta corregida por el usuario</label>
+                <textarea id="memoryInlineEditText" maxlength="32768" rows="7" required></textarea>
+                <div class="memory-detail-actions">
+                  <button id="memoryInlineEditSave" type="submit" class="confirm-button">Guardar y regenerar semántica</button>
+                  <button id="memoryInlineEditCancel" type="button" class="secondary-button">Cancelar</button>
+                </div>
+                <small>La corrección queda como Knowledge del usuario: verified · confianza 0.95 · warm · stable · reutilizable.</small>
+              </form>
 
               <dl class="memory-metadata">
                 <div><dt>Estado</dt><dd id="memoryDetailValidation">—</dd></div>
@@ -414,6 +443,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-3" defer></script>
+  <script src="app.js?v=20260903-4" defer></script>
 </body>
 </html>

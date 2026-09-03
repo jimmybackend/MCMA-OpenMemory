@@ -104,6 +104,36 @@ try{
     assert_true_knowledge(count($history)>=2,'Validation history transition was not preserved');
     assert_true_knowledge(($inspection['record']['epistemic']['evidence_count']??0)>=2,'Additional provenance evidence was not counted');
 
+    $edited=$service->replaceAnswerId(
+        'owner',
+        substr((string)$second['logical_ref'],strlen('memory://knowledge/q-')),
+        'MCMA es memoria corregida directamente por el usuario desde Biblioteca.',
+        [[
+            'source_type'=>'user',
+            'reference'=>'web-biblioteca-inline-edit',
+            'note'=>'Owner corrected this answer directly in Biblioteca',
+        ]]
+    );
+    assert_true_knowledge(($edited['validation_state']??null)==='verified','Direct Biblioteca edit did not verify Knowledge');
+    assert_true_knowledge(abs((float)($edited['confidence']??0)-0.95)<1e-12,'Direct Biblioteca edit confidence mismatch');
+    assert_true_knowledge(($edited['temperature']??null)==='warm','Direct Biblioteca edit temperature mismatch');
+    assert_true_knowledge(($edited['freshness_class']??null)==='stable','Direct Biblioteca edit freshness mismatch');
+    $editedInspection=$service->inspect('owner',$question);
+    assert_true_knowledge(
+        ($editedInspection['record']['answer']['value']??null)==='MCMA es memoria corregida directamente por el usuario desde Biblioteca.',
+        'Direct Biblioteca edit did not replace the Knowledge answer'
+    );
+    assert_true_knowledge(
+        ($editedInspection['record']['epistemic']['validation_state']??null)==='verified'
+        &&abs((float)($editedInspection['record']['epistemic']['confidence']??0)-0.95)<1e-12,
+        'Direct Biblioteca edit did not persist owner trust metadata'
+    );
+    assert_true_knowledge(
+        ($editedInspection['record']['freshness']['class']??null)==='stable'
+        &&($editedInspection['record']['freshness']['reuse_policy']??null)==='reuse-unless-stale',
+        'Direct Biblioteca edit did not persist stable reusable freshness'
+    );
+
     $service->validateKnowledge('librarian',$question,'disputed',0.40,'Contradictory evidence requires review.');
     $disputed=$service->directAnswer('ai',$question);
     assert_true_knowledge(($disputed['decision']??null)==='reject','Disputed knowledge must be rejected');

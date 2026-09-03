@@ -41,6 +41,57 @@ final class KnowledgeService
         return $result;
     }
 
+    public function replaceAnswerId(
+        string $actor,
+        string $id,
+        string $answer,
+        array $additionalProvenance = []
+    ): array {
+        $answer=trim($answer);
+        if($answer==='') throw new RuntimeException('Edited knowledge answer must not be empty');
+        if(strlen($answer)>32768) throw new RuntimeException('Edited knowledge answer must be <= 32768 bytes');
+
+        $logicalRef=self::logicalRefFromId($id);
+        $current=$this->library->readAs($actor,$logicalRef);
+        $record=$current['payload']['content']??null;
+        if(!is_array($record)) throw new RuntimeException('Stored knowledge record is malformed');
+        KnowledgeRecord::validate($record);
+
+        $record['answer']=[
+            'format'=>'text',
+            'value'=>$answer,
+        ];
+        $record['freshness']=[
+            'class'=>'stable',
+            'max_age_seconds'=>31536000,
+            'reuse_policy'=>'reuse-unless-stale',
+        ];
+        $record=KnowledgeRecord::withValidation(
+            $record,
+            'verified',
+            0.95,
+            'owner-edited-in-library',
+            $additionalProvenance
+        );
+
+        $stored=$this->library->updateAs(
+            $actor,$logicalRef,$record,'json','warm','40-semantic','knowledge','knowledge'
+        );
+
+        return [
+            'logical_ref'=>$logicalRef,
+            'object_id'=>$stored['object_id']??null,
+            'storage_hash'=>$stored['storage_hash']??null,
+            'previous_storage_hash'=>$stored['previous_storage_hash']??null,
+            'revision'=>(int)($stored['revision']??0),
+            'validation_state'=>'verified',
+            'confidence'=>0.95,
+            'temperature'=>'warm',
+            'freshness_class'=>'stable',
+            'reuse_policy'=>'reuse-unless-stale',
+        ];
+    }
+
     public function validateKnowledge(
         string $actor,
         string $question,

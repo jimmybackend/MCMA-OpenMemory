@@ -14,10 +14,10 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-4"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-5"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260903-3"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260903-4"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -28,6 +28,10 @@ check(str_contains($index,'id="memoryTreeDetailContent"'),'decrypted tree detail
 check(str_contains($index,'id="memoryUpdateInChat"'),'Biblioteca exact-memory update action is present');
 check(str_contains($index,'id="memoryEditTarget"'),'Chat exact-memory target banner is present');
 check(str_contains($index,'id="memoryEditTargetClear"'),'Chat exact-memory target clear action is present');
+check(str_contains($index,'id="libraryInlineEditOpen"'),'tree inline edit action is present');
+check(str_contains($index,'id="libraryInlineEditForm"'),'tree inline edit form is present');
+check(str_contains($index,'id="memoryInlineEditOpen"'),'list inline edit action is present');
+check(str_contains($index,'id="memoryInlineEditForm"'),'list inline edit form is present');
 check(str_contains($index,'class="chat-send-label"'),'responsive send label is present');
 check(str_contains($index,'class="chat-send-icon"'),'responsive send SVG icon is present');
 $inputShellPos=strpos($index,'<div class="chat-input-shell">');
@@ -62,6 +66,7 @@ check(!str_contains($css,'min-height:620px'),'obsolete fixed Chat minimum height
 check(str_contains($css,'grid-template-columns:minmax(0,1fr) auto'),'Chat input keeps send control beside textarea');
 check(str_contains($css,'.chat-send-icon'),'Chat send SVG icon styling is present');
 check(str_contains($css,'.chat-send-label'),'Chat send label responsive styling is present');
+check(str_contains($css,'.memory-inline-editor'),'Biblioteca inline editor styling is present');
 check(str_contains($css,'grid-template-columns:minmax(0,1fr) 44px'),'small-screen Chat send control is compact');
 
 check(is_string($app),'app.js readable');
@@ -70,6 +75,10 @@ check(str_contains($app,"location.replace('./?signed_out=1')"),'logout refresh i
 check(str_contains($app,"'/mcma/v1/memories?'"),'memory explorer list endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/library-tree'"),'cognitive library tree endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/library-object?ref='"),'cognitive library object endpoint is wired');
+check(str_contains($app,"api('/mcma/v1/library-object/edit'"),'Biblioteca inline edit endpoint is wired');
+check(str_contains($app,'saveTreeInlineEditor'),'tree inline edit save handler is wired');
+check(str_contains($app,'saveListInlineEditor'),'list inline edit save handler is wired');
+check(str_contains($app,'verified · confianza 0.95 · warm · stable'),'owner edit trust metadata is surfaced');
 check(str_contains($app,"api('/mcma/v1/interaction-validation'"),'interaction validation endpoint is wired');
 check(str_contains($app,'conversation_id:conversationId'),'conversation id is sent with ask requests');
 check(str_contains($app,'mutation_ref:mutationRef'),'exact Biblioteca mutation ref is sent with ask requests');

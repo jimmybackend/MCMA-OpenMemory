@@ -22,7 +22,8 @@ final class BillableMemoryMutationService
         string $text,
         array $metadata=[],
         array $contextCanonicalRefs=[],
-        ?string $selectedCanonicalRef=null
+        ?string $selectedCanonicalRef=null,
+        bool $ownerLibraryEdit=false
     ): array
     {
         $this->billing->authorizeChannel($this->library,$origin);
@@ -36,7 +37,7 @@ final class BillableMemoryMutationService
             :null;
         try{
             $result=(new MemoryMutationService($this->library,$embedding))->execute(
-                'owner',$text,$contextCanonicalRefs,$selectedCanonicalRef
+                'owner',$text,$contextCanonicalRefs,$selectedCanonicalRef,$ownerLibraryEdit
             );
             $result['billing']=$context->settle('success',['route'=>'memory-mutation']+$metadata);
             return $result;
