@@ -16,7 +16,7 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
     public function __construct(
         private readonly string $region,
         private readonly string $modelId,
-        private readonly int $maxTokens = 1024,
+        private readonly int $maxTokens = 5000,
         private readonly float $temperature = 0.2,
         private readonly ?string $systemPrompt = null,
         private readonly ?string $bearerToken = null,
@@ -43,7 +43,7 @@ final class BedrockConverseGenerationProvider implements GenerationProvider
         $model = self::firstEnv(['MCMA_BEDROCK_CHAT_MODEL']);
         if ($model === null) throw new RuntimeException('MCMA_BEDROCK_CHAT_MODEL is required for Bedrock generation');
 
-        $maxTokensRaw = self::firstEnv(['MCMA_BEDROCK_MAX_TOKENS']) ?? '1024';
+        $maxTokensRaw = self::firstEnv(['MCMA_BEDROCK_MAX_TOKENS']) ?? '5000';
         $temperatureRaw = self::firstEnv(['MCMA_BEDROCK_CHAT_TEMPERATURE']) ?? '0.2';
 
         return new self(
