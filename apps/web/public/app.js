@@ -1,7 +1,8 @@
 (() => {
   const $ = id => document.getElementById(id);
   const status=$('status'),statusText=$('statusText'),login=$('login'),logout=$('logout'),adminLink=$('adminLink');
-  const identity=$('identity'),avatar=$('avatar'),avatarFallback=$('avatarFallback'),identityName=$('identityName'),identityEmail=$('identityEmail');
+  const identity=$('identity'),avatar=$('avatar'),avatarFallback=$('avatarFallback'),identityName=$('identityName');
+  const accountSettingsOpen=$('accountSettingsOpen'),accountSettingsClose=$('accountSettingsClose');
   const account=$('account'),registerBox=$('registerBox'),register=$('register');
   const form=$('askForm'),send=$('send'),answer=$('answer');
   const answerMeta=$('answerMeta'),answerSource=$('answerSource'),answerTokens=$('answerTokens'),answerCredits=$('answerCredits'),answerRemembered=$('answerRemembered');
@@ -646,32 +647,57 @@
     statusText.textContent=text;
   }
 
+  function privateAccountHandle(profile={}){
+    const email=typeof profile.email==='string'?profile.email.trim():'';
+    if(email!==''){
+      const local=email.split('@',1)[0].trim();
+      if(local!=='')return local;
+    }
+    return 'usuario';
+  }
+
   function clearIdentity(){
     identity.hidden=true;
     avatar.hidden=true;
     avatar.removeAttribute('src');
+    avatar.removeAttribute('alt');
     avatarFallback.hidden=false;
-    identityName.textContent='Usuario';
-    identityEmail.textContent='';
+    avatarFallback.textContent='M';
+    identityName.textContent='usuario';
   }
 
   function showIdentity(profile={}){
-    const email=typeof profile.email==='string'?profile.email:'';
-    const name=typeof profile.name==='string'&&profile.name.trim()!==''?profile.name.trim():(email||'Cuenta Google');
+    const username=privateAccountHandle(profile);
     const picture=typeof profile.picture==='string'?profile.picture:'';
-    identityName.textContent=name;
-    identityEmail.textContent=email;
-    const source=(name||email||'M').trim();
-    avatarFallback.textContent=(source[0]||'M').toUpperCase();
+    identityName.textContent=username;
+    avatarFallback.textContent=(username[0]||'M').toUpperCase();
     avatarFallback.hidden=false;
     avatar.hidden=true;
     if(picture){
       avatar.onload=()=>{avatar.hidden=false;avatarFallback.hidden=true;};
       avatar.onerror=()=>{avatar.hidden=true;avatarFallback.hidden=false;};
       avatar.src=picture;
-      avatar.alt=name;
+      avatar.alt='Avatar de '+username;
     }
     identity.hidden=false;
+  }
+
+  function openAccountSettings(){
+    if(!accountDrawer||accountDrawer.hidden)return;
+    if(typeof accountDrawer.showModal==='function'){
+      if(!accountDrawer.open)accountDrawer.showModal();
+      return;
+    }
+    accountDrawer.setAttribute('open','');
+  }
+
+  function closeAccountSettings(){
+    if(!accountDrawer)return;
+    if(typeof accountDrawer.close==='function'&&accountDrawer.open){
+      accountDrawer.close();
+      return;
+    }
+    accountDrawer.removeAttribute('open');
   }
 
   function resetDate(value){
@@ -1804,6 +1830,12 @@
     }catch(error){newKey.hidden=false;newKey.textContent=error.message;}
   });
 
+  accountSettingsOpen.addEventListener('click',openAccountSettings);
+  accountSettingsClose.addEventListener('click',closeAccountSettings);
+  accountDrawer.addEventListener('click',event=>{
+    if(event.target===accountDrawer)closeAccountSettings();
+  });
+
   mainTabs.addEventListener('click',event=>{
     const button=event.target.closest('[data-tab-target]');
     if(!button||!mainTabs.contains(button))return;
@@ -1888,6 +1920,7 @@
   window.addEventListener('beforeunload',stopChatSpeech);
 
   logout.addEventListener('click',async()=>{
+    closeAccountSettings();
     logout.disabled=true;logout.textContent='Saliendo…';
     setSessionState('pending','Cerrando sesión…');
     try{
