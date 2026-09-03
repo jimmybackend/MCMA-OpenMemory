@@ -169,10 +169,20 @@ try{
     interaction_ok(($conversationList['conversations'][0]['conversation_id']??null)===$conversation,'Conversation list id mismatch');
     interaction_ok(($conversationList['conversations'][0]['interaction_count']??0)===53,'Conversation turn count mismatch');
 
+    $renamedConversation=$archive->renameConversation('owner',$conversation,'Arquitectura MCMA y memoria');
+    interaction_ok(($renamedConversation['title']??null)==='Arquitectura MCMA y memoria','Conversation rename did not persist title');
+    interaction_ok(($renamedConversation['custom_title']??false)===true,'Conversation rename did not mark custom title');
+    $conversationListAfterRename=$archive->conversations('owner');
+    interaction_ok(
+        ($conversationListAfterRename['conversations'][0]['title']??null)==='Arquitectura MCMA y memoria',
+        'Conversation list did not expose renamed title'
+    );
+
     $conversationDetail=$archive->conversation('owner',$conversation);
     interaction_ok(count($conversationDetail['interactions']??[])===53,'Conversation detail did not return all canonical interactions');
     interaction_ok(($conversationDetail['ai_tokens_used']??-1)===0,'Conversation detail used AI tokens');
     interaction_ok(($conversationDetail['credit_units_charged']??-1)===0,'Conversation detail charged credits');
+    interaction_ok(($conversationDetail['conversation']['title']??null)==='Arquitectura MCMA y memoria','Conversation detail lost renamed title');
     $detailRefs=array_map(static fn(array $item): string => (string)($item['logical_ref']??''),$conversationDetail['interactions']);
     interaction_ok(in_array($ref,$detailRefs,true),'Conversation detail lost canonical interaction ref');
 
