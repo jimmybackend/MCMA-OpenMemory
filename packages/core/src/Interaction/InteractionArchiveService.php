@@ -357,21 +357,30 @@ final class InteractionArchiveService
         ];
     }
 
-    public function latestCanonicalMemoryRef(string $actor,string $conversationId): ?string
+    public function recentCanonicalMemoryRefs(string $actor,string $conversationId,int $limit=12): array
     {
+        if($limit<1||$limit>32) throw new RuntimeException('Canonical memory context limit must be between 1 and 32');
         $context=$this->contextCandidates($actor,$conversationId,32);
+        $refs=[];
         foreach($context['candidates']??[] as $candidate){
+            if(count($refs)>=$limit) break;
             if(!is_array($candidate)) continue;
             $ref=$candidate['canonical_memory_ref']??null;
             if(!is_string($ref)||!str_starts_with($ref,'memory://user/')) continue;
+            if(in_array($ref,$refs,true)) continue;
             try{
                 $this->library->readAs($actor,$ref);
-                return $ref;
+                $refs[]=$ref;
             }catch(Throwable){
                 continue;
             }
         }
-        return null;
+        return $refs;
+    }
+
+    public function latestCanonicalMemoryRef(string $actor,string $conversationId): ?string
+    {
+        return $this->recentCanonicalMemoryRefs($actor,$conversationId,1)[0]??null;
     }
 
     public function validate(
