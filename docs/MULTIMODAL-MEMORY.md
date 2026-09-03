@@ -409,7 +409,7 @@ MCMA must not assume GitHub is the correct backend for large photo/audio/video l
 - [ ] file detail panel
 - [ ] zero-AI metadata browsing
 - [ ] authorized previews
-- [ ] Actualizar en Chat exact-ref binding
+- [x] Actualizar en Chat exact-ref binding
 
 ### M3 — Images
 

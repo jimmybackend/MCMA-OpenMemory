@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-1">
+  <link rel="stylesheet" href="app.css?v=20260903-2">
 </head>
 <body>
   <main class="shell">
@@ -128,6 +128,11 @@
               <div id="libraryCatalogWrap" class="library-catalog" hidden>
                 <div class="memory-answer-label">Catálogo de biblioteca</div>
                 <div id="libraryCatalogBadges" class="answer-meta"></div>
+              </div>
+
+              <div id="canonicalMemoryActions" class="memory-detail-actions" hidden>
+                <button id="memoryUpdateInChat" type="button" class="confirm-button">Actualizar en Chat</button>
+                <span id="memoryUpdateInChatStatus" class="memory-validation-status"></span>
               </div>
 
               <div id="interactionActions" class="memory-detail-actions" hidden>
@@ -379,6 +384,15 @@
             </div>
           </div>
 
+          <div id="memoryEditTarget" class="memory-edit-target" hidden>
+            <div>
+              <strong>Memoria seleccionada para actualizar</strong>
+              <span id="memoryEditTargetTitle">—</span>
+              <code id="memoryEditTargetRef">—</code>
+            </div>
+            <button id="memoryEditTargetClear" type="button" class="secondary-button">Quitar</button>
+          </div>
+
           <div class="chat-input-shell">
             <textarea id="question" maxlength="32768" required rows="1" placeholder="Escribe tu mensaje o «Guarda esto: …»" aria-label="Mensaje para MCMA"></textarea>
           </div>
@@ -395,6 +409,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-2" defer></script>
+  <script src="app.js?v=20260903-3" defer></script>
 </body>
 </html>

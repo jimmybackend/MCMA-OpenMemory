@@ -1417,6 +1417,45 @@ button.context-list-item:hover{background:#1d2530}
   justify-content:flex-end;
   margin:0;
 }
+.memory-edit-target{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 2px 8px;
+  padding:9px 10px;
+  border:1px solid #4b6381;
+  border-radius:10px;
+  background:#172234;
+}
+.memory-edit-target>div{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.memory-edit-target strong{
+  color:#e4edf8;
+  font-size:.75rem;
+}
+.memory-edit-target span{
+  color:#c4d2e3;
+  font-size:.73rem;
+  overflow-wrap:anywhere;
+}
+.memory-edit-target code{
+  max-width:100%;
+  color:#90a6c0;
+  font-size:.64rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.memory-edit-target .secondary-button{
+  flex:0 0 auto;
+  padding:5px 8px;
+  font-size:.7rem;
+}
+
 .chat-input-shell{
   border:1px solid #384354;
   border-radius:14px;

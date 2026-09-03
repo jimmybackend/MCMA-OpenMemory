@@ -177,6 +177,7 @@
 - [x] library browser isolation from system/Vault objects
 - [x] permission-filtered visual `memory://user/` tree with collapsible thematic folders
 - [x] zero-AI decrypted canonical memory detail from tree leaves
+- [x] Biblioteca exact-memory `Actualizar en Chat` binding with per-conversation visible target
 - [x] tree/list toggle preserving existing knowledge search workflow
 - [x] memory text search, temperature/validation filters and pagination
 - [x] owner confirm/retract workflow with zero-embedding semantic hash refresh
@@ -270,7 +271,7 @@ The detailed architecture and milestones live in docs/MULTIMODAL-MEMORY.md.
 - [ ] upload/download/stream API
 - [ ] zero-AI Biblioteca shelves for Images / Documents / Audio / Video
 - [ ] category/project/date/type browsing
-- [ ] Biblioteca "Actualizar en Chat" exact-reference binding
+- [x] Biblioteca "Actualizar en Chat" exact-reference binding
 - [ ] image previews and visual semantic retrieval
 - [ ] PDF page/chunk extraction and retrieval
 - [ ] audio transcription and timestamped retrieval
