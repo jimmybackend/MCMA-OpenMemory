@@ -10,10 +10,12 @@ use MCMA\Core\Billing\ApiKeyService;
 use MCMA\Core\Billing\BillableAskService;
 use MCMA\Core\Billing\BillableExplicitMemoryService;
 use MCMA\Core\Billing\BillableInteractionApprovalService;
+use MCMA\Core\Billing\BillableMemoryMutationService;
 use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
 use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
+use MCMA\Core\Context\BroadMemoryRecallBuilder;
 use MCMA\Core\Context\ContextTraceService;
 use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Context\MultiMemoryContextBuilder;
@@ -22,6 +24,7 @@ use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\Memory\ExplicitMemoryService;
+use MCMA\Core\Memory\MemoryMutationService;
 use MCMA\Core\MultiUser\MultiUserService;
 use MCMA\Core\Semantic\SemanticIndexService;
 use RuntimeException;
@@ -196,6 +199,24 @@ final class WebApplication
             return HttpResponse::json([
                 'ok'=>true,
                 'archive'=>(new InteractionArchiveService($principal['library']))->conversations('owner'),
+            ]);
+        }
+
+        if($method==='GET'&&preg_match('#^/mcma/v1/requests/(req_[0-9a-f]{32})$#',$path,$m)){
+            $principal=$this->sessionPrincipal($request);
+            $conversationId=trim((string)($request->query('conversation_id')??''));
+            if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)){
+                throw new WebException(400,'invalid_conversation_id','conversation_id must match conv_<32 lowercase hex>');
+            }
+            $interaction=(new InteractionArchiveService($principal['library']))->interactionByRequestId('owner',$conversationId,$m[1]);
+            if($interaction===null){
+                return HttpResponse::json([
+                    'ok'=>true,'status'=>'pending','request_id'=>$m[1],'conversation_id'=>$conversationId,
+                ],202);
+            }
+            return HttpResponse::json([
+                'ok'=>true,'status'=>'completed','request_id'=>$m[1],'conversation_id'=>$conversationId,
+                'result'=>self::resultFromArchivedInteraction($interaction),
             ]);
         }
 
@@ -478,8 +499,10 @@ final class WebApplication
             throw new WebException(400,'invalid_memory_text','text is required and must be <= 32768 bytes');
         }
 
-        $requestId='req_'.bin2hex(random_bytes(16));
+        $requestId=$this->requestId($input);
         $conversationId=$this->conversationId($input);
+        $existing=(new InteractionArchiveService($principal['library']))->interactionByRequestId('owner',$conversationId,$requestId);
+        if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
         $result=$this->captureExplicitMemory($principal,$text,$requestId);
         $result=$this->recordContextTrace($principal,$requestId,$text,false,true,$result);
         $result=$this->recordInteraction($principal,$requestId,$conversationId,$text,$result);
@@ -495,8 +518,19 @@ final class WebApplication
         if($question===''||strlen($question)>32768) throw new WebException(400,'invalid_question','question is required and must be <= 32768 bytes');
         $current=$this->boolField($input,'current',false);
         $remember=$this->boolField($input,'remember',true);
-        $requestId='req_'.bin2hex(random_bytes(16));
+        $requestId=$this->requestId($input);
         $conversationId=$this->conversationId($input);
+
+        $archiveService=new InteractionArchiveService($principal['library']);
+        $existing=$archiveService->interactionByRequestId('owner',$conversationId,$requestId);
+        if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
+
+        if(MemoryMutationService::isMutationRequest($question)){
+            $result=$this->mutateMemory($principal,$question,$requestId);
+            $result=$this->recordContextTrace($principal,$requestId,$question,false,true,$result);
+            $result=$this->recordInteraction($principal,$requestId,$conversationId,$question,$result);
+            return HttpResponse::json(['ok'=>true,'result'=>$result]);
+        }
 
         if(ExplicitMemoryService::isExplicitSaveRequest($question)){
             $result=$this->captureExplicitMemory($principal,$question,$requestId);
@@ -519,13 +553,14 @@ final class WebApplication
 
         $conversationContextBuilder=$this->conversationContextBuilder($principal['library']);
         $multiMemoryContextBuilder=$this->multiMemoryContextBuilder($principal['library']);
+        $broadMemoryRecallBuilder=$this->broadMemoryRecallBuilder($principal['library']);
 
         if($this->billingEnabled){
             if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
             $this->billing->ensureAccount($principal['library']);
             $service=new BillableAskService(
                 $principal['library'],$this->billing,$embedding,$generator,$this->billingMaxOutputTokens,
-                $conversationContextBuilder,$multiMemoryContextBuilder
+                $conversationContextBuilder,$multiMemoryContextBuilder,$broadMemoryRecallBuilder
             );
             $result=$service->ask(
                 $requestId,
@@ -546,7 +581,7 @@ final class WebApplication
             $librarian=$embedding!==null?new Librarian($knowledge,$semantic,$embedding):new Librarian($knowledge);
             $ask=new AskService(
                 $knowledge,$semantic,$embedding,$generator,$librarian,
-                $conversationContextBuilder,$multiMemoryContextBuilder
+                $conversationContextBuilder,$multiMemoryContextBuilder,$broadMemoryRecallBuilder
             );
             $result=$ask->ask(
                 'ai',$question,$current,
@@ -593,6 +628,38 @@ final class WebApplication
         }
     }
 
+    private function mutateMemory(array $principal,string $text,string $requestId): array
+    {
+        $embedding=$this->providers->embedding($this->providerOptions,true);
+        if($this->billingEnabled){
+            if($this->billing===null) throw new WebException(503,'billing_unavailable','Billing is enabled but service is unavailable');
+            $this->billing->ensureAccount($principal['library']);
+            return (new BillableMemoryMutationService(
+                $principal['library'],$this->billing,$embedding
+            ))->execute(
+                $requestId,$principal['kind'],$text,
+                array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null)
+            );
+        }
+        $result=(new MemoryMutationService($principal['library'],$embedding))->execute('owner',$text);
+        $result['billing']=[
+            'ai_billed'=>false,'credit_units_charged'=>0,
+            'usage'=>['input_tokens'=>0,'output_tokens'=>0,'cached_tokens'=>0,'embedding_tokens'=>0,'total_tokens'=>0,'model_calls'=>0,'duration_ms'=>0],
+            'provider_usage'=>[],
+        ];
+        return $result;
+    }
+
+    private function broadMemoryRecallBuilder(Library $library): ?BroadMemoryRecallBuilder
+    {
+        if(($this->providerOptions['broad-memory-recall-enabled']??true)!==true) return null;
+        return new BroadMemoryRecallBuilder(
+            $library,
+            (int)($this->providerOptions['broad-memory-recall-max-items']??8),
+            (int)($this->providerOptions['broad-memory-recall-byte-budget']??16000)
+        );
+    }
+
     private function conversationContextBuilder(Library $library): ?ConversationContextBuilder
     {
         if(($this->providerOptions['conversation-context-enabled']??true)!==true) return null;
@@ -621,6 +688,46 @@ final class WebApplication
             (int)($this->providerOptions['rag-max-answer-bytes']??4500),
             (int)($this->providerOptions['rag-max-provenance']??4)
         );
+    }
+
+    private function requestId(array $input): string
+    {
+        $value=$input['request_id']??null;
+        if($value===null||$value==='') return 'req_'.bin2hex(random_bytes(16));
+        if(!is_string($value)||!preg_match('/^req_[0-9a-f]{32}$/',$value)){
+            throw new WebException(400,'invalid_request_id','request_id must match req_<32 lowercase hex>');
+        }
+        return $value;
+    }
+
+    private static function resultFromArchivedInteraction(array $interaction): array
+    {
+        $provider=is_array($interaction['provider']??null)?$interaction['provider']:[];
+        $billing=is_array($interaction['billing']??null)?$interaction['billing']:[
+            'credit_units_charged'=>0,
+            'usage'=>['total_tokens'=>0],
+            'provider_usage'=>[],
+        ];
+        return [
+            'found'=>true,
+            'reusable'=>false,
+            'decision'=>'recovered-archived-response',
+            'route'=>(string)($interaction['route']??'unknown'),
+            'provider_called'=>(bool)($provider['called']??false),
+            'provider_id'=>$provider['id']??null,
+            'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
+            'stored'=>(bool)($interaction['stored']??false),
+            'billing'=>$billing,
+            'interaction_archive'=>[
+                'recorded'=>true,
+                'logical_ref'=>$interaction['logical_ref']??null,
+                'conversation_id'=>$interaction['conversation_id']??null,
+                'interaction_id'=>$interaction['interaction_id']??null,
+                'at'=>$interaction['at']??null,
+                'validation_state'=>$interaction['validation']['state']??'unverified',
+                'recovered'=>true,
+            ],
+        ];
     }
 
     private function conversationId(array $input): string
