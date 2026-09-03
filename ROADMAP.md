@@ -247,6 +247,41 @@
 - [x] production global-function conformance guard
 - [x] minimal executable/bootstrap entrypoints only
 
+## Canonical recall and versioned conversational mutation — complete
+- [x] direct actor-visible canonical memory://user/... recall for broad personal-memory questions
+- [x] confirmed canonical memory returned before model generation when a strong match exists
+- [x] canonical_memory_ref persisted with the interaction that used it
+- [x] browser-language response routing for provider-backed generation
+- [x] legacy canonical memory formats accepted without treating thematic summaries as canonical
+- [x] metadata-aware canonical priority using maturity, scope, cognitive layer and temperature
+- [x] safe legacy permission upgrade so ai can read/summarize existing user libraries without overriding explicit denies
+- [x] contextual update commands such as "actualiza ese conocimiento"
+- [x] versioned legacy updates preserve title, classification and unknown fields
+- [x] Knowledge mirror + embedding + semantic-index refresh after canonical update
+- [x] stable retrieval question/Knowledge identity across later revisions
+- [x] contextual target validation across several recent canonical memories
+- [x] ambiguous contextual mutation refuses to change any memory
+
+## Multimodal memory — planned
+The detailed architecture and milestones live in docs/MULTIMODAL-MEMORY.md.
+
+- [ ] canonical encrypted binary asset model
+- [ ] streaming/chunked binary encryption
+- [ ] upload/download/stream API
+- [ ] zero-AI Biblioteca shelves for Images / Documents / Audio / Video
+- [ ] category/project/date/type browsing
+- [ ] Biblioteca "Actualizar en Chat" exact-reference binding
+- [ ] image previews and visual semantic retrieval
+- [ ] PDF page/chunk extraction and retrieval
+- [ ] audio transcription and timestamped retrieval
+- [ ] video transcription + visual/keyframe retrieval
+- [ ] provider-neutral vision/document/speech/multimodal interfaces
+- [ ] optional AWS Rekognition / Textract / Transcribe / Bedrock connectors
+- [ ] multimodal provenance and validation
+- [ ] hosted storage/media-processing metering
+- [ ] storage quotas and GB-month accounting
+- [ ] export/migration UX preserving canonical logical identity
+
 ## Next
 - [x] guarded single-memory Context Builder for supported/verified revalidation candidates
 - [x] persistent encrypted recent-turn/session archive without storing an unbounded plaintext transcript
