@@ -196,14 +196,20 @@ final class BillingService
                 'input_tokens'=>0,
                 'output_tokens'=>0,
                 'cached_tokens'=>0,
-                'embedding_tokens'=>min(1_000_000_000,$bytes * 2),
+                // A tokenizer cannot emit more tokens than input bytes for
+                // byte-representable text, so bytes are already a conservative
+                // upper bound. Multiplying by two caused false credit exhaustion.
+                'embedding_tokens'=>min(1_000_000_000,$bytes),
             ];
         }
 
         if ($generationProviderId !== null) {
             $components[] = [
                 'provider_id'=>$generationProviderId,
-                'input_tokens'=>min(1_000_000_000,($bytes + $generationContextBytes) * 2),
+                // Question/context budgets are byte upper bounds. Treating
+                // each byte as two tokens double-counted reserved context and
+                // could block users whose real credit balance was sufficient.
+                'input_tokens'=>min(1_000_000_000,$bytes + $generationContextBytes),
                 'output_tokens'=>max(0,$maxOutputTokens),
                 'cached_tokens'=>0,
                 'embedding_tokens'=>0,
