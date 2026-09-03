@@ -87,6 +87,24 @@ try{
 
     $billing=new BillingService($catalog);
 
+    // Built-in Free is intentionally a 100k monthly allowance/quota plan.
+    // Persisted production catalogs can be inspected separately, but the code
+    // default itself must remain at 100,000.
+    $builtInFree=$catalog->plan('free');
+    qassert(($builtInFree['monthly_credit_allowance']??0)===100000,'Built-in Free monthly credit allowance must be 100,000');
+    qassert(($builtInFree['monthly_token_limit']??0)===100000,'Built-in Free monthly token limit must be 100,000');
+    qassert(($builtInFree['max_request_credit_units']??0)===100000,'Built-in Free per-request credit ceiling must be 100,000');
+
+    // Regression: with half of the 100k Free allowance still available, a
+    // conservative production-shaped reservation may be slightly above 50k.
+    // Free must reserve only the real remaining balance rather than falsely
+    // rejecting the request before actual provider usage is known.
+    $freeSummary=$billing->summary($library);
+    qassert(($freeSummary['available_units']??0)===100000,'Built-in Free allowance did not grant 100,000 credits');
+    $billing->adjustCredits($library,-50000,'free half-balance reservation regression','test');
+    $halfState=$billing->summary($library);
+    qassert(($halfState['available_units']??0)===50000,'Regression setup did not leave exactly 50,000 Free credits');
+
     // Production-shape regression: current MCMA can reserve 16,384 fixed bytes
     // plus 6,000 conversation + 8,000 multi-memory + 16,000 broad-recall bytes.
     // With 5,000 max output tokens and 71,947 credits remaining, this request
@@ -103,6 +121,31 @@ try{
         (int)($productionEstimate['credit_units']??PHP_INT_MAX)<=71947,
         'Production-shaped reservation falsely exceeds 71,947 available credits'
     );
+    qassert(
+        (int)($productionEstimate['credit_units']??0)>50000,
+        'Regression setup must estimate more than the 50,000 Free credits remaining'
+    );
+
+    $halfReservation=$billing->reserve(
+        $library,
+        'quota_half_balance_req',
+        'web',
+        ['quota:embed:v1','quota:gen:v1'],
+        (int)$productionEstimate['credit_units'],
+        (int)($productionEstimate['estimated_tokens']??0)
+    );
+    qassert(
+        (int)($halfReservation['reserved_credit_units']??0)===50000,
+        'Free reservation did not cap at the real 50,000 remaining credits'
+    );
+    qassert(
+        (int)($halfReservation['estimated_credit_units']??0)>(int)($halfReservation['reserved_credit_units']??0),
+        'Free reservation regression did not preserve the conservative estimate'
+    );
+    $billing->release($library,'quota_half_balance_req',(string)$halfReservation['reservation_id'],'regression cleanup');
+
+    // Restore the fresh-test balance before the focused small-quota scenarios.
+    $billing->credit($library,50000,'restore free regression balance','test');
 
     $first=$billing->summary($library);
     qassert(($first['available_units']??0)===100,'Free monthly allowance was not granted');
