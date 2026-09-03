@@ -224,6 +224,27 @@ final class WebApplication
             ]);
         }
 
+        if($method==='PATCH'&&preg_match('#^/mcma/v1/conversations/(conv_[0-9a-f]{32})$#',$path,$m)){
+            $this->assertOrigin($request);
+            $principal=$this->sessionPrincipal($request);
+            $input=$request->json(16384);
+            $title=trim((string)($input['title']??''));
+            try{
+                $conversation=(new InteractionArchiveService($principal['library']))->renameConversation(
+                    'owner',$m[1],$title
+                );
+            }catch(RuntimeException $e){
+                if(str_starts_with($e->getMessage(),'Conversation not found:')){
+                    throw new WebException(404,'conversation_not_found','Conversation not found');
+                }
+                if(str_starts_with($e->getMessage(),'Conversation title must')){
+                    throw new WebException(400,'invalid_conversation_title',$e->getMessage());
+                }
+                throw $e;
+            }
+            return HttpResponse::json(['ok'=>true,'conversation'=>$conversation]);
+        }
+
         if($method==='GET'&&preg_match('#^/mcma/v1/conversations/(conv_[0-9a-f]{32})$#',$path,$m)){
             $principal=$this->sessionPrincipal($request);
             try{
