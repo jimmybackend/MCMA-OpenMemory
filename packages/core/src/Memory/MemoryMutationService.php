@@ -21,14 +21,23 @@ final class MemoryMutationService
     {
         $text=trim($text);
         if($text==='') return false;
-        return preg_match('/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|elimina|borra|retira|update|modify|edit|correct|delete|remove)\b/iu',$text)===1
-            && (preg_match('/\b(?:memoria|recuerdo|archivo|memory|file)\b/iu',$text)===1||str_contains($text,'memory://user/'));
+        return preg_match('/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|append|add|delete|remove)\b/iu',$text)===1
+            && (preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1||str_contains($text,'memory://user/'));
     }
 
-    public function execute(string $actor,string $requestText): array
+    public function execute(string $actor,string $requestText,?string $contextCanonicalRef=null): array
     {
         $parsed=self::parse($requestText);
-        $resolved=$this->resolveTarget($actor,$parsed['target']);
+        if(($parsed['target']??null)==='@context'&&is_string($contextCanonicalRef)&&str_starts_with($contextCanonicalRef,'memory://user/')){
+            try{
+                $this->library->readAs($actor,$contextCanonicalRef);
+                $resolved=['status'=>'resolved','logical_ref'=>$contextCanonicalRef,'candidates'=>[]];
+            }catch(Throwable){
+                $resolved=['status'=>'not-found','candidates'=>[]];
+            }
+        }else{
+            $resolved=$this->resolveTarget($actor,(string)($parsed['target']??''));
+        }
         if(($resolved['status']??'')!=='resolved'){
             $candidates=$resolved['candidates']??[];
             $message=($resolved['status']??'')==='ambiguous'
@@ -95,16 +104,29 @@ final class MemoryMutationService
         $newContent=trim((string)($parsed['new_content']??''));
         if($newContent==='') throw new RuntimeException('Memory update requires new content');
 
-        if(is_array($current)&&isset($current['explicit_memory_version'])){
+        $currentText='';
+        if(is_array($current)&&is_string($current['content']??null)) $currentText=trim((string)$current['content']);
+        elseif(is_string($current)) $currentText=trim($current);
+
+        if(($parsed['mode']??'replace')==='append'&&$currentText!==''){
+            $newContent=rtrim($currentText)."\n\n".$newContent;
+        }
+
+        if(is_array($current)){
+            // Preserve the complete canonical structure for both modern and
+            // legacy JSON memories. Only the knowledge payload changes.
             $next=$current;
             $next['content']=$newContent;
-            if(is_array($next['source']??null)) $next['source']['original']=$newContent;
             $history=is_array($next['mutation_history']??null)?$next['mutation_history']:[];
-            $history[]=['at'=>$now,'action'=>'update','previous_storage_hash'=>$previousHash];
+            $history[]=[
+                'at'=>$now,
+                'action'=>(string)($parsed['mode']??'replace'),
+                'previous_storage_hash'=>$previousHash,
+            ];
             $next['mutation_history']=array_slice($history,-50);
             $next['lifecycle']=['status'=>'active','updated_at'=>$now];
         }else{
-            $next=$format==='json'?['content'=>$newContent,'updated_at'=>$now,'previous_storage_hash'=>$previousHash]:$newContent;
+            $next=$newContent;
         }
 
         $result=$this->library->updateAs(
@@ -176,29 +198,50 @@ final class MemoryMutationService
     {
         $text=trim($text);
         $delete=preg_match('/^(?:por\s+favor\s+)?(?:elimina|borra|retira|delete|remove)\b/iu',$text)===1;
+        $append=preg_match('/^(?:por\s+favor\s+)?(?:agrega|añade|anade|incorpora|append|add)\b/iu',$text)===1
+            || preg_match('/\b(?:y\s+)?(?:agrega|añade|anade|incorpora|append|add)\b/iu',$text)===1;
         $action=$delete?'delete':'update';
+        $mode=$delete?'delete':($append?'append':'replace');
+
+        $contextPattern='(?:ese|este|esa|esta|el|la)\\s+(?:conocimiento|concepto|memoria|recuerdo|archivo|knowledge|concept|memory|file)';
+        $target=null;
+        $newContent=null;
 
         if(preg_match('#(memory://user/[a-z0-9][a-z0-9._/-]*)#i',$text,$m)===1){
             $target=$m[1];
-        }else{
-            $body=preg_replace('/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|elimina|borra|retira|update|modify|edit|correct|delete|remove)\s+(?:(?:la|el|the)\s+)?(?:(?:memoria|recuerdo|archivo|memory|file)\s+)?(?:de\s+|sobre\s+|llamad[oa]\s+)?/iu','',$text)??$text;
+        }elseif(preg_match('/\\b'.$contextPattern.'\\b/iu',$text)===1){
+            $target='@context';
+        }
+
+        if(!$delete){
+            if($append&&preg_match('/\\b(?:agrega|añade|anade|incorpora|append|add)\\b\\s*(?:esto|this)?\\s*[:=,-]?\\s*(.+)$/isu',$text,$m)===1){
+                $newContent=trim($m[1]);
+            }elseif(preg_match('/\\s+(?:con|with|para\\s+que\\s+(?:diga|contenga|sea)|so\\s+it\\s+(?:says|contains))\\s*[:=-]?\\s+(.+)$/isu',$text,$m)===1){
+                $newContent=trim($m[1]);
+            }elseif(str_contains($text,'memory://user/')&&preg_match('/\\s*[:=]\\s*(.+)$/su',$text,$m)===1){
+                $newContent=trim($m[1]);
+            }
+        }
+
+        if($target===null){
+            $body=preg_replace(
+                '/^(?:por\\s+favor\\s+)?(?:actualiza|modifica|edita|corrige|cambia|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|append|add|delete|remove)\\s+(?:(?:la|el|the)\\s+)?(?:(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\\s+)?(?:de\\s+|sobre\\s+|llamad[oa]\\s+)?/iu',
+                '',
+                $text
+            )??$text;
             $target=$body;
             if(!$delete){
-                $parts=preg_split('/\s+(?:con|with|para\s+que\s+(?:diga|contenga|sea)|so\s+it\s+(?:says|contains))\s*[:=-]?\s+/iu',$body,2);
+                $parts=preg_split('/\\s+(?:con|with|para\\s+que\\s+(?:diga|contenga|sea)|so\\s+it\\s+(?:says|contains)|y\\s+(?:agrega|añade|anade|incorpora))\\s*[:=-]?\\s+/iu',$body,2);
                 if(is_array($parts)&&count($parts)===2) $target=trim($parts[0]);
             }
         }
 
-        $newContent=null;
-        if(!$delete){
-            if(preg_match('/\s+(?:con|with|para\s+que\s+(?:diga|contenga|sea)|so\s+it\s+(?:says|contains))\s*[:=-]?\s+(.+)$/isu',$text,$m)===1){
-                $newContent=trim($m[1]);
-            }elseif(str_contains($text,'memory://user/')&&preg_match('/\s*[:=]\s*(.+)$/su',$text,$m)===1){
-                $newContent=trim($m[1]);
-            }
-        }
-
-        return ['action'=>$action,'target'=>trim($target," \t\n\r\0\x0B\"'.,:;"),'new_content'=>$newContent];
+        return [
+            'action'=>$action,
+            'mode'=>$mode,
+            'target'=>trim((string)$target," \t\n\r\0\x0B\"'.,:;"),
+            'new_content'=>$newContent,
+        ];
     }
 
     private static function result(string $ref,array $stored,string $action,string $message,mixed $semantic): array
@@ -207,6 +250,7 @@ final class MemoryMutationService
             'found'=>true,'reusable'=>false,'decision'=>'memory-'.$action,
             'route'=>'memory-mutation','provider_called'=>false,
             'logical_ref'=>$ref,
+            'canonical_memory_ref'=>$ref,
             'answer'=>['format'=>'text','value'=>$message."\n".$ref."\nRevisión ".(int)($stored['revision']??0).'.'],
             'stored'=>true,
             'storage'=>[
@@ -217,7 +261,7 @@ final class MemoryMutationService
                 'semantic_index'=>$semantic,
             ],
             'mutation'=>['action'=>$action,'status'=>'completed','versioned'=>true],
-            'context_used'=>['memory'=>false],
+            'context_used'=>['memory'=>true,'canonical'=>true,'logical_ref'=>$ref],
         ];
     }
 
