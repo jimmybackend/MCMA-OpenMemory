@@ -573,7 +573,7 @@
 
   function closeConversationRename(){
     conversationRenameForm.hidden=true;
-    conversationRenameOpen.hidden=false;
+    conversationRenameOpen.hidden=currentConversationSummary()===null;
     conversationRenameInput.value='';
   }
 
@@ -1870,11 +1870,13 @@
       const cid=result.interaction_archive.conversation_id;
       if(/^conv_[0-9a-f]{32}$/.test(cid))setConversationId(cid);
       memoryState.tree=null;
-      conversationTitle.textContent=shortConversationTitle(question);
       composerStatus.textContent=result.interaction_archive.recovered===true
         ?'Respuesta recuperada del archivo cifrado después de una interrupción.'
         :'Respuesta archivada en la conversación actual.';
       await loadConversations({openCurrent:false});
+      const summary=currentConversationSummary();
+      conversationTitle.textContent=summary?.title||shortConversationTitle(question);
+      conversationRenameOpen.hidden=summary===null;
     }else{
       composerStatus.textContent='Respuesta recibida, pero el archivo persistente no confirmó esta interacción.';
     }
@@ -2012,8 +2014,15 @@
     composerStatus.textContent='Selección exacta quitada · MCMA volverá a resolver la memoria por contexto cuando sea necesario.';
     questionInput.focus();
   });
+  interactionRenameConversation.addEventListener('click',renameSelectedLibraryConversation);
   interactionApprove.addEventListener('click',()=>validateInteraction('approve'));
   interactionDiscard.addEventListener('click',()=>validateInteraction('discard'));
+  conversationRenameOpen.addEventListener('click',openConversationRename);
+  conversationRenameCancel.addEventListener('click',closeConversationRename);
+  conversationRenameForm.addEventListener('submit',saveConversationRename);
+  conversationPageUp.addEventListener('click',()=>scrollConversationPage(-1));
+  conversationPageDown.addEventListener('click',()=>scrollConversationPage(1));
+  conversationList.addEventListener('scroll',updateConversationScrollButtons,{passive:true});
   newConversation.addEventListener('click',startNewConversation);
   conversationSearch.addEventListener('input',()=>{
     conversationState.filter=conversationSearch.value;
