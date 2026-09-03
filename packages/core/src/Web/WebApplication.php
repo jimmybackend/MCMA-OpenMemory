@@ -529,14 +529,15 @@ final class WebApplication
         $existing=$archiveService->interactionByRequestId('owner',$conversationId,$requestId);
         if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
 
-        if(MemoryMutationService::isMutationRequest($question)){
-            $selectedCanonicalRef=$input['mutation_ref']??null;
-            if($selectedCanonicalRef!==null){
-                if(!is_string($selectedCanonicalRef)||strlen($selectedCanonicalRef)>2048||!str_starts_with($selectedCanonicalRef,'memory://user/')){
-                    throw new WebException(400,'invalid_mutation_ref','mutation_ref must be a memory://user/... reference');
-                }
-                $selectedCanonicalRef=trim($selectedCanonicalRef);
+        $selectedCanonicalRef=$input['mutation_ref']??null;
+        if($selectedCanonicalRef!==null){
+            if(!is_string($selectedCanonicalRef)||strlen($selectedCanonicalRef)>2048||!str_starts_with($selectedCanonicalRef,'memory://user/')){
+                throw new WebException(400,'invalid_mutation_ref','mutation_ref must be a memory://user/... reference');
             }
+            $selectedCanonicalRef=trim($selectedCanonicalRef);
+        }
+
+        if(MemoryMutationService::isMutationRequest($question,$selectedCanonicalRef!==null)){
             $contextCanonicalRefs=$archiveService->recentCanonicalMemoryRefs('owner',$conversationId,12);
             $result=$this->mutateMemory(
                 $principal,$question,$requestId,$contextCanonicalRefs,$selectedCanonicalRef
