@@ -156,6 +156,7 @@
 - [x] reload-safe current conversation selection through sessionStorage
 - [x] archived conversation reopening without automatic full-history prompt injection
 - [x] session status/profile chip, favicon and answer route/token badges
+- [x] per-answer copy and browser-native read-aloud controls
 - [x] zero-AI memory explorer with decrypted question/answer browsing
 - [x] persistent encrypted question/answer interaction archive beyond the 50 context traces
 - [x] tab-scoped conversation IDs + explicit Nueva conversación control
