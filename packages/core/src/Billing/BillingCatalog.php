@@ -249,7 +249,7 @@ final class BillingCatalog
         return [
             'free'=>self::validatePlan('free',[
                 'api_enabled'=>false,'embedding_enabled'=>true,'requests_per_minute'=>10,
-                'daily_request_limit'=>20,'concurrent_requests'=>1,'max_request_credit_units'=>100000,
+                'daily_request_limit'=>50,'concurrent_requests'=>1,'max_request_credit_units'=>100000,
                 'monthly_credit_allowance'=>100000,'monthly_token_limit'=>100000,
                 'allowed_providers'=>['*'],
             ]),

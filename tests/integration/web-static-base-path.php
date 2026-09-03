@@ -55,6 +55,9 @@ check(str_contains($app,"api('/mcma/v1/conversations/'+encodeURIComponent(conver
 check(str_contains($app,"appendChatMessage('user'"),'user messages render in chat stream');
 check(str_contains($app,"appendChatMessage('assistant'"),'assistant messages render in chat stream');
 check(str_contains($app,"textContent=displayChatValue"),'chat output uses textContent');
+check(str_contains($app,"navigator.clipboard.writeText"),'assistant copy action is wired');
+check(str_contains($app,"SpeechSynthesisUtterance"),'assistant read-aloud action is wired');
+check(str_contains($app,"speechSynthesis"),'browser speech synthesis integration is present');
 check(str_contains($app,"loadConversations({openCurrent:false})"),'conversation sidebar refreshes after archive');
 check(str_contains($app,"switchMemoryView('tree')"),'memory tree view switch is wired');
 check(str_contains($app,"switchMemoryView('list')"),'memory list view switch is wired');

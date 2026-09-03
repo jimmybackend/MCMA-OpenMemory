@@ -136,6 +136,101 @@
     chatMessages.appendChild(wrap);
   }
 
+  let activeSpeechButton=null;
+
+  function splitSpeechText(text,maxLength=180){
+    const sentences=String(text||'').replace(/\s+/g,' ').match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
+    const chunks=[];
+    for(const raw of sentences){
+      let sentence=raw.trim();
+      while(sentence.length>maxLength){
+        let cut=sentence.lastIndexOf(' ',maxLength);
+        if(cut<40)cut=maxLength;
+        chunks.push(sentence.slice(0,cut).trim());
+        sentence=sentence.slice(cut).trim();
+      }
+      if(sentence)chunks.push(sentence);
+    }
+    return chunks;
+  }
+
+  function stopChatSpeech(){
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
+    if(activeSpeechButton){
+      activeSpeechButton.textContent='Leer';
+      activeSpeechButton.setAttribute('aria-label','Leer respuesta en voz alta');
+      activeSpeechButton=null;
+    }
+  }
+
+  function speakChatContent(content,button){
+    if(!('speechSynthesis' in window))return;
+    const text=content.textContent.trim();
+    if(text==='')return;
+    if(activeSpeechButton===button){
+      stopChatSpeech();
+      return;
+    }
+
+    stopChatSpeech();
+    const queue=splitSpeechText(text);
+    if(queue.length===0)return;
+    let index=0;
+    activeSpeechButton=button;
+    button.textContent='Detener';
+    button.setAttribute('aria-label','Detener lectura en voz alta');
+
+    const finish=()=>{
+      if(activeSpeechButton===button){
+        button.textContent='Leer';
+        button.setAttribute('aria-label','Leer respuesta en voz alta');
+        activeSpeechButton=null;
+      }
+    };
+
+    const next=()=>{
+      if(activeSpeechButton!==button)return;
+      if(index>=queue.length){
+        finish();
+        return;
+      }
+      const utterance=new SpeechSynthesisUtterance(queue[index]);
+      utterance.lang=navigator.language||'es-MX';
+      utterance.onend=()=>{index+=1;next();};
+      utterance.onerror=finish;
+      window.speechSynthesis.speak(utterance);
+    };
+    next();
+  }
+
+  async function copyChatContent(content,button){
+    const text=content.textContent;
+    if(text.trim()==='')return;
+    let copied=false;
+    try{
+      if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function'){
+        await navigator.clipboard.writeText(text);
+        copied=true;
+      }
+    }catch(error){}
+
+    if(!copied){
+      const fallback=document.createElement('textarea');
+      fallback.value=text;
+      fallback.setAttribute('readonly','');
+      fallback.style.position='fixed';
+      fallback.style.opacity='0';
+      document.body.appendChild(fallback);
+      fallback.select();
+      try{copied=document.execCommand('copy');}catch(error){copied=false;}
+      fallback.remove();
+    }
+
+    const original=button.textContent;
+    button.textContent=copied?'Copiado':'No se pudo copiar';
+    setTimeout(()=>{button.textContent=original;},1200);
+  }
+
   function appendChatMessage(role,text,meta=[]){
     const article=document.createElement('article');
     article.className='chat-message '+(role==='user'?'chat-message-user':'chat-message-assistant');
@@ -153,7 +248,36 @@
       item.textContent=String(value);
       metaNode.appendChild(item);
     }
+
+    let actions=null;
+    if(role!=='user'){
+      actions=document.createElement('div');
+      actions.className='chat-message-actions';
+
+      const copyButton=document.createElement('button');
+      copyButton.type='button';
+      copyButton.className='chat-message-action';
+      copyButton.textContent='Copiar';
+      copyButton.setAttribute('aria-label','Copiar respuesta');
+      copyButton.addEventListener('click',()=>copyChatContent(content,copyButton));
+
+      const speakButton=document.createElement('button');
+      speakButton.type='button';
+      speakButton.className='chat-message-action';
+      speakButton.textContent='Leer';
+      speakButton.setAttribute('aria-label','Leer respuesta en voz alta');
+      if(!('speechSynthesis' in window)){
+        speakButton.disabled=true;
+        speakButton.title='Este navegador no soporta lectura en voz alta.';
+      }else{
+        speakButton.addEventListener('click',()=>speakChatContent(content,speakButton));
+      }
+
+      actions.append(copyButton,speakButton);
+    }
+
     article.append(roleNode,content);
+    if(actions)article.appendChild(actions);
     if(metaNode.childElementCount>0)article.appendChild(metaNode);
     chatMessages.appendChild(article);
     chatMessages.scrollTop=chatMessages.scrollHeight;
@@ -1379,6 +1503,8 @@
   memoryItemNext.addEventListener('click',()=>selectMemoryRelative(1));
   memoryConfirm.addEventListener('click',()=>validateMemory('confirm'));
   memoryDiscard.addEventListener('click',()=>validateMemory('discard'));
+
+  window.addEventListener('beforeunload',stopChatSpeech);
 
   logout.addEventListener('click',async()=>{
     logout.disabled=true;logout.textContent='Saliendo…';

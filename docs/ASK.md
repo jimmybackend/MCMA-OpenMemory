@@ -74,7 +74,7 @@ Set a Converse-compatible model or inference profile explicitly:
 ~~~bash
 export MCMA_BEDROCK_REGION=us-east-1
 export MCMA_BEDROCK_CHAT_MODEL=REPLACE_WITH_MODEL_OR_INFERENCE_PROFILE_ID
-export MCMA_BEDROCK_MAX_TOKENS=1024
+export MCMA_BEDROCK_MAX_TOKENS=5000
 export MCMA_BEDROCK_CHAT_TEMPERATURE=0.2
 ~~~
 

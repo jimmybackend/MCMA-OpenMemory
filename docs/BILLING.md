@@ -144,7 +144,9 @@ Plans control:
 - optional monthly AI token limit;
 - allowed providers.
 
-The built-in Free plan defaults to 20 AI-backed requests per day, 100,000 AI tokens per UTC month and a 100,000-credit monthly target balance. The allowance is a top-up, not an additive grant: unused Free credits do not stack month after month. A plan value of 0 for a monthly allowance/limit means that specific monthly rule is disabled.
+The built-in Free plan defaults to 50 AI-backed requests per day, 100,000 AI tokens per UTC month and a 100,000-credit monthly target balance. The allowance is a top-up, not an additive grant: unused Free credits do not stack month after month. A plan value of 0 for a monthly allowance/limit means that specific monthly rule is disabled.
+
+Changing the built-in default does not overwrite an already persisted encrypted plan catalog; existing deployments must update their stored Free plan deliberately through the normal billing administration path.
 
 Quota accounting is lazy and database-free. The first billing summary or AI-backed request in a UTC month records an idempotent encrypted allowance event in that user's daily billing ledger. Exact reusable memory that makes no provider call creates no billing reservation, so it does not consume the daily AI-request quota or monthly AI-token quota.
 
@@ -337,7 +339,7 @@ MCMA_BILLING_ENABLED=true
 MCMA_API_KEY_PEPPER=32+ random bytes
 MCMA_SUPERADMIN_ISSUER=...
 MCMA_SUPERADMIN_SUBJECT=...
-MCMA_WEB_BILLING_MAX_OUTPUT_TOKENS=1024
+MCMA_WEB_BILLING_MAX_OUTPUT_TOKENS=5000
 MCMA_STRIPE_SECRET_KEY=...
 MCMA_STRIPE_WEBHOOK_SECRET=...
 MCMA_STRIPE_PACKAGES_JSON=...
