@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace MCMA\Core\Ask;
 
 use MCMA\Core\Agent\Librarian;
+use MCMA\Core\Context\BroadMemoryRecallBuilder;
 use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Context\MultiMemoryContextBuilder;
 use MCMA\Core\Knowledge\KnowledgeRecord;
@@ -21,7 +22,8 @@ final class AskService
         private readonly ?GenerationProvider $generationProvider = null,
         private readonly ?Librarian $librarian = null,
         private readonly ?ConversationContextBuilder $conversationContextBuilder = null,
-        private readonly ?MultiMemoryContextBuilder $multiMemoryContextBuilder = null
+        private readonly ?MultiMemoryContextBuilder $multiMemoryContextBuilder = null,
+        private readonly ?BroadMemoryRecallBuilder $broadMemoryRecallBuilder = null
     ) {
         if (($this->semantic === null) !== ($this->embeddingProvider === null)) {
             throw new RuntimeException('Ask semantic retrieval requires both SemanticIndexService and EmbeddingProvider');
@@ -140,6 +142,16 @@ final class AskService
             }
         }
 
+        $broadRecallContext=null;
+        if($this->broadMemoryRecallBuilder!==null){
+            try{
+                $broadRecallContext=$this->broadMemoryRecallBuilder->build($actor,$question,$minConfidence);
+            }catch(\Throwable $e){
+                error_log('MCMA broad memory recall builder error: '.$e->getMessage());
+                $broadRecallContext=null;
+            }
+        }
+
         $generationContext = [
             'actor' => $actor,
             'current_required' => $currentRequired,
@@ -148,6 +160,7 @@ final class AskService
         if ($memoryContext !== null) $generationContext['memory_context'] = $memoryContext;
         if ($multiMemoryContext !== null) $generationContext['multi_memory_context'] = $multiMemoryContext;
         if ($conversationContext !== null) $generationContext['conversation_context'] = $conversationContext;
+        if ($broadRecallContext !== null) $generationContext['broad_recall_context'] = $broadRecallContext;
 
         $generated = $this->generationProvider->generate($question, $generationContext);
         $text = trim((string)($generated['text'] ?? ''));
@@ -182,6 +195,16 @@ final class AskService
                     ];
                 }
             }
+            if($broadRecallContext!==null){
+                foreach($broadRecallContext['items']??[] as $memory){
+                    if(!is_array($memory)||!is_string($memory['logical_ref']??null)||$memory['logical_ref']==='') continue;
+                    $provenance[]=[
+                        'source_type'=>'memory',
+                        'reference'=>$memory['logical_ref'],
+                        'note'=>'Selected by broad entity recall',
+                    ];
+                }
+            }
             if (is_array($captureOptions['provenance'] ?? null)) {
                 $provenance = array_values(array_merge($provenance, $captureOptions['provenance']));
             }
@@ -198,6 +221,13 @@ final class AskService
                     foreach([$memory['canonical_memory_ref']??null,$memory['logical_ref']??null] as $relation){
                         if(is_string($relation)&&str_starts_with($relation,'memory://')) $relations[]=$relation;
                     }
+                }
+                $relations=array_values(array_unique($relations));
+            }
+            if($broadRecallContext!==null){
+                foreach($broadRecallContext['items']??[] as $memory){
+                    $relation=is_array($memory)?($memory['logical_ref']??null):null;
+                    if(is_string($relation)&&str_starts_with($relation,'memory://')) $relations[]=$relation;
                 }
                 $relations=array_values(array_unique($relations));
             }
@@ -270,6 +300,11 @@ final class AskService
             // Context transparency intentionally records exactly which selected
             // historical turns were supplied to generation.
             $result['context_used']['conversation_context']=$conversationContext;
+        }
+
+        $result['context_used']['broad_recall']=$broadRecallContext!==null;
+        if($broadRecallContext!==null){
+            $result['context_used']['broad_recall_context']=$broadRecallContext;
         }
 
         if (isset($generated['usage']) && is_array($generated['usage'])) $result['usage'] = $generated['usage'];
