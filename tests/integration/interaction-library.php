@@ -288,7 +288,11 @@ try{
         ],
         'json','hot','40-semantic','user','confirmed'
     );
-    $canonicalOnlyRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabes de mailit.click?',0.75);
+    interaction_ok(
+        BroadMemoryRecallBuilder::isBroadRecallRequest('¿Qué sabe de mailit.click?'),
+        'Broad recall did not recognize singular/polite Spanish wording'
+    );
+    $canonicalOnlyRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabe de mailit.click?',0.75);
     interaction_ok(is_array($canonicalOnlyRecall),'Canonical-only broad recall returned no context');
     $canonicalItems=array_values(array_filter(
         $canonicalOnlyRecall['items']??[],
