@@ -164,9 +164,9 @@ final class AskService
             'actor' => $actor,
             'current_required' => $currentRequired,
             'memory_attempt' => self::memorySummary($memoryAttempt),
-            'system_instructions'=>$languageInstruction,
             'response_language'=>$responseLanguage??'question-language',
         ];
+        if($languageInstruction!==null) $generationContext['system_instructions']=$languageInstruction;
         if ($memoryContext !== null) $generationContext['memory_context'] = $memoryContext;
         if ($multiMemoryContext !== null) $generationContext['multi_memory_context'] = $multiMemoryContext;
         if ($conversationContext !== null) $generationContext['conversation_context'] = $conversationContext;
@@ -324,13 +324,13 @@ final class AskService
         return $result;
     }
 
-    private static function responseLanguageInstruction(?string $locale): string
+    private static function responseLanguageInstruction(?string $locale): ?string
     {
         $locale=trim((string)$locale);
         if($locale!==''&&preg_match('/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/',$locale)){
             return 'Reply in '.$locale.' unless the user explicitly requests another language.';
         }
-        return "Reply in the user's language unless explicitly asked otherwise.";
+        return null;
     }
 
     private function generationMemoryContext(string $actor, string $question, array $memoryAttempt, float $minConfidence): ?array
