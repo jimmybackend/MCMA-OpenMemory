@@ -286,6 +286,70 @@ try {
     $conversationId=(string)($explicitEndpointBody['result']['interaction_archive']['conversation_id']??'');
     assert_web_app((bool)preg_match('/^conv_[0-9a-f]{32}$/',$conversationId),'Archived conversation id missing');
 
+    $recoveryConversation='conv_'.str_repeat('e',32);
+    $recoveryRequest='req_'.str_repeat('f',32);
+    $recoveryPayload=json_encode([
+        'text'=>'Guarda esto: mailit.click usa recuperación idempotente por request_id.',
+        'conversation_id'=>$recoveryConversation,
+        'request_id'=>$recoveryRequest,
+    ],JSON_THROW_ON_ERROR);
+
+    $recoveryFirst=$app->handle(new HttpRequest(
+        'POST','/mcma/v1/memory',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],[],
+        ['mcma_session'=>$aliceCookie],$recoveryPayload
+    ));
+    assert_web_app($recoveryFirst->status()===200,'Request-id explicit memory request failed');
+    $recoveryFirstBody=json_decode($recoveryFirst->body(),true,64,JSON_THROW_ON_ERROR);
+    $recoveryRef=(string)($recoveryFirstBody['result']['interaction_archive']['logical_ref']??'');
+    assert_web_app(str_ends_with($recoveryRef,'/'.$recoveryRequest),'Request-id archive ref mismatch');
+
+    $recoveryAgain=$app->handle(new HttpRequest(
+        'POST','/mcma/v1/memory',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],[],
+        ['mcma_session'=>$aliceCookie],$recoveryPayload
+    ));
+    assert_web_app($recoveryAgain->status()===200,'Repeated request-id request failed');
+    $recoveryAgainBody=json_decode($recoveryAgain->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($recoveryAgainBody['result']['interaction_archive']['logical_ref']??null)===$recoveryRef,
+        'Repeated request-id created or returned a different interaction'
+    );
+    assert_web_app(
+        ($recoveryAgainBody['result']['interaction_archive']['recovered']??false)===true,
+        'Repeated request-id was not served from the archived result'
+    );
+
+    $recoveryStatus=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/requests/'.$recoveryRequest,[],
+        ['conversation_id'=>$recoveryConversation],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($recoveryStatus->status()===200,'Completed request recovery endpoint failed');
+    $recoveryStatusBody=json_decode($recoveryStatus->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($recoveryStatusBody['status']??null)==='completed','Completed request recovery status mismatch');
+    assert_web_app(
+        ($recoveryStatusBody['result']['interaction_archive']['logical_ref']??null)===$recoveryRef,
+        'Request recovery endpoint returned wrong interaction'
+    );
+
+    $pendingStatus=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/requests/'.('req_'.str_repeat('1',32)),[],
+        ['conversation_id'=>$recoveryConversation],
+        ['mcma_session'=>$aliceCookie]
+    ));
+    assert_web_app($pendingStatus->status()===202,'Missing request should return pending status');
+    assert_web_app((json_decode($pendingStatus->body(),true,64,JSON_THROW_ON_ERROR)['status']??null)==='pending','Pending request status mismatch');
+
+    $recoveryConversationDetail=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/conversations/'.$recoveryConversation,[],[],['mcma_session'=>$aliceCookie]
+    ));
+    $recoveryConversationBody=json_decode($recoveryConversationDetail->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        count($recoveryConversationBody['archive']['interactions']??[])===1,
+        'Repeated request-id duplicated the canonical interaction archive'
+    );
+
     $conversationList=$app->handle(new HttpRequest(
         'GET','/mcma/v1/conversations',[],[],['mcma_session'=>$aliceCookie]
     ));
