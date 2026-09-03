@@ -42,7 +42,8 @@ final class BillableAskService
         array $billingMetadata=[],
         ?float $candidateSimilarity=null,
         ?float $minRerankScore=null,
-        ?string $conversationId=null
+        ?string $conversationId=null,
+        ?string $responseLanguage=null
     ): array {
         $this->billing->authorizeChannel($this->library,$origin);
 
@@ -91,7 +92,8 @@ final class BillableAskService
                 $captureOptions,
                 $candidateSimilarity,
                 $minRerankScore,
-                $conversationId
+                $conversationId,
+                $responseLanguage
             );
             $result['billing']=$context->settle('success',[
                 'route'=>(string)($result['route']??'unknown'),
