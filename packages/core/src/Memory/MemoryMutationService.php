@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace MCMA\Core\Memory;
 
+use MCMA\Core\Knowledge\KnowledgeRecord;
 use MCMA\Core\Knowledge\KnowledgeService;
 use MCMA\Core\Library;
 use MCMA\Core\Semantic\EmbeddingProvider;
@@ -65,6 +66,7 @@ final class MemoryMutationService
         if(is_array($current)&&is_string($current['retrieval']['knowledge_ref']??null)){
             $knowledgeRef=$current['retrieval']['knowledge_ref'];
         }
+        $previousKnowledgeRef=$knowledgeRef;
 
         if($parsed['action']==='delete'){
             if(is_array($current)){
@@ -129,6 +131,18 @@ final class MemoryMutationService
             $next=$newContent;
         }
 
+        // Every canonical update gets a stable retrieval intent. Modern
+        // explicit memories keep their existing question; legacy JSON memories
+        // derive it once from title/ref and persist it in the new revision.
+        $retrievalQuestion=self::stableRetrievalQuestion($ref,$next);
+        $knowledgeRef=KnowledgeRecord::logicalRef($retrievalQuestion);
+        if(is_array($next)){
+            $retrieval=is_array($next['retrieval']??null)?$next['retrieval']:[];
+            $retrieval['question']=$retrievalQuestion;
+            $retrieval['knowledge_ref']=$knowledgeRef;
+            $next['retrieval']=$retrieval;
+        }
+
         $result=$this->library->updateAs(
             $actor,$ref,$next,$format,
             (string)($metadata['temperature']??'hot'),
@@ -137,25 +151,101 @@ final class MemoryMutationService
             (string)($metadata['maturity']??'confirmed')
         );
 
-        $semantic=null;
-        if(is_array($next)&&is_string($next['retrieval']['question']??null)){
-            try{
-                $retrievalQuestion=(string)$next['retrieval']['question'];
-                $knowledge=new KnowledgeService($this->library);
-                $mirror=$knowledge->capture(
-                    'librarian',$retrievalQuestion,$newContent,'text',0.95,'verified',
-                    [['source_type'=>'user','reference'=>$ref,'note'=>'Owner-updated canonical memory']],
-                    (string)($next['classification']['freshness_class']??'stable'),
-                    null,'reuse-unless-stale',[$ref]
-                );
-                $knowledgeRef=(string)($mirror['logical_ref']??$next['retrieval']['knowledge_ref']??'');
-                if($this->embeddingProvider!==null&&$knowledgeRef!==''){
-                    $semantic=(new SemanticIndexService($this->library))->indexOne($this->embeddingProvider,$knowledgeRef,'librarian');
+        $retrievalSync=[
+            'question'=>$retrievalQuestion,
+            'knowledge_ref'=>$knowledgeRef,
+            'knowledge_mirror'=>null,
+            'semantic_index'=>null,
+            'error'=>null,
+        ];
+
+        try{
+            $classification=is_array($next)&&is_array($next['classification']??null)?$next['classification']:[];
+            $freshness=(string)($classification['freshness_class']??'stable');
+            [$maxAge,$reusePolicy]=self::freshnessPolicy($freshness);
+            $temperature=(string)($metadata['temperature']??$classification['temperature']??'hot');
+            if($temperature==='frozen') $reusePolicy='never-direct';
+
+            $knowledge=new KnowledgeService($this->library);
+            $mirror=$knowledge->capture(
+                'librarian',$retrievalQuestion,$newContent,'text',0.95,'verified',
+                [['source_type'=>'user','reference'=>$ref,'note'=>'Owner-updated canonical memory']],
+                $freshness,$maxAge,$reusePolicy,[$ref]
+            );
+            $knowledgeRef=(string)($mirror['logical_ref']??$knowledgeRef);
+            $retrievalSync['knowledge_ref']=$knowledgeRef;
+
+            // Keep Knowledge temperature aligned with the canonical memory,
+            // then report the final revision/hash rather than the pre-temperature
+            // capture hash.
+            $this->library->setTemperatureAs('librarian',$knowledgeRef,$temperature);
+            $finalMirror=$this->library->readAs('librarian',$knowledgeRef);
+            $retrievalSync['knowledge_mirror']=[
+                'logical_ref'=>$knowledgeRef,
+                'object_id'=>$finalMirror['object_id']??null,
+                'storage_hash'=>$finalMirror['storage_hash']??null,
+                'revision'=>(int)($finalMirror['payload']['metadata']['revision']??0),
+                'created'=>(bool)($mirror['created']??false),
+                'validation_state'=>'verified',
+                'confidence'=>0.95,
+            ];
+
+            // If a legacy object pointed at a different Knowledge intent, retire
+            // that stale mirror only when it was related to this same canonical
+            // memory. This prevents two semantic answers from competing after
+            // the retrieval intent has been normalized.
+            if(
+                is_string($previousKnowledgeRef)
+                &&str_starts_with($previousKnowledgeRef,'memory://knowledge/')
+                &&$previousKnowledgeRef!==$knowledgeRef
+            ){
+                try{
+                    $oldStored=$this->library->readAs('librarian',$previousKnowledgeRef);
+                    $oldRecord=$oldStored['payload']['content']??null;
+                    if(is_array($oldRecord)&&in_array($ref,$oldRecord['relations']??[],true)){
+                        $oldQuestion=(string)($oldRecord['intent']['question']??'');
+                        if($oldQuestion!==''){
+                            $knowledge->validateKnowledge(
+                                'librarian',$oldQuestion,'retracted',0.0,
+                                'canonical-memory-retrieval-intent-superseded',
+                                [['source_type'=>'user','reference'=>$ref,'note'=>'Canonical memory now uses a normalized retrieval intent']]
+                            );
+                        }
+                        if($this->embeddingProvider!==null){
+                            (new SemanticIndexService($this->library))->remove(
+                                $this->embeddingProvider,$previousKnowledgeRef,'librarian'
+                            );
+                        }
+                    }
+                }catch(Throwable $e){
+                    $retrievalSync['retired_previous_error']=self::safeError($e);
                 }
-            }catch(Throwable $e){$semantic=['error'=>self::safeError($e)];}
+            }
+
+            if($this->embeddingProvider!==null){
+                $semanticService=new SemanticIndexService($this->library);
+                if($temperature==='frozen'){
+                    $retrievalSync['semantic_index']=$semanticService->remove(
+                        $this->embeddingProvider,$knowledgeRef,'librarian'
+                    );
+                }else{
+                    // indexOne re-embeds whenever the Knowledge storage hash
+                    // changed, so the semantic index is tied to this revision.
+                    $retrievalSync['semantic_index']=$semanticService->indexOne(
+                        $this->embeddingProvider,$knowledgeRef,'librarian'
+                    );
+                }
+            }
+        }catch(Throwable $e){
+            $retrievalSync['error']=self::safeError($e);
         }
 
-        return self::result($ref,$result,'update','Memoria actualizada y versionada correctamente.',$semantic);
+        return self::result(
+            $ref,$result,'update',
+            'Memoria actualizada y versionada correctamente.',
+            $retrievalSync['semantic_index'],
+            $retrievalSync
+        );
     }
 
     private function resolveTarget(string $actor,string $target): array
@@ -244,7 +334,14 @@ final class MemoryMutationService
         ];
     }
 
-    private static function result(string $ref,array $stored,string $action,string $message,mixed $semantic): array
+    private static function result(
+        string $ref,
+        array $stored,
+        string $action,
+        string $message,
+        mixed $semantic,
+        ?array $retrievalSync=null
+    ): array
     {
         return [
             'found'=>true,'reusable'=>false,'decision'=>'memory-'.$action,
@@ -259,10 +356,40 @@ final class MemoryMutationService
                 'previous_storage_hash'=>$stored['previous_storage_hash']??null,
                 'revision'=>(int)($stored['revision']??0),
                 'semantic_index'=>$semantic,
+                'retrieval_sync'=>$retrievalSync,
             ],
             'mutation'=>['action'=>$action,'status'=>'completed','versioned'=>true],
             'context_used'=>['memory'=>true,'canonical'=>true,'logical_ref'=>$ref],
         ];
+    }
+
+    private static function stableRetrievalQuestion(string $logicalRef,mixed $content): string
+    {
+        if(is_array($content)){
+            $existing=$content['retrieval']['question']??null;
+            if(is_string($existing)&&trim($existing)!=='') return trim($existing);
+
+            $title=$content['title']??null;
+            if(is_string($title)&&trim($title)!==''){
+                return '¿Qué sé sobre '.rtrim(trim($title)," .?!").'?';
+            }
+        }
+
+        $path=substr($logicalRef,strlen('memory://user/'));
+        $label=preg_replace('/[-_]+/u',' ',$path)??$path;
+        $label=preg_replace('#/+#',' / ',$label)??$label;
+        $label=trim(preg_replace('/\s+/u',' ',$label)??$label);
+        return '¿Qué sé sobre '.$label.'?';
+    }
+
+    private static function freshnessPolicy(string $freshness): array
+    {
+        return match($freshness){
+            'immutable'=>[null,'always'],
+            'dynamic'=>[2592000,'revalidate-if-stale'],
+            'volatile'=>[86400,'revalidate-if-stale'],
+            default=>[31536000,'reuse-unless-stale'],
+        };
     }
 
     private static function normalize(string $value): string
