@@ -13,10 +13,10 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-1"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-2"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260903-2"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260903-3"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -24,6 +24,9 @@ check(str_contains($index,'id="memoryTreeView"'),'memory tree view toggle is pre
 check(str_contains($index,'id="memoryListView"'),'memory list view toggle is present');
 check(str_contains($index,'id="memoryTree"'),'memory tree container is present');
 check(str_contains($index,'id="memoryTreeDetailContent"'),'decrypted tree detail panel is present');
+check(str_contains($index,'id="memoryUpdateInChat"'),'Biblioteca exact-memory update action is present');
+check(str_contains($index,'id="memoryEditTarget"'),'Chat exact-memory target banner is present');
+check(str_contains($index,'id="memoryEditTargetClear"'),'Chat exact-memory target clear action is present');
 check(str_contains($index,'id="conversationLabel"'),'conversation session label is present');
 check(str_contains($index,'id="conversationSidebar"'),'conversation sidebar is present');
 check(str_contains($index,'id="conversationSearch"'),'conversation search is present');
@@ -50,6 +53,9 @@ check(str_contains($app,"api('/mcma/v1/library-tree'"),'cognitive library tree e
 check(str_contains($app,"api('/mcma/v1/library-object?ref='"),'cognitive library object endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/interaction-validation'"),'interaction validation endpoint is wired');
 check(str_contains($app,'conversation_id:conversationId'),'conversation id is sent with ask requests');
+check(str_contains($app,'mutation_ref:mutationRef'),'exact Biblioteca mutation ref is sent with ask requests');
+check(str_contains($app,'mcma_memory_edit_target_v1'),'exact Biblioteca edit target survives within the conversation session');
+check(str_contains($app,'updateSelectedMemoryInChat'),'Biblioteca update action is wired to Chat');
 check(str_contains($app,"api('/mcma/v1/conversations'"),'conversation archive list endpoint is wired');
 check(str_contains($app,"api('/mcma/v1/conversations/'+encodeURIComponent(conversationId)"),'conversation archive detail endpoint is wired');
 check(str_contains($app,"appendChatMessage('user'"),'user messages render in chat stream');
