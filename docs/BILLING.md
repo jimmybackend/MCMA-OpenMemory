@@ -332,6 +332,27 @@ monthly tokens:           0 -> 117
 
 The result confirms reservation, provider usage collection, settlement, quota accounting and encrypted per-user ledger persistence end to end.
 
+## Future multimodal hosted-resource billing
+
+The open-source MCMA core remains MIT-licensed. A hosted service may separately meter infrastructure resources introduced by future multimodal memory without making those commercial meters part of the portable memory format.
+
+Potential hosted resource dimensions include:
+
+~~~text
+stored bytes / GB-month
+OCR pages
+transcription minutes
+image/video analysis jobs
+multimodal embedding usage
+preview/transcode processing
+outbound transfer / egress
+retention or backup tiers
+~~~
+
+These future meters must remain auditable and must never make a semantic index or billing ledger the canonical owner of a user's media. Export/migration of canonical encrypted assets must remain possible across StorageAdapters.
+
+See MULTIMODAL-MEMORY.md.
+
 ## Important configuration
 
 ~~~text
