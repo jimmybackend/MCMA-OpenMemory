@@ -255,3 +255,12 @@ The installer can prepare a Linux/EC2 host from the Git checkout, create/preserv
 It does not invent or commit AWS, OIDC, Stripe or other provider credentials. Existing `/etc/mcma/mcma.env` values are preserved.
 
 The next operational milestone is the real EC2 installation test with actual S3/Bedrock/OIDC settings, followed by Stripe test-mode validation.
+
+
+## Repository-managed production Nginx — 2026-09-03
+
+The live `mailit.click` MCMA V1 routing is now represented in the repository by `config/nginx/mcma-mailit-v1.conf`. The fragment uses the historical checkout `/var/www/memory`, the dedicated socket `/run/php-fpm-mcma/mcma.sock`, and 180-second FastCGI read/send timeouts for the three OIDC endpoints plus the V1 API.
+
+`scripts/deploy-mailit-nginx.sh` provides an idempotent production adoption/update path. First adoption backs up the existing `/etc/nginx/mcma-mailit.conf`, removes only known inline V1/static/OIDC locations, preserves historical V2 compatibility locations, installs the versioned managed fragment, validates Nginx and reloads only on success. `--check` verifies that the installed fragment is byte-identical to the repository copy.
+
+The configuration contains no MCMA keys, AWS credentials, OIDC secrets or payment secrets.
