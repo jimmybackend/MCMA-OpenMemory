@@ -1457,8 +1457,12 @@ button.context-list-item:hover{background:#1d2530}
 }
 
 .chat-input-shell{
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
   border:1px solid #384354;
   border-radius:14px;
+  padding:5px;
   background:#0e131a;
   overflow:hidden;
   transition:border-color .15s ease,box-shadow .15s ease;
@@ -1468,11 +1472,13 @@ button.context-list-item:hover{background:#1d2530}
   box-shadow:0 0 0 3px rgba(148,163,184,.1);
 }
 .chat-input-shell textarea{
-  width:100%;
+  flex:1 1 auto;
+  width:auto;
+  min-width:0;
   min-height:54px;
   max-height:180px;
   margin:0;
-  padding:14px 14px 10px;
+  padding:12px 9px 9px;
   border:0;
   border-radius:0;
   outline:0;
@@ -1484,9 +1490,9 @@ button.context-list-item:hover{background:#1d2530}
 .chat-composer-actions{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content:flex-start;
   gap:12px;
-  margin-top:8px;
+  margin-top:7px;
 }
 .chat-composer-options{
   min-width:0;
@@ -1508,9 +1514,12 @@ button.context-list-item:hover{background:#1d2530}
   flex:0 0 auto;
   display:inline-flex;
   align-items:center;
+  justify-content:center;
   gap:7px;
-  min-height:38px;
-  padding:8px 14px;
+  min-height:40px;
+  margin:0;
+  padding:8px 13px;
+  border-radius:11px;
   background:#edf1f7;
   color:#101318;
   font-weight:800;
