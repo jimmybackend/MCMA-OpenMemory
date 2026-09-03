@@ -37,6 +37,11 @@ location = /index.php {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME $document_root/index.php;
     fastcgi_param HTTP_PROXY "";
+    # Generation can legitimately outlive the default proxy timeout. Keep the
+    # connection open long enough for Bedrock/local providers; the web client
+    # also has request-id recovery if an upstream/CDN still times out first.
+    fastcgi_read_timeout 180s;
+    fastcgi_send_timeout 180s;
     fastcgi_pass unix:/run/php-fpm/www.sock;
 }
 
