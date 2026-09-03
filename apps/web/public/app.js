@@ -19,11 +19,13 @@
   const memoryTreeDetailMaturity=$('memoryTreeDetailMaturity'),memoryTreeDetailRevision=$('memoryTreeDetailRevision'),memoryTreeDetailUpdated=$('memoryTreeDetailUpdated');
   const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
   const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
+  const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
   const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
   const conversationTitle=$('conversationTitle'),conversationReadCost=$('conversationReadCost'),conversationSidebarToggle=$('conversationSidebarToggle'),chatWorkspace=$('askPanel'),chatMessages=$('chatMessages');
   const composerStatus=$('composerStatus'),questionInput=$('question');
+  const memoryEditTarget=$('memoryEditTarget'),memoryEditTargetTitle=$('memoryEditTargetTitle'),memoryEditTargetRef=$('memoryEditTargetRef'),memoryEditTargetClear=$('memoryEditTargetClear');
   const conversationState={items:[],filter:'',loading:false};
   const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
   const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
@@ -72,6 +74,51 @@
     try{id=sessionStorage.getItem('mcma_conversation_id')||'';}catch(error){}
     if(!/^conv_[0-9a-f]{32}$/.test(id))return createConversationId();
     return setConversationId(id);
+  }
+
+  const memoryEditTargetKey='mcma_memory_edit_target_v1';
+
+  function getMemoryEditTarget(){
+    try{
+      const value=JSON.parse(sessionStorage.getItem(memoryEditTargetKey)||'null');
+      if(
+        value
+        &&/^conv_[0-9a-f]{32}$/.test(value.conversation_id||'')
+        &&typeof value.ref==='string'
+        &&value.ref.startsWith('memory://user/')
+      )return value;
+    }catch(error){}
+    return null;
+  }
+
+  function renderMemoryEditTarget(conversationId){
+    const target=getMemoryEditTarget();
+    const active=target&&target.conversation_id===conversationId;
+    memoryEditTarget.hidden=!active;
+    if(!active){
+      memoryEditTargetTitle.textContent='—';
+      memoryEditTargetRef.textContent='—';
+      return null;
+    }
+    memoryEditTargetTitle.textContent=target.title||'Memoria personal';
+    memoryEditTargetRef.textContent=target.ref;
+    memoryEditTargetRef.title=target.ref;
+    return target;
+  }
+
+  function setMemoryEditTarget(ref,title,conversationId){
+    if(!ref.startsWith('memory://user/')||!/^conv_[0-9a-f]{32}$/.test(conversationId))return null;
+    const value={ref,title:String(title||'Memoria personal'),conversation_id:conversationId};
+    try{sessionStorage.setItem(memoryEditTargetKey,JSON.stringify(value));}catch(error){}
+    renderMemoryEditTarget(conversationId);
+    return value;
+  }
+
+  function clearMemoryEditTarget(){
+    try{sessionStorage.removeItem(memoryEditTargetKey);}catch(error){}
+    memoryEditTarget.hidden=true;
+    memoryEditTargetTitle.textContent='—';
+    memoryEditTargetRef.textContent='—';
   }
 
   const pendingRequestKey='mcma_pending_request_v1';
