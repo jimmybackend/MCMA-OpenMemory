@@ -13,6 +13,9 @@ use MCMA\Core\Billing\BillableInteractionApprovalService;
 use MCMA\Core\Billing\BillableMemoryMutationService;
 use MCMA\Core\Billing\BillingException;
 use MCMA\Core\Billing\BillingService;
+use MCMA\Core\Billing\MeteredEmbeddingProvider;
+use MCMA\Core\Billing\MeteredGenerationProvider;
+use MCMA\Core\Billing\UsageCollector;
 use MCMA\Core\Billing\StripeCheckoutService;
 use MCMA\Core\Cli\ProviderFactory;
 use MCMA\Core\Context\BroadMemoryRecallBuilder;
@@ -576,6 +579,9 @@ final class WebApplication
                 $conversationId
             );
         }else{
+            $usageCollector=new UsageCollector();
+            $embedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
+            $generator=$generator!==null?new MeteredGenerationProvider($generator,$usageCollector):null;
             $knowledge=new KnowledgeService($principal['library']);
             $semantic=$embedding!==null?new SemanticIndexService($principal['library']):null;
             $librarian=$embedding!==null?new Librarian($knowledge,$semantic,$embedding):new Librarian($knowledge);
@@ -593,6 +599,13 @@ final class WebApplication
                 isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null,
                 $conversationId
             );
+            $result['billing']=[
+                'ai_billed'=>false,
+                'credit_units_charged'=>0,
+                'usage'=>$usageCollector->summary(),
+                'provider_usage'=>$usageCollector->components(),
+                'reason'=>$usageCollector->components()===[]?'no-ai-provider-called':'metered-without-billing',
+            ];
         }
 
         $result=$this->recordContextTrace($principal,$requestId,$question,$current,$remember,$result);
@@ -619,7 +632,18 @@ final class WebApplication
                 );
             }
 
-            return (new ExplicitMemoryService($principal['library'],$generator,$embedding))->capture('owner',$text);
+            $usageCollector=new UsageCollector();
+            $meteredEmbedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
+            $meteredGenerator=$generator!==null?new MeteredGenerationProvider($generator,$usageCollector):null;
+            $result=(new ExplicitMemoryService($principal['library'],$meteredGenerator,$meteredEmbedding))->capture('owner',$text);
+            $result['billing']=[
+                'ai_billed'=>false,
+                'credit_units_charged'=>0,
+                'usage'=>$usageCollector->summary(),
+                'provider_usage'=>$usageCollector->components(),
+                'reason'=>$usageCollector->components()===[]?'no-ai-provider-called':'metered-without-billing',
+            ];
+            return $result;
         }catch(RuntimeException $e){
             if($e->getMessage()==='Explicit memory request has no content to store'){
                 throw new WebException(400,'empty_memory_text','The save instruction has no memory content');
@@ -641,11 +665,14 @@ final class WebApplication
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null)
             );
         }
-        $result=(new MemoryMutationService($principal['library'],$embedding))->execute('owner',$text);
+        $usageCollector=new UsageCollector();
+        $meteredEmbedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
+        $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute('owner',$text);
         $result['billing']=[
             'ai_billed'=>false,'credit_units_charged'=>0,
-            'usage'=>['input_tokens'=>0,'output_tokens'=>0,'cached_tokens'=>0,'embedding_tokens'=>0,'total_tokens'=>0,'model_calls'=>0,'duration_ms'=>0],
-            'provider_usage'=>[],
+            'usage'=>$usageCollector->summary(),
+            'provider_usage'=>$usageCollector->components(),
+            'reason'=>$usageCollector->components()===[]?'no-ai-provider-called':'metered-without-billing',
         ];
         return $result;
     }
