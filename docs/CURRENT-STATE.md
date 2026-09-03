@@ -250,17 +250,16 @@ Stripe credentials remain server-side. Billing-disabled personal installations d
 
 The repository now includes `install.sh` and `scripts/mcma-doctor.sh`.
 
-The installer can prepare a Linux/EC2 host from the Git checkout, create/preserve the protected runtime environment, configure PHP-FPM and an isolated nginx virtual host, retain the deployment as a Git repository, and run CLI/health smoke checks.
+The installer can prepare a Linux/EC2 host from the Git checkout, create/preserve the protected runtime environment, configure PHP-FPM, retain the deployment as a Git repository, and run CLI smoke checks. Host Nginx/Apache/CDN configuration is explicitly operator-managed and is never written or reloaded by MCMA.
 
 It does not invent or commit AWS, OIDC, Stripe or other provider credentials. Existing `/etc/mcma/mcma.env` values are preserved.
 
 The next operational milestone is the real EC2 installation test with actual S3/Bedrock/OIDC settings, followed by Stripe test-mode validation.
 
+## Host web-server ownership boundary — 2026-09-03
 
-## Repository-managed production Nginx — 2026-09-03
+MCMA does not manage the host's Nginx, Apache, CloudFront or equivalent reverse-proxy configuration. The temporary repository-managed mailit.click Nginx adoption approach was removed before becoming an accepted deployment mechanism.
 
-The live `mailit.click` MCMA V1 routing is now represented in the repository by `config/nginx/mcma-mailit-v1.conf`. The fragment uses the historical checkout `/var/www/memory`, the dedicated socket `/run/php-fpm-mcma/mcma.sock`, and 180-second FastCGI read/send timeouts for the three OIDC endpoints plus the V1 API.
+The repository keeps only `config/nginx/mcma-web.conf.example` as operator guidance. `install.sh` does not install Nginx, write under `/etc/nginx`, restart/reload Nginx, or migrate virtual-host locations. Production operators remain responsible for reviewing and applying their own server configuration.
 
-`scripts/deploy-mailit-nginx.sh` provides an idempotent production adoption/update path. First adoption backs up the existing `/etc/nginx/mcma-mailit.conf`, removes only known inline V1/static/OIDC locations, preserves historical V2 compatibility locations, installs the versioned managed fragment, validates Nginx and reloads only on success. `--check` verifies that the installed fragment is byte-identical to the repository copy.
-
-The configuration contains no MCMA keys, AWS credentials, OIDC secrets or payment secrets.
+Application-level `request_id` recovery remains the portable protection against interrupted HTTP requests; operators may independently choose longer upstream/FastCGI timeouts such as 180 seconds.
