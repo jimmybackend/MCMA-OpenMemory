@@ -18,12 +18,21 @@ final class MemoryMutationService
         private readonly ?EmbeddingProvider $embeddingProvider=null
     ) {}
 
-    public static function isMutationRequest(string $text): bool
+    public static function isMutationRequest(string $text,bool $hasExplicitSelection=false): bool
     {
         $text=trim($text);
         if($text==='') return false;
-        return preg_match('/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|append|add|delete|remove)\b/iu',$text)===1
-            && (preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1||str_contains($text,'memory://user/'));
+
+        $mutationVerb=preg_match(
+            '/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|reemplaza|sustituye|ponle|pon|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|replace|set|append|add|delete|remove)\b/iu',
+            $text
+        )===1;
+        if(!$mutationVerb) return false;
+        if($hasExplicitSelection) return true;
+
+        return preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1
+            || str_contains($text,'memory://user/')
+            || preg_match('/\b(?:eso|esto|esa|esta|ese|este)\b/iu',$text)===1;
     }
 
     public function execute(
@@ -111,7 +120,24 @@ final class MemoryMutationService
         }
 
         $newContent=trim((string)($parsed['new_content']??''));
-        if($newContent==='') throw new RuntimeException('Memory update requires new content');
+        if($newContent===''){
+            return [
+                'found'=>true,'reusable'=>false,'decision'=>'memory-mutation-needs-content',
+                'route'=>'memory-mutation','provider_called'=>false,
+                'logical_ref'=>$ref,'canonical_memory_ref'=>$ref,
+                'answer'=>[
+                    'format'=>'text',
+                    'value'=>'Encontré la memoria que quieres actualizar, pero no pude identificar el contenido nuevo. '
+                        .'Escribe, por ejemplo: "Actualiza esta memoria con: ..." o "Cámbiala por: ...".'
+                ],
+                'stored'=>false,
+                'mutation'=>[
+                    'action'=>'update','status'=>'needs-content','versioned'=>false,
+                    'logical_ref'=>$ref,
+                ],
+                'context_used'=>['memory'=>true,'canonical'=>true,'logical_ref'=>$ref],
+            ];
+        }
 
         $currentText='';
         if(is_array($current)&&is_string($current['content']??null)) $currentText=trim((string)$current['content']);
@@ -404,29 +430,35 @@ final class MemoryMutationService
 
         if(preg_match('#(memory://user/[a-z0-9][a-z0-9._/-]*)#i',$text,$m)===1){
             $target=$m[1];
-        }elseif(preg_match('/\\b'.$contextPattern.'\\b/iu',$text)===1){
+        }elseif(preg_match('/\b'.$contextPattern.'\b/iu',$text)===1){
+            $target='@context';
+        }elseif(preg_match('/\b(?:eso|esto|esa|ese)\b/iu',$text)===1){
             $target='@context';
         }
 
         if(!$delete){
-            if($append&&preg_match('/\\b(?:agrega|añade|anade|incorpora|append|add)\\b\\s*(?:esto|this)?\\s*[:=,-]?\\s*(.+)$/isu',$text,$m)===1){
+            if($append&&preg_match('/\b(?:agrega|añade|anade|incorpora|append|add)\b\s*(?:esto|this)?\s*[:=,-]?\s*(.+)$/isu',$text,$m)===1){
                 $newContent=trim($m[1]);
-            }elseif(preg_match('/\\s+(?:con|with|para\\s+que\\s+(?:diga|contenga|sea)|so\\s+it\\s+(?:says|contains))\\s*[:=-]?\\s+(.+)$/isu',$text,$m)===1){
+            }elseif(preg_match('/\b(?:y\s+)?(?:ponle|pon|set)\b\s*(?:esto|this)?\s*[:=,-]?\s*(.+)$/isu',$text,$m)===1){
                 $newContent=trim($m[1]);
-            }elseif(str_contains($text,'memory://user/')&&preg_match('/\\s*[:=]\\s*(.+)$/su',$text,$m)===1){
+            }elseif(preg_match('/\s+(?:con|with|para\s+que\s+(?:diga|contenga|sea)|so\s+it\s+(?:says|contains))\s*[:=-]?\s+(.+)$/isu',$text,$m)===1){
+                $newContent=trim($m[1]);
+            }elseif(preg_match('/\s+(?:por|a|to)\s+(?:(?:esta|este|esto|el|la|this|the)\s+)?(?:fecha|valor|contenido|dato|información|informacion|date|value|content|data)?\s*[:=-]?\s*(.+)$/isu',$text,$m)===1){
+                $newContent=trim($m[1]);
+            }elseif(str_contains($text,'memory://user/')&&preg_match('/\s*[:=]\s*(.+)$/su',$text,$m)===1){
                 $newContent=trim($m[1]);
             }
         }
 
         if($target===null){
             $body=preg_replace(
-                '/^(?:por\\s+favor\\s+)?(?:actualiza|modifica|edita|corrige|cambia|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|append|add|delete|remove)\\s+(?:(?:la|el|the)\\s+)?(?:(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\\s+)?(?:de\\s+|sobre\\s+|llamad[oa]\\s+)?/iu',
+                '/^(?:por\s+favor\s+)?(?:actualiza|modifica|edita|corrige|cambia|reemplaza|sustituye|ponle|pon|agrega|añade|anade|incorpora|elimina|borra|retira|update|modify|edit|correct|replace|set|append|add|delete|remove)\s+(?:(?:la|el|the)\s+)?(?:(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\s+)?(?:de\s+|sobre\s+|llamad[oa]\s+)?/iu',
                 '',
                 $text
             )??$text;
             $target=$body;
             if(!$delete){
-                $parts=preg_split('/\\s+(?:con|with|para\\s+que\\s+(?:diga|contenga|sea)|so\\s+it\\s+(?:says|contains)|y\\s+(?:agrega|añade|anade|incorpora))\\s*[:=-]?\\s+/iu',$body,2);
+                $parts=preg_split('/\s+(?:con|with|por|para\s+que\s+(?:diga|contenga|sea)|so\s+it\s+(?:says|contains)|y\s+(?:agrega|añade|anade|incorpora|ponle|pon))\s*[:=-]?\s+/iu',$body,2);
                 if(is_array($parts)&&count($parts)===2) $target=trim($parts[0]);
             }
         }
