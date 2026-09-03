@@ -92,6 +92,37 @@ final class KnowledgeService
         ];
     }
 
+    public function renameId(
+        string $actor,
+        string $id,
+        string $title
+    ): array {
+        $title=trim(preg_replace('/\s+/u',' ',$title)??$title);
+        if($title==='') throw new RuntimeException('Knowledge display title must not be empty');
+        if(strlen($title)>120) throw new RuntimeException('Knowledge display title must be <= 120 bytes');
+
+        $logicalRef=self::logicalRefFromId($id);
+        $current=$this->library->readAs($actor,$logicalRef);
+        $record=$current['payload']['content']??null;
+        if(!is_array($record)) throw new RuntimeException('Stored knowledge record is malformed');
+        KnowledgeRecord::validate($record);
+
+        $record['display_title']=$title;
+        $stored=$this->library->updateAs(
+            $actor,$logicalRef,$record,'json','warm','40-semantic','knowledge','knowledge'
+        );
+
+        return [
+            'logical_ref'=>$logicalRef,
+            'object_id'=>$stored['object_id']??null,
+            'storage_hash'=>$stored['storage_hash']??null,
+            'previous_storage_hash'=>$stored['previous_storage_hash']??null,
+            'revision'=>(int)($stored['revision']??0),
+            'display_title'=>$title,
+            'question'=>(string)$record['intent']['question'],
+        ];
+    }
+
     public function validateKnowledge(
         string $actor,
         string $question,
@@ -169,8 +200,14 @@ final class KnowledgeService
             if ($validationState !== null && $state !== $validationState) continue;
 
             $question = (string)$record['intent']['question'];
+            $displayTitle=self::displayTitle($record,$question);
             $answerValue = $record['answer']['value'];
-            if ($needle !== '' && !self::containsText($question, $needle) && !self::containsText(self::answerSearchText($answerValue), $needle)) {
+            if (
+                $needle !== ''
+                && !self::containsText($displayTitle, $needle)
+                && !self::containsText($question, $needle)
+                && !self::containsText(self::answerSearchText($answerValue), $needle)
+            ) {
                 continue;
             }
 
@@ -180,6 +217,7 @@ final class KnowledgeService
                 'id' => substr($logicalRef, strlen('memory://knowledge/q-')),
                 'logical_ref' => $logicalRef,
                 'question' => $question,
+                'display_title' => $displayTitle,
                 'answer_format' => (string)$record['answer']['format'],
                 'validation_state' => $state,
                 'confidence' => (float)$record['epistemic']['confidence'],
@@ -232,6 +270,7 @@ final class KnowledgeService
             'object_id' => $stored['object_id'],
             'storage_hash' => $stored['storage_hash'],
             'question' => (string)$record['intent']['question'],
+            'display_title' => self::displayTitle($record,(string)$record['intent']['question']),
             'answer' => $record['answer'],
             'provenance' => $record['provenance'],
             'relations' => $record['relations'],
@@ -318,6 +357,13 @@ final class KnowledgeService
     {
         if (!preg_match('/^[0-9a-f]{64}$/', $id)) throw new RuntimeException('Invalid knowledge memory id');
         return 'memory://knowledge/q-' . $id;
+    }
+
+    private static function displayTitle(array $record,string $fallback): string
+    {
+        $title=$record['display_title']??null;
+        if(is_string($title)&&trim($title)!=='') return trim($title);
+        return $fallback;
     }
 
     private static function containsText(string $haystack, string $needle): bool

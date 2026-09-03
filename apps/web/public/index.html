@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-8">
+  <link rel="stylesheet" href="app.css?v=20260903-9">
 </head>
 <body>
   <main class="shell">
@@ -114,7 +114,8 @@
               <pre id="memoryTreeDetailAnswer" class="memory-answer"></pre>
 
               <div id="libraryInlineEditActions" class="memory-detail-actions library-edit-actions" hidden>
-                <button id="libraryInlineEditOpen" type="button" class="confirm-button">Editar aquí</button>
+                <button id="libraryRenameOpen" type="button" class="secondary-button">Renombrar</button>
+                <button id="libraryInlineEditOpen" type="button" class="confirm-button">Editar contenido</button>
                 <span id="libraryInlineEditStatus" class="memory-validation-status"></span>
               </div>
 
@@ -218,11 +219,13 @@
               </div>
 
               <h3 id="memoryDetailQuestion"></h3>
+              <div id="memoryDetailOriginalQuestion" class="memory-path memory-original-question" hidden></div>
               <div class="memory-answer-label">Respuesta descifrada</div>
               <pre id="memoryDetailAnswer" class="memory-answer"></pre>
 
               <div class="memory-detail-actions library-edit-actions">
-                <button id="memoryInlineEditOpen" type="button" class="confirm-button">Editar aquí</button>
+                <button id="memoryRenameOpen" type="button" class="secondary-button">Renombrar</button>
+                <button id="memoryInlineEditOpen" type="button" class="confirm-button">Editar contenido</button>
               </div>
 
               <form id="memoryInlineEditForm" class="memory-inline-editor" hidden>
@@ -478,6 +481,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-6" defer></script>
+  <script src="app.js?v=20260903-7" defer></script>
 </body>
 </html>

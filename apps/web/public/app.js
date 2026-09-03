@@ -21,7 +21,7 @@
   const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
   const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
   const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
-  const libraryInlineEditActions=$('libraryInlineEditActions'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
+  const libraryInlineEditActions=$('libraryInlineEditActions'),libraryRenameOpen=$('libraryRenameOpen'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
   const libraryInlineEditForm=$('libraryInlineEditForm'),libraryInlineEditText=$('libraryInlineEditText'),libraryInlineEditSave=$('libraryInlineEditSave'),libraryInlineEditCancel=$('libraryInlineEditCancel');
   const interactionActions=$('interactionActions'),interactionRenameConversation=$('interactionRenameConversation'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
@@ -31,18 +31,18 @@
   const conversationRenameOpen=$('conversationRenameOpen'),conversationRenameForm=$('conversationRenameForm'),conversationRenameInput=$('conversationRenameInput'),conversationRenameSave=$('conversationRenameSave'),conversationRenameCancel=$('conversationRenameCancel');
   const composerStatus=$('composerStatus'),questionInput=$('question');
   const memoryEditTarget=$('memoryEditTarget'),memoryEditTargetTitle=$('memoryEditTargetTitle'),memoryEditTargetRef=$('memoryEditTargetRef'),memoryEditTargetClear=$('memoryEditTargetClear');
-  const conversationState={items:[],filter:'',loading:false};
+  const conversationState={items:[],filter:'',loading:false,offset:0,pageSize:4,wheelLocked:false};
   const memoryDetailEmpty=$('memoryDetailEmpty'),memoryDetailContent=$('memoryDetailContent'),memoryDetailBadges=$('memoryDetailBadges');
-  const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
+  const memoryDetailQuestion=$('memoryDetailQuestion'),memoryDetailOriginalQuestion=$('memoryDetailOriginalQuestion'),memoryDetailAnswer=$('memoryDetailAnswer');
   const memoryDetailValidation=$('memoryDetailValidation'),memoryDetailConfidence=$('memoryDetailConfidence');
   const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
-  const memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
+  const memoryRenameOpen=$('memoryRenameOpen'),memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
   const memoryState={
     page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,
-    selectedRef:null,selectedKind:null,selectedEditableText:'',selectedConversationId:null,
-    selectedListRef:null,selectedListEditableText:''
+    selectedRef:null,selectedKind:null,selectedEditableText:'',selectedConversationId:null,selectedDisplayTitle:'',
+    selectedListRef:null,selectedListEditableText:'',selectedListDisplayTitle:''
   };
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
   const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh'),contextCatalogStatus=$('contextCatalogStatus');
@@ -454,24 +454,9 @@
     }
   }
 
-  function updateConversationScrollButtons(){
-    const max=Math.max(0,conversationList.scrollHeight-conversationList.clientHeight);
-    conversationPageUp.disabled=conversationList.scrollTop<=1;
-    conversationPageDown.disabled=conversationList.scrollTop>=max-1;
-  }
-
-  function scrollConversationPage(direction){
-    const first=conversationList.querySelector('.conversation-item');
-    const row=first?Math.max(1,first.getBoundingClientRect().height+4):44;
-    conversationList.scrollBy({top:direction*row*4,behavior:'smooth'});
-  }
-
-  function renderConversationList(){
-    const previousScroll=conversationList.scrollTop;
-    conversationList.replaceChildren();
+  function filteredConversations(){
     const filter=normalizedSearch(conversationState.filter);
-    const current=currentConversationId();
-    const filtered=conversationState.items.filter(item=>{
+    return conversationState.items.filter(item=>{
       if(filter==='')return true;
       return normalizedSearch([
         item.title||'',
@@ -479,18 +464,49 @@
         ...(Array.isArray(item.projects)?item.projects:[])
       ].join(' ')).includes(filter);
     });
+  }
+
+  function updateConversationScrollButtons(total=null){
+    const count=total===null?filteredConversations().length:Number(total||0);
+    conversationPageUp.disabled=conversationState.offset<=0;
+    conversationPageDown.disabled=conversationState.offset+conversationState.pageSize>=count;
+  }
+
+  function scrollConversationPage(direction){
+    const filtered=filteredConversations();
+    const maxOffset=Math.max(0,Math.floor(Math.max(0,filtered.length-1)/conversationState.pageSize)*conversationState.pageSize);
+    conversationState.offset=Math.min(
+      maxOffset,
+      Math.max(0,conversationState.offset+(direction*conversationState.pageSize))
+    );
+    renderConversationList();
+  }
+
+  function renderConversationList(){
+    conversationList.replaceChildren();
+    const filtered=filteredConversations();
 
     if(filtered.length===0){
+      conversationState.offset=0;
       const empty=document.createElement('div');
       empty.className='conversation-empty';
-      empty.textContent=filter===''?'Todavía no hay conversaciones guardadas.':'No hay conversaciones que coincidan.';
+      empty.textContent=conversationState.filter===''?'Todavía no hay conversaciones guardadas.':'No hay conversaciones que coincidan.';
       conversationList.appendChild(empty);
+      updateConversationScrollButtons(0);
       return;
     }
 
+    const maxOffset=Math.max(0,Math.floor((filtered.length-1)/conversationState.pageSize)*conversationState.pageSize);
+    if(conversationState.offset>maxOffset)conversationState.offset=maxOffset;
+    const visible=filtered.slice(
+      conversationState.offset,
+      conversationState.offset+conversationState.pageSize
+    );
+
+    const current=currentConversationId();
     const order=['Hoy','Anteriores'];
     const grouped=new Map(order.map(label=>[label,[]]));
-    for(const item of filtered)grouped.get(conversationGroup(item.last_at)).push(item);
+    for(const item of visible)grouped.get(conversationGroup(item.last_at)).push(item);
 
     for(const label of order){
       const items=grouped.get(label);
@@ -527,10 +543,8 @@
       }
       conversationList.appendChild(group);
     }
-    requestAnimationFrame(()=>{
-      conversationList.scrollTop=Math.min(previousScroll,Math.max(0,conversationList.scrollHeight-conversationList.clientHeight));
-      updateConversationScrollButtons();
-    });
+
+    updateConversationScrollButtons(filtered.length);
   }
 
   function markActiveConversation(){
@@ -964,6 +978,7 @@
     memoryState.selectedKind=null;
     memoryState.selectedEditableText='';
     memoryState.selectedConversationId=null;
+    memoryState.selectedDisplayTitle='';
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
@@ -1133,6 +1148,7 @@
     memoryState.selectedRef=object.logical_ref||null;
     memoryState.selectedKind=object.kind||null;
     memoryState.selectedEditableText=editableLibraryContent(object);
+    memoryState.selectedDisplayTitle='';
     memoryTreeDetailEmpty.hidden=true;
     memoryTreeDetailContent.hidden=false;
     canonicalMemoryActions.hidden=true;
@@ -1195,7 +1211,8 @@
     if(object.kind==='knowledge'){
       const record=object.content&&typeof object.content==='object'?object.content:{};
       const epistemic=record.epistemic&&typeof record.epistemic==='object'?record.epistemic:{};
-      memoryTreeDetailTitle.textContent=record.intent?.question||'Knowledge';
+      memoryState.selectedDisplayTitle=knowledgeDisplayTitle(record);
+      memoryTreeDetailTitle.textContent=memoryState.selectedDisplayTitle;
       libraryAnswerLabel.textContent='Respuesta / conocimiento descifrado';
       memoryTreeDetailAnswer.textContent=treeDisplayContent(record.answer?.value);
       librarySourceLabel.textContent='Procedencia';
@@ -1220,7 +1237,8 @@
     const canonical=content&&typeof content==='object'&&!Array.isArray(content)?content:{};
     const classification=canonical.classification&&typeof canonical.classification==='object'?canonical.classification:{};
     const lastSegment=String(object.logical_ref||'').split('/').pop()||'recuerdo';
-    memoryTreeDetailTitle.textContent=typeof canonical.title==='string'&&canonical.title.trim()!==''?canonical.title:humanizeTreeSegment(lastSegment,true);
+    memoryState.selectedDisplayTitle=typeof canonical.title==='string'&&canonical.title.trim()!==''?canonical.title:humanizeTreeSegment(lastSegment,true);
+    memoryTreeDetailTitle.textContent=memoryState.selectedDisplayTitle;
     libraryAnswerLabel.textContent='Recuerdo descifrado';
     memoryTreeDetailAnswer.textContent=treeDisplayContent(content);
     const source=canonical.source&&typeof canonical.source==='object'&&typeof canonical.source.original==='string'?canonical.source.original:'';
@@ -1271,6 +1289,73 @@
     composerStatus.textContent='Edición exacta activa · MCMA actualizará sólo la memoria seleccionada en Biblioteca.';
     questionInput.focus();
     questionInput.setSelectionRange(questionInput.value.length,questionInput.value.length);
+  }
+
+  function knowledgeDisplayTitle(record){
+    const custom=typeof record?.display_title==='string'?record.display_title.trim():'';
+    const question=typeof record?.intent?.question==='string'?record.intent.question.trim():'';
+    return custom||question||'Knowledge';
+  }
+
+  async function renameLibraryObject(ref,currentTitle){
+    if(!ref)return null;
+    const proposed=window.prompt('Nuevo nombre visible',currentTitle||'Recuerdo');
+    if(proposed===null)return null;
+    const title=proposed.replace(/\s+/g,' ').trim();
+    if(title==='')return null;
+    const data=await api('/mcma/v1/library-object/rename',{
+      method:'POST',
+      body:JSON.stringify({ref,title})
+    });
+    return data.rename||null;
+  }
+
+  async function renameSelectedTreeObject(){
+    if(!memoryState.selectedRef||!['memory','knowledge'].includes(memoryState.selectedKind))return;
+    libraryRenameOpen.disabled=true;
+    libraryInlineEditStatus.textContent='Renombrando…';
+    try{
+      const renamed=await renameLibraryObject(memoryState.selectedRef,memoryState.selectedDisplayTitle||memoryTreeDetailTitle.textContent);
+      if(!renamed){
+        libraryInlineEditStatus.textContent='';
+        return;
+      }
+      const ref=memoryState.selectedRef;
+      memoryState.tree=null;
+      memoryState.items=[];
+      await loadMemoryTree();
+      await loadMemoryTreeDetail(ref);
+      libraryInlineEditStatus.textContent='Nombre actualizado · 0 tokens IA · semántica conservada.';
+    }catch(error){
+      libraryInlineEditStatus.textContent='No se pudo renombrar: '+error.message;
+    }finally{
+      libraryRenameOpen.disabled=false;
+    }
+  }
+
+  async function renameSelectedListObject(){
+    if(!memoryState.selectedListRef||!memoryState.selectedId)return;
+    memoryRenameOpen.disabled=true;
+    memoryValidationStatus.textContent='Renombrando…';
+    try{
+      const renamed=await renameLibraryObject(
+        memoryState.selectedListRef,
+        memoryState.selectedListDisplayTitle||memoryDetailQuestion.textContent
+      );
+      if(!renamed){
+        memoryValidationStatus.textContent='';
+        return;
+      }
+      const id=memoryState.selectedId;
+      await loadMemories(memoryState.page);
+      await loadMemoryDetail(id);
+      memoryValidationStatus.textContent='Nombre actualizado · 0 tokens IA · identidad semántica conservada.';
+      memoryState.tree=null;
+    }catch(error){
+      memoryValidationStatus.textContent='No se pudo renombrar: '+error.message;
+    }finally{
+      memoryRenameOpen.disabled=false;
+    }
   }
 
   function openTreeInlineEditor(){
@@ -1365,6 +1450,7 @@
     memoryState.selectedId=null;
     memoryState.selectedListRef=null;
     memoryState.selectedListEditableText='';
+    memoryState.selectedListDisplayTitle='';
     memoryDetailContent.hidden=true;
     memoryDetailEmpty.hidden=false;
     memoryValidationStatus.textContent='';
@@ -1396,7 +1482,7 @@
         if(item.id===memoryState.selectedId)button.classList.add('selected');
 
         const title=document.createElement('strong');
-        title.textContent=item.question;
+        title.textContent=item.display_title||item.question;
 
         const meta=document.createElement('span');
         meta.className='memory-list-meta';
@@ -1456,6 +1542,7 @@
   function renderMemoryDetail(memory){
     memoryState.selectedId=memory.id;
     memoryState.selectedListRef=memory.logical_ref||null;
+    memoryState.selectedListDisplayTitle=(memory.display_title||memory.question||'').trim();
     const selectedValue=memory.answer?.value;
     memoryState.selectedListEditableText=typeof selectedValue==='string'
       ?selectedValue
@@ -1470,7 +1557,12 @@
       node.classList.toggle('selected',node.dataset.memoryId===memory.id);
     }
 
-    memoryDetailQuestion.textContent=memory.question||'—';
+    const displayTitle=memory.display_title||memory.question||'—';
+    memoryDetailQuestion.textContent=displayTitle;
+    const originalQuestion=String(memory.question||'').trim();
+    const hasCustomTitle=String(memory.display_title||'').trim()!==''&&String(memory.display_title).trim()!==originalQuestion;
+    memoryDetailOriginalQuestion.hidden=!hasCustomTitle;
+    memoryDetailOriginalQuestion.textContent=hasCustomTitle?'Pregunta original: '+originalQuestion:'';
     const value=memory.answer?.value;
     memoryDetailAnswer.textContent=typeof value==='string'?value:JSON.stringify(value,null,2);
     memoryDetailValidation.textContent=memory.validation_state||'—';
@@ -2007,6 +2099,7 @@
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
+  libraryRenameOpen.addEventListener('click',renameSelectedTreeObject);
   libraryInlineEditOpen.addEventListener('click',openTreeInlineEditor);
   libraryInlineEditCancel.addEventListener('click',closeTreeInlineEditor);
   libraryInlineEditForm.addEventListener('submit',saveTreeInlineEditor);
@@ -2023,10 +2116,17 @@
   conversationRenameForm.addEventListener('submit',saveConversationRename);
   conversationPageUp.addEventListener('click',()=>scrollConversationPage(-1));
   conversationPageDown.addEventListener('click',()=>scrollConversationPage(1));
-  conversationList.addEventListener('scroll',updateConversationScrollButtons,{passive:true});
+  conversationList.addEventListener('wheel',event=>{
+    if(Math.abs(event.deltaY)<4||conversationState.wheelLocked)return;
+    event.preventDefault();
+    conversationState.wheelLocked=true;
+    scrollConversationPage(event.deltaY>0?1:-1);
+    setTimeout(()=>{conversationState.wheelLocked=false;},180);
+  },{passive:false});
   newConversation.addEventListener('click',startNewConversation);
   conversationSearch.addEventListener('input',()=>{
     conversationState.filter=conversationSearch.value;
+    conversationState.offset=0;
     renderConversationList();
   });
   conversationSidebarToggle.addEventListener('click',()=>{
@@ -2065,6 +2165,7 @@
   memoryItemNext.addEventListener('click',()=>selectMemoryRelative(1));
   memoryConfirm.addEventListener('click',()=>validateMemory('confirm'));
   memoryDiscard.addEventListener('click',()=>validateMemory('discard'));
+  memoryRenameOpen.addEventListener('click',renameSelectedListObject);
   memoryInlineEditOpen.addEventListener('click',openListInlineEditor);
   memoryInlineEditCancel.addEventListener('click',closeListInlineEditor);
   memoryInlineEditForm.addEventListener('submit',saveListInlineEditor);

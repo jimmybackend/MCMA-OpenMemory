@@ -335,6 +335,86 @@ final class WebApplication
             ]);
         }
 
+        if($method==='POST'&&$path==='/mcma/v1/library-object/rename'){
+            $this->assertOrigin($request);
+            $principal=$this->sessionPrincipal($request);
+            $input=$request->json(16384);
+            $logicalRef=trim((string)($input['ref']??''));
+            $title=trim((string)($input['title']??''));
+            if($title===''||strlen($title)>120){
+                throw new WebException(400,'invalid_library_display_title','title is required and must be <= 120 bytes');
+            }
+
+            if(preg_match('#^memory://knowledge/q-([0-9a-f]{64})$#',$logicalRef,$m)){
+                $knowledge=new KnowledgeService($principal['library']);
+                $renamed=$knowledge->renameId('owner',$m[1],$title);
+                $semantic=null;
+                $embedding=$this->providers->embedding($this->providerOptions,true);
+                if($embedding!==null){
+                    try{
+                        $semantic=(new SemanticIndexService($principal['library']))->refreshStoredEntry(
+                            $embedding,$logicalRef,'owner'
+                        );
+                    }catch(Throwable $e){
+                        $semantic=['refreshed'=>false,'error'=>substr($e->getMessage(),0,180)];
+                    }
+                }
+                return HttpResponse::json([
+                    'ok'=>true,
+                    'rename'=>[
+                        'kind'=>'knowledge',
+                        'logical_ref'=>$logicalRef,
+                        'display_title'=>$title,
+                        'question'=>$renamed['question']??null,
+                        'revision'=>(int)($renamed['revision']??0),
+                        'semantic_index'=>$semantic,
+                        'ai_tokens_used'=>0,
+                        'credit_units_charged'=>0,
+                    ],
+                ]);
+            }
+
+            if(str_starts_with($logicalRef,'memory://user/')){
+                try{
+                    $stored=$principal['library']->readAs('owner',$logicalRef);
+                }catch(Throwable $e){
+                    if(str_contains($e->getMessage(),'Memory not found:')){
+                        throw new WebException(404,'library_object_not_found','Library object not found');
+                    }
+                    throw $e;
+                }
+                $content=$stored['payload']['content']??null;
+                if(!is_array($content)){
+                    throw new WebException(400,'library_memory_not_renamable','This personal memory has no structured title');
+                }
+                $content['title']=$title;
+                $metadata=is_array($stored['payload']['metadata']??null)?$stored['payload']['metadata']:[];
+                $updated=$principal['library']->updateAs(
+                    'owner',
+                    $logicalRef,
+                    $content,
+                    'json',
+                    (string)($metadata['temperature']??'warm'),
+                    (string)($metadata['cognitive_layer']??'40-semantic'),
+                    (string)($metadata['scope']??'user'),
+                    (string)($metadata['maturity']??'confirmed')
+                );
+                return HttpResponse::json([
+                    'ok'=>true,
+                    'rename'=>[
+                        'kind'=>'memory',
+                        'logical_ref'=>$logicalRef,
+                        'display_title'=>$title,
+                        'revision'=>(int)($updated['revision']??0),
+                        'ai_tokens_used'=>0,
+                        'credit_units_charged'=>0,
+                    ],
+                ]);
+            }
+
+            throw new WebException(400,'invalid_library_rename_ref','Only personal memory and Knowledge can be renamed');
+        }
+
         if($method==='POST'&&$path==='/mcma/v1/library-object/edit'){
             $this->assertOrigin($request);
             $principal=$this->sessionPrincipal($request);
