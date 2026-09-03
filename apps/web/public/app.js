@@ -525,6 +525,7 @@
   }
 
   function startNewConversation(){
+    clearMemoryEditTarget();
     createConversationId();
     renderNewConversation(true);
     chatWorkspace.classList.remove('sidebar-open');
@@ -575,6 +576,7 @@
       const summary=archive.conversation||{};
       const interactions=Array.isArray(archive.interactions)?archive.interactions:[];
       setConversationId(conversationId);
+      renderMemoryEditTarget(conversationId);
       conversationTitle.textContent=summary.title||'Conversación';
       clearChatMessages();
 
@@ -833,6 +835,8 @@
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
+    canonicalMemoryActions.hidden=true;
+    memoryUpdateInChatStatus.textContent='';
     interactionActions.hidden=true;
     interactionValidationStatus.textContent='';
     libraryCatalogWrap.hidden=true;
@@ -1047,6 +1051,31 @@
     if(categories.length)badges.push(memoryBadge('📁 '+categories.join(' / ')));
     badges.push(memoryBadge(memoryTreeDetailTemperature.textContent),memoryBadge(memoryTreeDetailLayer.textContent));
     memoryTreeDetailBadges.replaceChildren(...badges);
+
+    if(typeof object.logical_ref==='string'&&object.logical_ref.startsWith('memory://user/')){
+      canonicalMemoryActions.hidden=false;
+      memoryUpdateInChat.disabled=false;
+    }
+  }
+
+  function updateSelectedMemoryInChat(){
+    const ref=memoryState.selectedRef;
+    if(!ref||memoryState.selectedKind==='interaction'||memoryState.selectedKind==='knowledge'||!ref.startsWith('memory://user/'))return;
+
+    const conversationId=currentConversationId();
+    const title=memoryTreeDetailTitle.textContent.trim()||'Memoria personal';
+    setMemoryEditTarget(ref,title,conversationId);
+    memoryUpdateInChatStatus.textContent='Seleccionada para actualización exacta en Chat.';
+
+    activateTab('ask');
+    if(questionInput.value.trim()===''){
+      questionInput.value='Actualiza esta memoria con: ';
+      questionInput.style.height='auto';
+      questionInput.style.height=Math.min(questionInput.scrollHeight,180)+'px';
+    }
+    composerStatus.textContent='Edición exacta activa · MCMA actualizará sólo la memoria seleccionada en Biblioteca.';
+    questionInput.focus();
+    questionInput.setSelectionRange(questionInput.value.length,questionInput.value.length);
   }
 
   async function loadMemoryTreeDetail(logicalRef){
@@ -1523,6 +1552,8 @@
     if(question==='')return;
 
     const conversationId=currentConversationId();
+    const editTarget=getMemoryEditTarget();
+    const mutationRef=editTarget&&editTarget.conversation_id===conversationId?editTarget.ref:null;
     const requestId='req_'+randomHex(16);
     setPendingRequest({request_id:requestId,conversation_id:conversationId,question,at:new Date().toISOString()});
 
@@ -1546,7 +1577,8 @@
         const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
           question,current:$('current').checked,remember:$('remember').checked,
           conversation_id:conversationId,request_id:requestId,
-          response_language:(navigator.languages&&navigator.languages[0])||navigator.language||''
+          response_language:(navigator.languages&&navigator.languages[0])||navigator.language||'',
+          ...(mutationRef?{mutation_ref:mutationRef}:{})
         })});
         result=data.result||{};
       }catch(error){
@@ -1559,6 +1591,10 @@
       }
 
       await applyChatResult(pending,result,question);
+      if(mutationRef&&result.route==='memory-mutation'&&result.stored===true){
+        renderMemoryEditTarget(conversationId);
+        composerStatus.textContent='Memoria actualizada · la selección exacta sigue activa para esta conversación.';
+      }
       completed=true;
       clearPendingRequest(requestId);
     }catch(error){
@@ -1623,6 +1659,12 @@
 
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
+  memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
+  memoryEditTargetClear.addEventListener('click',()=>{
+    clearMemoryEditTarget();
+    composerStatus.textContent='Selección exacta quitada · MCMA volverá a resolver la memoria por contexto cuando sea necesario.';
+    questionInput.focus();
+  });
   interactionApprove.addEventListener('click',()=>validateInteraction('approve'));
   interactionDiscard.addEventListener('click',()=>validateInteraction('discard'));
   newConversation.addEventListener('click',startNewConversation);
@@ -1686,6 +1728,7 @@
   });
 
   prepareAccountDrawer();
-  currentConversationId();
+  const initialConversationId=currentConversationId();
+  renderMemoryEditTarget(initialConversationId);
   loadMe();
 })();
