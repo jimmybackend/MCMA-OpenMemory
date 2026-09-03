@@ -1721,11 +1721,19 @@
     const traces=Array.isArray(data.traces)?data.traces:[];
     const generated=Array.isArray(data.generated_memories)?data.generated_memories:[];
     const systemObjects=Array.isArray(data.system_objects)?data.system_objects:[];
+    const catalog=data.catalog&&typeof data.catalog==='object'?data.catalog:{};
 
     contextPersistentTotal.textContent=number(summary.total||0);
     contextReusableTotal.textContent=number(summary.reusable||0);
     contextGeneratedTotal.textContent=number(summary.generated_by_model||0);
     contextTraceTotal.textContent=number(traces.length);
+
+    const indexed=Number(catalog.indexed??summary.cataloged??0);
+    const total=Number(catalog.total??summary.total??0);
+    const pending=Number(catalog.pending??summary.pending??0);
+    contextCatalogStatus.textContent=(catalog.complete===true||pending===0)
+      ?'Catálogo de contexto actualizado · '+number(total)+' memorias · 0 tokens IA'
+      :'Actualizando catálogo local · '+number(indexed)+' / '+number(total)+' revisadas · '+number(pending)+' pendientes';
 
     contextGeneratedList.replaceChildren();
     if(generated.length===0){
@@ -1768,16 +1776,48 @@
     renderContextTrace(traces[0]||null);
   }
 
-  async function loadContext(){
+  async function loadContext({maxPasses=12}={}){
+    if(contextState.loading)return;
+    contextState.loading=true;
     contextRefresh.disabled=true;
+    contextCatalogStatus.textContent='Leyendo catálogo de contexto…';
     try{
-      const data=await api('/mcma/v1/context',{method:'GET',headers:{}});
-      renderContext(data.context||{});
+      for(let pass=0;pass<Math.max(1,maxPasses);pass++){
+        const data=await api('/mcma/v1/context',{method:'GET',headers:{}});
+        const context=data.context||{};
+        renderContext(context);
+        const catalog=context.catalog||{};
+        if(catalog.complete===true||Number(catalog.pending||0)===0)break;
+        await sleep(120);
+      }
     }catch(error){
+      contextCatalogStatus.textContent='No se pudo completar el catálogo: '+error.message;
       contextLastEmpty.hidden=false;
       contextLastContent.hidden=true;
       contextLastEmpty.textContent='No se pudo leer el contexto: '+error.message;
+      if(contextPersistentTotal.textContent==='—'){
+        contextPersistentTotal.textContent='0';
+        contextReusableTotal.textContent='0';
+        contextGeneratedTotal.textContent='0';
+        contextTraceTotal.textContent='0';
+      }
+      contextGeneratedList.replaceChildren();
+      const generatedError=document.createElement('div');
+      generatedError.className='context-empty';
+      generatedError.textContent='Contexto no disponible todavía.';
+      contextGeneratedList.appendChild(generatedError);
+      contextSystemList.replaceChildren();
+      const systemError=document.createElement('div');
+      systemError.className='context-empty';
+      systemError.textContent='Objetos internos no disponibles todavía.';
+      contextSystemList.appendChild(systemError);
+      contextTraceList.replaceChildren();
+      const traceError=document.createElement('div');
+      traceError.className='context-empty';
+      traceError.textContent='Trazas no disponibles todavía.';
+      contextTraceList.appendChild(traceError);
     }finally{
+      contextState.loading=false;
       contextRefresh.disabled=false;
     }
   }
@@ -1798,6 +1838,7 @@
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
       activateTab('ask');
       await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadConversations()]);
+      loadContext({maxPasses:2});
       await recoverStoredPendingRequest();
     }catch(error){
       account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;accountDrawer.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
