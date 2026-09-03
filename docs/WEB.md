@@ -371,7 +371,13 @@ POST /mcma/v1/interaction-validation
 {"ref":"memory://interactions/...","action":"discard"}
 ~~~
 
-Approving catalogs the interaction and creates or validates reusable Knowledge at confidence `0.95`. Deep topic/project/person/character classification is invoked only on owner approval; merely archiving the conversation does not add an extra model call. With billing enabled, approval-time catalog generation and semantic refresh use normal metering. If no generation provider exists, approval still works with the deterministic catalog already available.
+Approving catalogs the interaction and creates or validates reusable Knowledge at confidence `0.95`.
+
+Each relevant canonical interaction is also projected into one or more personal thematic summary objects at `memory://user/temas/<topic-slug>/resumenes/<interaction-id>`. The canonical transcript remains only under `memory://interactions/...`; the thematic object stores a bounded summary, topic metadata, provenance and the canonical interaction ref. Existing `catalog.topics` are preferred; when absent, deterministic projects, entities and canonical-memory category paths are used. This projection performs no additional AI call and reports zero model usage.
+
+Approval/retraction updates the same thematic object through normal Library revisioning. Verified summaries may be marked `trusted_for_conclusions=true`; unverified, retracted or superseded summaries are never automatically promoted to trusted Knowledge. These files appear naturally under **Memoria personal / temas** and are the input layer for a later, separate conclusions feature.
+
+ Deep topic/project/person/character classification is invoked only on owner approval; merely archiving the conversation does not add an extra model call. With billing enabled, approval-time catalog generation and semantic refresh use normal metering. If no generation provider exists, approval still works with the deterministic catalog already available.
 
 Discarding marks the archived interaction `retracted`. When related generated Knowledge exists, it is retracted through the normal epistemic gates; no new embedding is needed for discard.
 

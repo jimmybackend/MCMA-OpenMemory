@@ -25,6 +25,14 @@ Verified directly on the EC2 production checkout:
 
 GitHub CI was also green for the feature PR and again after its squash merge to `main`.
 
+## Thematic interaction summaries
+
+Relevant canonical interactions are projected into encrypted, actor-aware personal summaries under `memory://user/temas/<topic-slug>/resumenes/<interaction-id>`. The canonical question/answer transcript remains stored only once under `memory://interactions/...`; thematic files keep a bounded summary plus topic, request/conversation identifiers, validation state, relations and provenance.
+
+Classification is deterministic in this block: existing `catalog.topics` are preferred, with fallback to projects, entities and actor-readable canonical-memory `category_path` signals. No additional generation or embedding call is made, so the projection reports zero AI/provider usage. Approval/retraction updates the same logical summary through normal Library revisioning and `previous_storage_hash`; only verified summaries meeting the confidence gate are marked `trusted_for_conclusions=true`.
+
+The summaries are visible through the normal **Memoria personal / temas** tree and remain StorageAdapter-independent. Automatic thematic conclusion/synthesis and promotion of that conclusion into versioned Knowledge are intentionally deferred to the next block.
+
 ## Semantic retrieval
 
 MCMA performs exact lookup first. Semantic retrieval is attempted only after an exact miss and only when an EmbeddingProvider is configured.

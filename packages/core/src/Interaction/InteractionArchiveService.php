@@ -102,6 +102,16 @@ final class InteractionArchiveService
             error_log('MCMA conversation index update error: '.$e->getMessage());
         }
 
+        $thematic=null;
+        try{
+            $thematic=(new ThematicSummaryService($this->library))->sync(
+                $actor,$logicalRef,$interaction,(string)($stored['storage_hash']??'')
+            );
+        }catch(Throwable $e){
+            error_log('MCMA thematic summary sync error: '.$e->getMessage());
+            $thematic=['ok'=>false,'error'=>self::safeError($e)];
+        }
+
         return [
             'logical_ref'=>$logicalRef,
             'object_id'=>$stored['object_id'],
@@ -110,6 +120,7 @@ final class InteractionArchiveService
             'interaction_id'=>$requestId,
             'at'=>$at,
             'validation_state'=>'unverified',
+            'thematic_summaries'=>$thematic,
             'ai_tokens_used'=>0,
             'credit_units_charged'=>0,
         ];
@@ -405,6 +416,16 @@ final class InteractionArchiveService
             error_log('MCMA conversation index refresh error: '.$e->getMessage());
         }
 
+        $thematic=null;
+        try{
+            $thematic=(new ThematicSummaryService($this->library))->sync(
+                $actor,$logicalRef,$interaction,(string)($stored['storage_hash']??'')
+            );
+        }catch(Throwable $e){
+            error_log('MCMA thematic summary refresh error: '.$e->getMessage());
+            $thematic=['ok'=>false,'error'=>self::safeError($e)];
+        }
+
         return [
             'logical_ref'=>$logicalRef,
             'object_id'=>$stored['object_id'],
@@ -414,6 +435,7 @@ final class InteractionArchiveService
             'catalog'=>$interaction['catalog']??[],
             'knowledge_sync'=>$knowledgeSync,
             'classification_usage'=>$classificationUsage,
+            'thematic_summaries'=>$thematic,
         ];
     }
 

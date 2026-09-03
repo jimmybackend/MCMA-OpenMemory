@@ -30,6 +30,7 @@ require_once __DIR__ . '/src/Context/BroadMemoryRecallBuilder.php';
 require_once __DIR__ . '/src/Context/ConversationContextBuilder.php';
 require_once __DIR__ . '/src/Context/MultiMemoryContextBuilder.php';
 require_once __DIR__ . '/src/Interaction/InteractionCatalogService.php';
+require_once __DIR__ . '/src/Interaction/ThematicSummaryService.php';
 require_once __DIR__ . '/src/Interaction/InteractionArchiveService.php';
 require_once __DIR__ . '/src/Memory/ExplicitMemoryService.php';
 require_once __DIR__ . '/src/Memory/MemoryMutationService.php';
