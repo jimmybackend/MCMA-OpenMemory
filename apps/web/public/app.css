@@ -900,6 +900,13 @@ th{color:var(--muted);font-weight:600}
 
 /* Context transparency */
 .context-title-row{margin-bottom:14px}
+.context-catalog-status{
+  display:block;
+  margin-top:5px;
+  color:#7f8da1;
+  font-size:.69rem;
+  line-height:1.35;
+}
 .context-stats{margin-bottom:14px}
 .context-grid{
   display:grid;
@@ -1198,10 +1205,9 @@ button.context-list-item:hover{background:#1d2530}
   border-bottom:1px solid var(--border);
 }
 .chat-sidebar-section.conversations-section{
-  flex:1 1 auto;
+  flex:0 0 auto;
   min-height:0;
-  overflow-y:auto;
-  overscroll-behavior:contain;
+  overflow:hidden;
 }
 .chat-sidebar-label,
 .chat-sidebar-label-row{
@@ -1215,7 +1221,33 @@ button.context-list-item:hover{background:#1d2530}
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap:8px;
   margin-bottom:8px;
+}
+.conversation-list-tools{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.conversation-scroll-button{
+  width:25px;
+  height:25px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid #344052;
+  border-radius:7px;
+  background:#10161f;
+  color:#b8c4d4;
+  font-size:.72rem;
+}
+.conversation-scroll-button:hover:not(:disabled),
+.conversation-scroll-button:focus-visible{
+  border-color:#65768d;
+  color:#fff;
+}
+.conversation-scroll-button:disabled{
+  opacity:.3;
 }
 .zero-ai-mini{
   padding:2px 6px;
@@ -1248,6 +1280,14 @@ button.context-list-item:hover{background:#1d2530}
 .conversation-list{
   display:grid;
   gap:4px;
+  max-height:228px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scroll-behavior:smooth;
+  scroll-snap-type:y proximity;
+  scrollbar-gutter:stable;
+  padding-right:2px;
 }
 .conversation-group{
   display:grid;
@@ -1264,6 +1304,7 @@ button.context-list-item:hover{background:#1d2530}
   width:100%;
   min-width:0;
   display:block;
+  scroll-snap-align:start;
   padding:9px 10px;
   border:1px solid transparent;
   border-radius:10px;
@@ -1303,6 +1344,7 @@ button.context-list-item:hover{background:#1d2530}
 }
 .chat-sidebar-footer{
   flex:0 0 auto;
+  margin-top:auto;
   display:grid;
   gap:10px;
   padding:10px 12px;
@@ -1410,6 +1452,57 @@ button.context-list-item:hover{background:#1d2530}
   font-size:1rem;
   text-overflow:ellipsis;
   white-space:nowrap;
+}
+.conversation-title-row{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.conversation-title-row h2{
+  flex:0 1 auto;
+  min-width:0;
+  max-width:min(100%,760px);
+}
+.conversation-rename-button{
+  width:27px;
+  height:27px;
+  flex:0 0 27px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid transparent;
+  background:transparent;
+  color:#8f9daf;
+  font-size:.8rem;
+}
+.conversation-rename-button:hover,
+.conversation-rename-button:focus-visible{
+  border-color:#3d4a5d;
+  background:#111720;
+  color:#fff;
+}
+.conversation-rename-form{
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(140px,1fr) auto auto;
+  gap:5px;
+  margin:3px 0 2px;
+}
+.conversation-rename-form input{
+  min-width:0;
+  height:30px;
+  padding:5px 7px;
+  border:1px solid #465367;
+  border-radius:7px;
+  background:#0f141b;
+  color:var(--text);
+  font-size:.74rem;
+}
+.conversation-rename-form button{
+  min-height:30px;
+  padding:5px 8px;
+  font-size:.68rem;
 }
 .chat-eyebrow,
 .conversation-id-line{
@@ -1727,6 +1820,12 @@ button.context-list-item:hover{background:#1d2530}
 }
 
 @media (max-width:760px){
+  .conversation-list{
+    max-height:230px;
+  }
+  .conversation-rename-form{
+    grid-template-columns:minmax(0,1fr) auto auto;
+  }
   .topbar{
     align-items:flex-start;
     margin-bottom:12px;
@@ -1994,6 +2093,15 @@ button.context-list-item:hover{background:#1d2530}
     margin-top:2px;
     font-size:.59rem;
   }
+  .conversation-list{
+    max-height:196px;
+  }
+  .conversation-scroll-button{
+    width:21px;
+    height:21px;
+    border-radius:6px;
+    font-size:.62rem;
+  }
 
   .chat-sidebar-footer{
     gap:7px;
@@ -2038,6 +2146,21 @@ button.context-list-item:hover{background:#1d2530}
   .chat-title-group h2{
     margin:1px 0;
     font-size:.86rem;
+  }
+  .conversation-rename-button{
+    width:22px;
+    height:22px;
+    flex-basis:22px;
+    font-size:.7rem;
+  }
+  .conversation-rename-form input{
+    height:25px;
+    font-size:.67rem;
+  }
+  .conversation-rename-form button{
+    min-height:25px;
+    padding:4px 6px;
+    font-size:.61rem;
   }
   .chat-eyebrow,
   .conversation-id-line{
