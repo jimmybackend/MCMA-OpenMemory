@@ -56,11 +56,12 @@ try{
     $conversation='conv_'.str_repeat('a',32);
     $request='req_'.str_repeat('b',32);
 
+    $question='¿Qué configuración hemos hecho en mailit.click?';
     $stored=$archive->archive(
         'owner',
         $request,
         $conversation,
-        '¿Qué configuración hemos hecho en mailit.click?',
+        $question,
         [
             'route'=>'provider',
             'provider_called'=>true,
@@ -105,6 +106,8 @@ try{
     thematic_ok(!array_key_exists('question',$payload),'Summary duplicated full question field');
     thematic_ok(!array_key_exists('answer',$payload),'Summary duplicated full answer field');
     thematic_ok(is_string($payload['summary']??null)&&trim((string)$payload['summary'])!=='','Summary text missing');
+    thematic_ok(!str_contains((string)$payload['summary'],$question),'Summary reconstructed the full canonical question');
+    thematic_ok(($payload['title']??null)!==$question,'Provisional thematic title duplicated the full canonical question');
     thematic_ok(($payload['validation']['state']??null)==='unverified','Initial summary validation state mismatch');
     thematic_ok(($payload['validation']['trusted_for_conclusions']??true)===false,'Unverified summary became trusted for conclusions');
 
