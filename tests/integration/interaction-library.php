@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../packages/core/bootstrap.php';
 
 use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
+use MCMA\Core\Context\BroadMemoryRecallBuilder;
 use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Interaction\InteractionArchiveService;
 use MCMA\Core\Interaction\InteractionCatalogService;
@@ -128,6 +129,14 @@ try{
     interaction_ok(($read['interaction']['question']??null)===$question,'Archived question mismatch');
     interaction_ok(($read['interaction']['answer']['value']??null)==='MCMA puede organizar memoria cifrada como una biblioteca cognitiva.','Archived answer mismatch');
     interaction_ok(($read['interaction']['validation']['state']??null)==='unverified','New interaction should be unverified');
+
+    $byRequest=$archive->interactionByRequestId('owner',$conversation,$request);
+    interaction_ok(is_array($byRequest),'Request-id lookup did not recover archived interaction');
+    interaction_ok(($byRequest['logical_ref']??null)===$ref,'Request-id lookup returned wrong interaction');
+
+    $archiveSearch=$archive->search('owner','MCMA',5);
+    interaction_ok(($archiveSearch['total_matches']??0)>=1,'Archived interaction text search did not find MCMA');
+    interaction_ok(($archiveSearch['ai_tokens_used']??-1)===0,'Archived interaction search used AI tokens');
 
     for($i=0;$i<52;$i++){
         $archive->archive(
@@ -254,6 +263,28 @@ try{
     $reuse=$knowledge->directAnswer('owner',$question);
     interaction_ok(($reuse['decision']??null)==='reuse','Approved interaction did not become reusable knowledge');
     interaction_ok(($reuse['answer']['value']??null)==='MCMA puede organizar memoria cifrada como una biblioteca cognitiva.','Approved knowledge answer mismatch');
+
+    $knowledge->capture(
+        'librarian',
+        '¿Cuál es la configuración de mailit.click?',
+        'mailit.click usa Nginx, CloudFront, PHP-FPM y memoria cifrada MCMA.',
+        'text',
+        0.95,
+        'verified',
+        [['source_type'=>'user','reference'=>'memory://user/configuraciones/mailit-click']],
+        'dynamic',
+        2592000,
+        'reuse-unless-stale',
+        []
+    );
+    $broadRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabes de mailit.click?',0.75);
+    interaction_ok(is_array($broadRecall),'Broad memory recall returned no context for mailit.click');
+    interaction_ok(($broadRecall['subject']??null)==='mailit.click','Broad memory recall subject mismatch');
+    interaction_ok(count($broadRecall['items']??[])>=1,'Broad memory recall selected no memories');
+    interaction_ok(
+        str_contains((string)($broadRecall['items'][0]['answer']??''),'mailit.click'),
+        'Broad memory recall did not return the stored mailit.click memory'
+    );
 
     $afterTree=$archive->libraryTree('owner');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por temas']['IA']),'Topic view missing approved interaction');
