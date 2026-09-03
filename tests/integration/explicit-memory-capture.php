@@ -292,8 +292,10 @@ try{
     }
     explicit_memory_ok($emptyRejected,'Empty explicit save command was stored');
 
-    // Versioned owner mutation of a canonical memory.
-    $mutation = new \MCMA\Core\Memory\MemoryMutationService($lib);
+    // Versioned owner mutation of a canonical memory. Mutation must refresh
+    // its Knowledge mirror and semantic index using the configured embedding.
+    $mutation = new \MCMA\Core\Memory\MemoryMutationService($lib,$embedding);
+    $embeddingCallsBeforeMutation=$embedding->calls;
     $originalRef = (string)$result['logical_ref'];
     $originalStored = $lib->readAs('owner', $originalRef);
     $originalRevision = (int)($originalStored['payload']['metadata']['revision'] ?? 1);
@@ -317,6 +319,35 @@ try{
         str_contains((string)($updatedStored['payload']['content']['content'] ?? ''), 'mailit.click'),
         'Canonical mutation did not persist replacement content'
     );
+    explicit_memory_ok(
+        $embedding->calls>$embeddingCallsBeforeMutation,
+        'Canonical update did not refresh its semantic embedding'
+    );
+    explicit_memory_ok(
+        ($updatedMutation['storage']['retrieval_sync']['semantic_index']['embedding_generated']??false)===true,
+        'Canonical update did not report a regenerated semantic entry'
+    );
+    explicit_memory_ok(
+        ($updatedMutation['storage']['retrieval_sync']['knowledge_ref']??null)
+            ===($updatedStored['payload']['content']['retrieval']['knowledge_ref']??null),
+        'Canonical update Knowledge mirror and canonical retrieval ref diverged'
+    );
+    $updatedKnowledge=(new KnowledgeService($lib))->inspect(
+        'owner',
+        (string)$updatedStored['payload']['content']['retrieval']['question']
+    );
+    explicit_memory_ok(
+        str_contains((string)($updatedKnowledge['record']['answer']['value']??''),'mailit.click'),
+        'Knowledge mirror did not receive updated canonical content'
+    );
+    explicit_memory_ok(
+        ($updatedKnowledge['record']['epistemic']['validation_state']??null)==='verified',
+        'Updated Knowledge mirror is not verified'
+    );
+    explicit_memory_ok(
+        in_array($originalRef,$updatedKnowledge['record']['relations']??[],true),
+        'Updated Knowledge mirror lost its canonical relation'
+    );
 
     // Legacy canonical memories must preserve their rich structure when a
     // conversational anchor such as "ese conocimiento" is updated.
@@ -337,6 +368,7 @@ try{
         'json','hot','90-projects','project','confirmed'
     );
     $legacyBefore=$lib->readAs('owner',$legacyRef);
+    $embeddingCallsBeforeLegacy=$embedding->calls;
     explicit_memory_ok(
         \MCMA\Core\Memory\MemoryMutationService::isMutationRequest(
             'actualiza ese conocimiento con mailit.click ya corrigió pvisit y conserva analytics.'
@@ -366,7 +398,39 @@ try{
         str_contains((string)($legacyAfter['payload']['content']['content']??''),'corrigió pvisit'),
         'Contextual legacy update did not replace knowledge content'
     );
+    $legacyRetrievalQuestion=(string)($legacyAfter['payload']['content']['retrieval']['question']??'');
+    $legacyKnowledgeRef=(string)($legacyAfter['payload']['content']['retrieval']['knowledge_ref']??'');
+    explicit_memory_ok(
+        $legacyRetrievalQuestion==='¿Qué sé sobre Mantenimiento de mailit.click?',
+        'Legacy update did not persist a stable title-derived retrieval question'
+    );
+    explicit_memory_ok(
+        $legacyKnowledgeRef===\MCMA\Core\Knowledge\KnowledgeRecord::logicalRef($legacyRetrievalQuestion),
+        'Legacy update did not persist the canonical Knowledge ref'
+    );
+    explicit_memory_ok(
+        $embedding->calls>$embeddingCallsBeforeLegacy,
+        'Legacy update did not generate a semantic embedding'
+    );
+    explicit_memory_ok(
+        ($legacyUpdate['storage']['retrieval_sync']['semantic_index']['embedding_generated']??false)===true,
+        'Legacy update semantic index was not incrementally regenerated'
+    );
+    explicit_memory_ok(
+        ($legacyUpdate['storage']['retrieval_sync']['knowledge_mirror']['validation_state']??null)==='verified',
+        'Legacy update did not produce a verified Knowledge mirror'
+    );
+    $legacyKnowledge=(new KnowledgeService($lib))->inspect('owner',$legacyRetrievalQuestion);
+    explicit_memory_ok(
+        str_contains((string)($legacyKnowledge['record']['answer']['value']??''),'corrigió pvisit'),
+        'Legacy Knowledge mirror contains stale content'
+    );
+    explicit_memory_ok(
+        in_array($legacyRef,$legacyKnowledge['record']['relations']??[],true),
+        'Legacy Knowledge mirror does not point to canonical memory'
+    );
 
+    $embeddingCallsBeforeAppend=$embedding->calls;
     $legacyAppend=$mutation->execute(
         'owner',
         'actualiza ese conocimiento y agrega: también se verificaron las pruebas de agentes.',
@@ -381,6 +445,22 @@ try{
     explicit_memory_ok(
         (int)($legacyAppended['payload']['metadata']['revision']??0)===(int)($legacyAfter['payload']['metadata']['revision']??0)+1,
         'Append mutation did not create another revision'
+    );
+    explicit_memory_ok(
+        ($legacyAppended['payload']['content']['retrieval']['question']??null)===$legacyRetrievalQuestion
+        &&($legacyAppended['payload']['content']['retrieval']['knowledge_ref']??null)===$legacyKnowledgeRef,
+        'Second legacy revision changed its stable semantic retrieval identity'
+    );
+    explicit_memory_ok(
+        $embedding->calls>$embeddingCallsBeforeAppend
+        &&($legacyAppend['storage']['retrieval_sync']['semantic_index']['embedding_generated']??false)===true,
+        'Second legacy revision did not refresh its semantic entry'
+    );
+    $legacyKnowledgeAfterAppend=(new KnowledgeService($lib))->inspect('owner',$legacyRetrievalQuestion);
+    explicit_memory_ok(
+        str_contains((string)($legacyKnowledgeAfterAppend['record']['answer']['value']??''),'corrigió pvisit')
+        &&str_contains((string)($legacyKnowledgeAfterAppend['record']['answer']['value']??''),'pruebas de agentes'),
+        'Second legacy revision did not synchronize the full Knowledge answer'
     );
 
     $deletedMutation = $mutation->execute('owner', 'elimina memoria ' . $originalRef);
