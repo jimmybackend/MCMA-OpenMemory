@@ -195,6 +195,38 @@ try {
     assert_web_app(($memoryDetailBody['memory']['answer']['value']??null) === 'Saved explorer answer.', 'Memory explorer did not decrypt answer');
     assert_web_app(($memoryDetailBody['memory']['ai_tokens_used']??-1) === 0, 'Memory explorer detail used AI tokens');
 
+    $inlineKnowledgeEdit=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/library-object/edit',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'ref'=>$seed['logical_ref'],
+            'content'=>'Saved explorer answer corrected directly by the user.',
+            'request_id'=>'req_'.str_repeat('9',32),
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($inlineKnowledgeEdit->status()===200,'Inline Knowledge edit route failed');
+    $inlineKnowledgeEditBody=json_decode($inlineKnowledgeEdit->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($inlineKnowledgeEditBody['edit']['validation_state']??null)==='verified','Inline Knowledge edit was not verified');
+    assert_web_app(abs((float)($inlineKnowledgeEditBody['edit']['confidence']??0)-0.95)<1e-12,'Inline Knowledge edit confidence mismatch');
+    assert_web_app(($inlineKnowledgeEditBody['edit']['temperature']??null)==='warm','Inline Knowledge edit temperature mismatch');
+    assert_web_app(($inlineKnowledgeEditBody['edit']['freshness_class']??null)==='stable','Inline Knowledge edit freshness mismatch');
+    assert_web_app(($inlineKnowledgeEditBody['edit']['reusable']??false)===true,'Inline Knowledge edit is not reusable');
+
+    $editedMemoryDetail=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/memories/'.$memoryId,[],[],['mcma_session'=>$aliceCookie]
+    ));
+    $editedMemoryDetailBody=json_decode($editedMemoryDetail->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($editedMemoryDetailBody['memory']['answer']['value']??null)==='Saved explorer answer corrected directly by the user.',
+        'Inline Knowledge edit did not persist corrected answer'
+    );
+    assert_web_app(($editedMemoryDetailBody['memory']['validation_state']??null)==='verified','Edited Knowledge detail lost verified state');
+    assert_web_app(($editedMemoryDetailBody['memory']['temperature']??null)==='warm','Edited Knowledge detail lost warm temperature');
+    assert_web_app(($editedMemoryDetailBody['memory']['freshness_class']??null)==='stable','Edited Knowledge detail lost stable freshness');
+
     $bobMemoryList = $app->handle(new HttpRequest(
         'GET',
         '/mcma/v1/memories',
