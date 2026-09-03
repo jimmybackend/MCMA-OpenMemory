@@ -29,10 +29,14 @@ jobs:
         run: |
           bash -n install.sh
           bash -n scripts/mcma-doctor.sh
+          bash -n scripts/deploy-mailit-nginx.sh
           bash install.sh --help >/tmp/mcma-install-help.txt
           bash scripts/mcma-doctor.sh --help >/tmp/mcma-doctor-help.txt
+          bash scripts/deploy-mailit-nginx.sh --help >/tmp/mcma-mailit-nginx-help.txt
           grep -q "MCMA-OpenMemory installer" /tmp/mcma-install-help.txt
           grep -q "MCMA doctor" /tmp/mcma-doctor-help.txt
+          grep -q "MCMA mailit.click Nginx deployer" /tmp/mcma-mailit-nginx-help.txt
+          php tests/integration/nginx-mailit-config.php
 
       - name: MCMA conformance
         run: |

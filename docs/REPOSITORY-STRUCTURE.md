@@ -50,7 +50,8 @@ MCMA-OpenMemory/
 ├── config/
 │   ├── mcma.env.example
 │   └── nginx/
-│       └── mcma-web.conf.example
+│       ├── mcma-web.conf.example
+│       └── mcma-mailit-v1.conf
 │
 ├── tests/
 │   ├── conformance/

@@ -24,6 +24,8 @@ MCMA-OpenMemory is free/open-source software released under the **MIT License**.
 
 A live MCMA-OpenMemory web deployment is operational at `https://mailit.click/mcma/`.
 
+The `mailit.click` MCMA V1 Nginx routes are versioned in `config/nginx/mcma-mailit-v1.conf`. Production adoption/update is performed with `scripts/deploy-mailit-nginx.sh`, which preserves historical V2 locations, validates `nginx -t`, and rolls back the parent include if validation fails.
+
 Verified end to end on EC2:
 
 - HTTPS web UI behind Nginx/CloudFront;

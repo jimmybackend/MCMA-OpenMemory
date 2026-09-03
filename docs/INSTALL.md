@@ -127,3 +127,45 @@ This is a valid existing deployment layout. The installer continues to use `/opt
 
 The persistent Chat release was updated there with `git pull --ff-only`, focused integration tests, a dedicated PHP-FPM restart and public health/asset/authentication checks.
 
+### Repository-managed mailit.click Nginx
+
+The live MCMA V1 routing for the historical `/var/www/memory` deployment is now versioned in:
+
+~~~text
+config/nginx/mcma-mailit-v1.conf
+~~~
+
+It is a **server-block fragment**, not a complete virtual host. The live parent include remains:
+
+~~~text
+/etc/nginx/mcma-mailit.conf
+~~~
+
+and the repository-managed fragment is installed at:
+
+~~~text
+/etc/nginx/mcma-mailit-v1-managed.conf
+~~~
+
+Use the repository deployer after pulling a reviewed/merged commit:
+
+~~~bash
+cd /var/www/memory
+git pull --ff-only
+sudo bash scripts/deploy-mailit-nginx.sh --apply
+sudo bash scripts/deploy-mailit-nginx.sh --check
+~~~
+
+On first adoption the script backs up `/etc/nginx/mcma-mailit.conf`, removes only the known inline MCMA V1/static/OIDC locations, leaves historical `/mcma/v2/*` compatibility routes intact, installs one include line for the managed fragment, runs `nginx -t`, reloads only after validation, and restores the backup if validation fails.
+
+The managed production fragment pins the dedicated runtime boundary:
+
+~~~text
+checkout: /var/www/memory
+front controller: /var/www/memory/apps/web/public/index.php
+PHP-FPM socket: /run/php-fpm-mcma/mcma.sock
+FastCGI read/send timeout: 180s
+~~~
+
+Secrets, OIDC credentials, AWS credentials and MCMA keys never belong in this Nginx fragment.
+
