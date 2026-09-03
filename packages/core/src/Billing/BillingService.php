@@ -247,7 +247,11 @@ final class BillingService
         if($monthlyTokenLimit>0){
             $month=$this->monthlyUsage($library,gmdate('Y-m'));
             $used=(int)($month['summary']['total_tokens']??0);
-            if($used>=$monthlyTokenLimit||$estimatedTokens>$monthlyTokenLimit-$used){
+            // Monthly token quota is authoritative on settled provider usage.
+            // Reservation estimates are intentionally conservative (context,
+            // output and embedding headroom), so treating them as consumed
+            // tokens can falsely block a user who still has quota remaining.
+            if($used>=$monthlyTokenLimit){
                 throw new BillingException('Monthly AI token allowance exhausted','monthly_token_limit',402);
             }
         }
