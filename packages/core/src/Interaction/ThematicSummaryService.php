@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace MCMA\Core\Interaction;
 
+use MCMA\Core\Jcs;
 use MCMA\Core\Library;
 use RuntimeException;
 use Throwable;
@@ -347,8 +348,9 @@ final class ThematicSummaryService
 
     private static function samePayload(array $a,array $b): bool
     {
-        return json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
-            ===json_encode($b,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        // Stored JSON is encrypted from a JCS-canonical representation, so
+        // object key order after a read is not a semantic change.
+        return hash_equals(Jcs::encode($a),Jcs::encode($b));
     }
 
     private static function zeroUsage(): array
