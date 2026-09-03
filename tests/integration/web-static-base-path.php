@@ -60,6 +60,7 @@ check(str_contains($app,"SpeechSynthesisUtterance"),'assistant read-aloud action
 check(str_contains($app,"speechSynthesis"),'browser speech synthesis integration is present');
 check(str_contains($app,"loadConversations({openCurrent:false})"),'conversation sidebar refreshes after archive');
 check(str_contains($app,"request_id:requestId"),'chat sends stable client request id');
+check(str_contains($app,"navigator.languages&&navigator.languages[0]"),'chat sends browser response language');
 check(str_contains($app,"/mcma/v1/requests/"),'chat request recovery endpoint is wired');
 check(str_contains($app,"mcma_pending_request_v1"),'pending request survives reload in session storage');
 check(str_contains($app,"recoverRequest("),'timed-out response recovery polling is wired');
