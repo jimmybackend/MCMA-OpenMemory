@@ -195,6 +195,47 @@ try {
     assert_web_app(($memoryDetailBody['memory']['answer']['value']??null) === 'Saved explorer answer.', 'Memory explorer did not decrypt answer');
     assert_web_app(($memoryDetailBody['memory']['ai_tokens_used']??-1) === 0, 'Memory explorer detail used AI tokens');
 
+    $renameKnowledge=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/library-object/rename',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'ref'=>$seed['logical_ref'],
+            'title'=>'Pregunta corta del explorador',
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($renameKnowledge->status()===200,'Knowledge display rename route failed');
+    $renameKnowledgeBody=json_decode($renameKnowledge->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($renameKnowledgeBody['rename']['display_title']??null)==='Pregunta corta del explorador','Knowledge display rename response mismatch');
+    assert_web_app(($renameKnowledgeBody['rename']['ai_tokens_used']??-1)===0,'Knowledge display rename used AI tokens');
+    assert_web_app(($renameKnowledgeBody['rename']['credit_units_charged']??-1)===0,'Knowledge display rename charged credits');
+
+    $renamedMemoryDetail=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/memories/'.$memoryId,[],[],['mcma_session'=>$aliceCookie]
+    ));
+    $renamedMemoryDetailBody=json_decode($renamedMemoryDetail->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($renamedMemoryDetailBody['memory']['display_title']??null)==='Pregunta corta del explorador','Renamed display title was not returned by memory detail');
+    assert_web_app(($renamedMemoryDetailBody['memory']['question']??null)==='Saved explorer question','Display rename changed semantic question');
+
+    $renamedMemoryList=$app->handle(new HttpRequest(
+        'GET','/mcma/v1/memories',[],['q'=>'Pregunta corta','page'=>'1','limit'=>'25'],['mcma_session'=>$aliceCookie]
+    ));
+    $renamedMemoryListBody=json_decode($renamedMemoryList->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($renamedMemoryListBody['memory']['total']??0)===1,'Memory list cannot search renamed display title');
+    assert_web_app(($renamedMemoryListBody['memory']['items'][0]['display_title']??null)==='Pregunta corta del explorador','Memory list did not expose display title');
+
+    $crossOriginLibraryRename=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/library-object/rename',
+        ['origin'=>'https://evil.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['ref'=>$seed['logical_ref'],'title'=>'No debe guardarse'],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($crossOriginLibraryRename->status()===403,'Cross-origin Biblioteca rename was accepted');
+
     $inlineKnowledgeEdit=$app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/library-object/edit',
