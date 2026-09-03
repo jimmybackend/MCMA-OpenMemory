@@ -617,6 +617,8 @@
 
   function renderNewConversation(clearInput=true){
     conversationTitle.textContent='Nueva conversación';
+    conversationRenameOpen.hidden=true;
+    closeConversationRename();
     answerMeta.hidden=true;
     answer.textContent='';
     composerStatus.textContent='Listo · el historial visible no se reinjecta automáticamente al modelo.';
@@ -679,6 +681,8 @@
       setConversationId(conversationId);
       renderMemoryEditTarget(conversationId);
       conversationTitle.textContent=summary.title||'Conversación';
+      conversationRenameOpen.hidden=false;
+      closeConversationRename();
       clearChatMessages();
 
       for(const interaction of interactions){
@@ -959,6 +963,7 @@
     memoryState.selectedRef=null;
     memoryState.selectedKind=null;
     memoryState.selectedEditableText='';
+    memoryState.selectedConversationId=null;
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
@@ -1155,6 +1160,9 @@
       const interaction=object.interaction||{};
       const catalog=interaction.catalog&&typeof interaction.catalog==='object'?interaction.catalog:{};
       const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
+      memoryState.selectedConversationId=/^conv_[0-9a-f]{32}$/.test(interaction.conversation_id||'')
+        ?interaction.conversation_id
+        :null;
       memoryTreeDetailTitle.textContent=catalog.title||interaction.question||'Interacción';
       libraryAnswerLabel.textContent='Respuesta descifrada';
       memoryTreeDetailAnswer.textContent=treeDisplayContent(interaction.answer?.value);
