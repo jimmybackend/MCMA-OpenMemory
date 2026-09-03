@@ -16,7 +16,7 @@ check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-pa
 check(str_contains($index,'href="app.css?v=20260903-1"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260903-1"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260903-2"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -60,6 +60,7 @@ check(str_contains($app,"SpeechSynthesisUtterance"),'assistant read-aloud action
 check(str_contains($app,"speechSynthesis"),'browser speech synthesis integration is present');
 check(str_contains($app,"loadConversations({openCurrent:false})"),'conversation sidebar refreshes after archive');
 check(str_contains($app,"request_id:requestId"),'chat sends stable client request id');
+check(str_contains($app,"navigator.languages&&navigator.languages[0]"),'chat sends browser response language');
 check(str_contains($app,"/mcma/v1/requests/"),'chat request recovery endpoint is wired');
 check(str_contains($app,"mcma_pending_request_v1"),'pending request survives reload in session storage');
 check(str_contains($app,"recoverRequest("),'timed-out response recovery polling is wired');

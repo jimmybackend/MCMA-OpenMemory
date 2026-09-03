@@ -527,12 +527,13 @@ try {
         ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
         [],
         ['mcma_session'=>$aliceCookie],
-        json_encode(['question'=>'What is MCMA?','remember'=>true], JSON_THROW_ON_ERROR)
+        json_encode(['question'=>'What is MCMA?','remember'=>true,'response_language'=>'es-MX'], JSON_THROW_ON_ERROR)
     ));
     assert_web_app($ask->status() === 200, 'Authenticated ask failed');
     $askBody = json_decode($ask->body(), true, 64, JSON_THROW_ON_ERROR);
     assert_web_app(($askBody['ok'] ?? false) === true, 'Ask response not ok');
     assert_web_app(is_array($askBody['result'] ?? null), 'Ask result missing');
+    assert_web_app(($askBody['result']['response_language']??null)==='es-MX','Web ask did not preserve browser response language');
     assert_web_app(($askBody['result']['context_trace']['recorded']??false) === true, 'Ask context trace was not recorded');
 
     $aliceContext = $app->handle(new HttpRequest(

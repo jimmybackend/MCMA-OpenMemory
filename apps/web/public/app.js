@@ -1498,7 +1498,8 @@
       try{
         const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
           question,current:$('current').checked,remember:$('remember').checked,
-          conversation_id:conversationId,request_id:requestId
+          conversation_id:conversationId,request_id:requestId,
+          response_language:(navigator.languages&&navigator.languages[0])||navigator.language||''
         })});
         result=data.result||{};
       }catch(error){

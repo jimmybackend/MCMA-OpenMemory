@@ -58,6 +58,17 @@ final class BroadMemoryRecallBuilder
         }catch(Throwable){}
 
         try{
+            foreach($this->library->listAs($actor) as $entry){
+                foreach($entry['logical_refs']??[] as $logicalRef){
+                    if(!is_string($logicalRef)||!str_starts_with($logicalRef,'memory://user/')) continue;
+                    try{$stored=$this->library->readAs($actor,$logicalRef);}catch(Throwable){continue;}
+                    $item=self::canonicalUserMemoryItem($logicalRef,$stored,$subject);
+                    if($item!==null) $items[]=$item;
+                }
+            }
+        }catch(Throwable){}
+
+        try{
             $archive=(new InteractionArchiveService($this->library))->search($actor,$subject,max(12,$this->maxItems*2));
             foreach($archive['interactions']??[] as $interaction){
                 if(!is_array($interaction)) continue;
@@ -118,6 +129,54 @@ final class BroadMemoryRecallBuilder
         ];
     }
 
+    private static function canonicalUserMemoryItem(string $logicalRef,array $stored,string $subject): ?array
+    {
+        $payload=$stored['payload']??null;
+        if(!is_array($payload)) return null;
+        $content=$payload['content']??null;
+        $metadata=is_array($payload['metadata']??null)?$payload['metadata']:[];
+
+        if(!is_array($content)||!isset($content['explicit_memory_version'])) return null;
+
+        $answer=$content['content']??null;
+        if(!is_string($answer)||trim($answer)==='') return null;
+
+        $title=is_string($content['title']??null)?(string)$content['title']:'';
+        $retrieval=is_array($content['retrieval']??null)?$content['retrieval']:[];
+        $retrievalQuestion=is_string($retrieval['question']??null)?(string)$retrieval['question']:'';
+        $classification=is_array($content['classification']??null)?$content['classification']:[];
+        $categories=is_array($classification['category_path']??null)
+            ?implode(' ',array_values(array_filter($classification['category_path'],'is_string')))
+            :'';
+
+        $searchable=implode("\n",[$logicalRef,$title,$retrievalQuestion,$categories,$answer]);
+        if(!self::containsText($searchable,$subject)) return null;
+
+        $confirmed=(string)($metadata['maturity']??'')==='confirmed';
+        return [
+            'kind'=>'canonical-user-memory',
+            'logical_ref'=>$logicalRef,
+            'canonical_memory_ref'=>$logicalRef,
+            'question'=>$retrievalQuestion!==''?$retrievalQuestion:($title!==''?$title:'Memoria del usuario'),
+            'answer'=>$answer,
+            'validation_state'=>$confirmed?'verified':'unverified',
+            'confidence'=>$confirmed?0.95:0.5,
+            'stale'=>false,
+            'at'=>(string)($metadata['updated_at']??$metadata['created_at']??''),
+            'provenance'=>[[
+                'source_type'=>'user',
+                'reference'=>$logicalRef,
+                'note'=>'Canonical actor-visible personal memory',
+            ]],
+        ];
+    }
+
+    private static function containsText(string $haystack,string $needle): bool
+    {
+        if(function_exists('mb_stripos')) return mb_stripos($haystack,$needle,0,'UTF-8')!==false;
+        return stripos($haystack,$needle)!==false;
+    }
+
     private static function subject(string $question): ?string
     {
         $question=trim($question);
@@ -140,6 +199,7 @@ final class BroadMemoryRecallBuilder
         $state=(string)($item['validation_state']??'unverified');
         $score=match($state){'verified'=>400,'supported'=>300,'unverified'=>100,default=>0};
         if(($item['kind']??null)==='knowledge') $score+=20;
+        if(($item['kind']??null)==='canonical-user-memory') $score+=40;
         if(($item['stale']??false)===true) $score-=80;
         $score+=(int)round(max(0.0,min(1.0,(float)($item['confidence']??0.0)))*50);
         return $score;
