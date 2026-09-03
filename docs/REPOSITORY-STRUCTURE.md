@@ -50,8 +50,7 @@ MCMA-OpenMemory/
 ├── config/
 │   ├── mcma.env.example
 │   └── nginx/
-│       ├── mcma-web.conf.example
-│       └── mcma-mailit-v1.conf
+│       └── mcma-web.conf.example
 │
 ├── tests/
 │   ├── conformance/
@@ -132,3 +131,8 @@ Files under `spec/1.0/` define portable-format interoperability.
 Files under `apps/`, `packages/`, `config/` and `tests/` implement the current PHP product/runtime and do not redefine the MCMA 1.0 encrypted container format.
 
 Historical prototype code under `reference/compatibility/` remains available for lineage and migration, not as the active runtime.
+
+
+## Host configuration boundary
+
+Host web-server configuration is intentionally not represented as an authoritative production artifact in this repository. `config/nginx/mcma-web.conf.example` is guidance only. MCMA does not own or mutate a deployment operator's Nginx/Apache/CDN configuration.
