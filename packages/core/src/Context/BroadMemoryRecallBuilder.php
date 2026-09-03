@@ -58,6 +58,17 @@ final class BroadMemoryRecallBuilder
         }catch(Throwable){}
 
         try{
+            foreach($this->library->listAs($actor) as $entry){
+                foreach($entry['logical_refs']??[] as $logicalRef){
+                    if(!is_string($logicalRef)||!str_starts_with($logicalRef,'memory://user/')) continue;
+                    try{$stored=$this->library->readAs($actor,$logicalRef);}catch(Throwable){continue;}
+                    $item=self::canonicalUserMemoryItem($logicalRef,$stored,$subject);
+                    if($item!==null) $items[]=$item;
+                }
+            }
+        }catch(Throwable){}
+
+        try{
             $archive=(new InteractionArchiveService($this->library))->search($actor,$subject,max(12,$this->maxItems*2));
             foreach($archive['interactions']??[] as $interaction){
                 if(!is_array($interaction)) continue;
