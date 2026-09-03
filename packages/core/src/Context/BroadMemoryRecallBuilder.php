@@ -122,8 +122,8 @@ final class BroadMemoryRecallBuilder
     {
         $question=trim($question);
         $patterns=[
-            '/^(?:dime\s+)?(?:todo\s+)?(?:lo\s+que\s+)?(?:sabes|recuerdas|tienes\s+(?:guardado|en\s+memoria))\s+(?:de|sobre)\s+(.+?)\s*[?.!]*$/iu',
-            '/^(?:qué|que)\s+(?:es\s+lo\s+que\s+)?(?:sabes|recuerdas|tienes\s+(?:guardado|en\s+memoria))\s+(?:de|sobre)\s+(.+?)\s*[?.!]*$/iu',
+            '/^¿?\s*(?:dime\s+)?(?:todo\s+)?(?:lo\s+que\s+)?(?:sabes|recuerdas|tienes\s+(?:guardado|en\s+memoria))\s+(?:de|sobre)\s+(.+?)\s*[?.!]*$/iu',
+            '/^¿?\s*(?:qué|que)\s+(?:es\s+lo\s+que\s+)?(?:sabes|recuerdas|tienes\s+(?:guardado|en\s+memoria))\s+(?:de|sobre)\s+(.+?)\s*[?.!]*$/iu',
             '/^(?:tell\s+me\s+)?(?:everything\s+)?(?:you\s+)?(?:know|remember)\s+about\s+(.+?)\s*[?.!]*$/iu',
             '/^what\s+do\s+you\s+(?:know|remember)\s+about\s+(.+?)\s*[?.!]*$/iu',
         ];
