@@ -44,7 +44,8 @@ final class AskService
         ?string $conversationId = null
     ): array {
         $normalized = KnowledgeRecord::normalizeIntent($question);
-        $broadRecallRequested=$this->broadMemoryRecallBuilder!==null
+        $broadRecallRequested=$this->generationProvider!==null
+            && $this->broadMemoryRecallBuilder!==null
             && BroadMemoryRecallBuilder::isBroadRecallRequest($question);
 
         $exact = $this->knowledge->directAnswer($actor, $question, $currentRequired, $minConfidence);
