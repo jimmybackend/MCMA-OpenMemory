@@ -26,6 +26,43 @@ final class BroadMemoryRecallBuilder
         return self::subject($question)!==null;
     }
 
+    public function canonicalRecall(string $actor,string $question,float $minConfidence=0.75): ?array
+    {
+        $context=$this->build($actor,$question,$minConfidence);
+        if(!is_array($context)) return null;
+
+        $items=[];
+        $answers=[];
+        foreach($context['items']??[] as $item){
+            if(!is_array($item)||($item['kind']??null)!=='canonical-user-memory') continue;
+            if(($item['validation_state']??null)!=='verified') continue;
+            if((float)($item['confidence']??0.0)<$minConfidence) continue;
+            $answer=trim((string)($item['answer']??''));
+            $ref=(string)($item['logical_ref']??'');
+            if($answer===''||!str_starts_with($ref,'memory://user/')) continue;
+            $items[]=$item;
+            if(!in_array($answer,$answers,true)) $answers[]=$answer;
+        }
+        if($items===[]||$answers===[]) return null;
+
+        return [
+            'subject'=>(string)($context['subject']??''),
+            'primary_ref'=>(string)$items[0]['logical_ref'],
+            'canonical_refs'=>array_values(array_unique(array_map(
+                static fn(array $item): string => (string)$item['logical_ref'],
+                $items
+            ))),
+            'answer'=>implode("\n\n---\n\n",$answers),
+            'items'=>$items,
+            'selection'=>[
+                'strategy'=>'deterministic-canonical-lexical-recall',
+                'selected_items'=>count($items),
+                'source_strategy'=>(string)($context['selection']['strategy']??'broad-entity-recall'),
+                'byte_budget'=>(int)($context['selection']['byte_budget']??$this->maxBytes),
+            ],
+        ];
+    }
+
     public function build(string $actor,string $question,float $minConfidence=0.75): ?array
     {
         $subject=self::subject($question);
