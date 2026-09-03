@@ -170,6 +170,9 @@
 - [x] tab-scoped conversation IDs + explicit Nueva conversación control
 - [x] cognitive library virtual views by session/date/topic/project/person/character/entity/source/state
 - [x] owner interaction approve/retract workflow
+- [x] portable thematic summaries under personal memory with canonical interaction refs
+- [x] deterministic topic fallback without hidden AI calls
+- [x] versioned summary trust state synchronized with approve/retract
 - [x] approval-time cataloging + Knowledge promotion with billing-aware model usage
 - [x] library browser isolation from system/Vault objects
 - [x] permission-filtered visual `memory://user/` tree with collapsible thematic folders
