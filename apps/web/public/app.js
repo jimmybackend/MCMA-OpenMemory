@@ -1830,6 +1830,9 @@
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
+  libraryInlineEditOpen.addEventListener('click',openTreeInlineEditor);
+  libraryInlineEditCancel.addEventListener('click',closeTreeInlineEditor);
+  libraryInlineEditForm.addEventListener('submit',saveTreeInlineEditor);
   memoryEditTargetClear.addEventListener('click',()=>{
     clearMemoryEditTarget();
     composerStatus.textContent='Selección exacta quitada · MCMA volverá a resolver la memoria por contexto cuando sea necesario.';
@@ -1878,6 +1881,9 @@
   memoryItemNext.addEventListener('click',()=>selectMemoryRelative(1));
   memoryConfirm.addEventListener('click',()=>validateMemory('confirm'));
   memoryDiscard.addEventListener('click',()=>validateMemory('discard'));
+  memoryInlineEditOpen.addEventListener('click',openListInlineEditor);
+  memoryInlineEditCancel.addEventListener('click',closeListInlineEditor);
+  memoryInlineEditForm.addEventListener('submit',saveListInlineEditor);
 
   window.addEventListener('beforeunload',stopChatSpeech);
 
