@@ -106,8 +106,17 @@ try{
     qassert(($quota['daily_requests_used']??0)===1,'Daily AI request counter mismatch');
     qassert($used>0,'Monthly AI token counter did not record provider usage');
 
-    // Tighten the plan to the exact usage already consumed. The next provider-backed
-    // request must be rejected before either provider is called.
+    // Leave one real token of monthly quota. The conservative reservation estimate
+    // is intentionally much larger, but it must not be treated as already consumed.
+    $remaining=1;
+    $estimate=$billing->estimateReservation(
+        'second unknown question',
+        $embed->id(),
+        $gen->id(),
+        5
+    );
+    qassert((int)($estimate['estimated_tokens']??0)>$remaining,'Regression setup must estimate more tokens than remain');
+
     $catalog->setPlan('free',[
         'api_enabled'=>false,
         'embedding_enabled'=>true,
@@ -116,20 +125,34 @@ try{
         'concurrent_requests'=>1,
         'max_request_credit_units'=>100,
         'monthly_credit_allowance'=>100,
-        'monthly_token_limit'=>$used,
+        'monthly_token_limit'=>$used+$remaining,
         'allowed_providers'=>['quota:*'],
     ]);
 
     $embedCalls=$embed->calls;
     $genCalls=$gen->calls;
+    $secondResult=$ask->ask('quota_req_2','web','second unknown question',false,0.75,0.99,5,false);
+    qassert(($secondResult['billing']['ai_billed']??false)===true,'Remaining real quota was falsely blocked by reservation estimate');
+    qassert($embed->calls>$embedCalls||$gen->calls>$genCalls,'Expected an AI provider call while real quota remained');
+
+    $afterSecond=$billing->summary($library)['quota'];
+    qassert(
+        (int)($afterSecond['monthly_tokens_used']??0)>=(int)($afterSecond['monthly_tokens_limit']??0),
+        'Second request did not consume the remaining monthly quota as expected'
+    );
+
+    // Once settled provider usage has actually reached/exceeded the limit, the next
+    // provider-backed request must be rejected before either provider is called.
+    $embedCalls=$embed->calls;
+    $genCalls=$gen->calls;
     $blocked=false;
     try{
-        $ask->ask('quota_req_2','web','second unknown question',false,0.75,0.99,5,false);
+        $ask->ask('quota_req_3','web','third unknown question',false,0.75,0.99,5,false);
     }catch(BillingException $e){
         $blocked=$e->reason()==='monthly_token_limit'&&$e->httpStatus()===402;
     }
-    qassert($blocked,'Monthly token quota did not block the next provider call');
-    qassert($embed->calls===$embedCalls&&$gen->calls===$genCalls,'AI provider was called after monthly quota exhaustion');
+    qassert($blocked,'Monthly token quota did not block after settled usage exhausted it');
+    qassert($embed->calls===$embedCalls&&$gen->calls===$genCalls,'AI provider was called after actual monthly quota exhaustion');
 
     echo "MCMA free monthly allowance and quota integration passed.\n";
 }finally{
