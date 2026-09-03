@@ -115,6 +115,12 @@ try{
     assert_billing($embed->calls>=1,'Embedding provider was not metered');
     assert_billing($gen->calls===1,'Generation provider call count mismatch');
 
+    $providerUsage=$generated['billing']['provider_usage']??[];
+    assert_billing(is_array($providerUsage)&&count($providerUsage)>=2,'Per-provider usage detail was not returned');
+    $kinds=array_values(array_unique(array_map(static fn(array $item):string=>(string)($item['kind']??''),$providerUsage)));
+    assert_billing(in_array('embedding',$kinds,true),'Embedding usage component missing');
+    assert_billing(in_array('generation',$kinds,true),'Generation usage component missing');
+
     $daily=$billing->dailyUsage($aliceLib,gmdate('Y-m-d'));
     $summary=$daily['summary']??[];
     assert_billing(($summary['requests']??0)===1,'Daily billed request count mismatch');
