@@ -530,8 +530,17 @@ final class WebApplication
         if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
 
         if(MemoryMutationService::isMutationRequest($question)){
+            $selectedCanonicalRef=$input['mutation_ref']??null;
+            if($selectedCanonicalRef!==null){
+                if(!is_string($selectedCanonicalRef)||strlen($selectedCanonicalRef)>2048||!str_starts_with($selectedCanonicalRef,'memory://user/')){
+                    throw new WebException(400,'invalid_mutation_ref','mutation_ref must be a memory://user/... reference');
+                }
+                $selectedCanonicalRef=trim($selectedCanonicalRef);
+            }
             $contextCanonicalRefs=$archiveService->recentCanonicalMemoryRefs('owner',$conversationId,12);
-            $result=$this->mutateMemory($principal,$question,$requestId,$contextCanonicalRefs);
+            $result=$this->mutateMemory(
+                $principal,$question,$requestId,$contextCanonicalRefs,$selectedCanonicalRef
+            );
             $result=$this->recordContextTrace($principal,$requestId,$question,false,true,$result);
             $result=$this->recordInteraction($principal,$requestId,$conversationId,$question,$result);
             return HttpResponse::json(['ok'=>true,'result'=>$result]);
@@ -656,7 +665,13 @@ final class WebApplication
         }
     }
 
-    private function mutateMemory(array $principal,string $text,string $requestId,array $contextCanonicalRefs=[]): array
+    private function mutateMemory(
+        array $principal,
+        string $text,
+        string $requestId,
+        array $contextCanonicalRefs=[],
+        ?string $selectedCanonicalRef=null
+    ): array
     {
         $embedding=$this->providers->embedding($this->providerOptions,true);
         if($this->billingEnabled){
@@ -667,12 +682,15 @@ final class WebApplication
             ))->execute(
                 $requestId,$principal['kind'],$text,
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
-                $contextCanonicalRefs
+                $contextCanonicalRefs,
+                $selectedCanonicalRef
             );
         }
         $usageCollector=new UsageCollector();
         $meteredEmbedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
-        $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute('owner',$text,$contextCanonicalRefs);
+        $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute(
+            'owner',$text,$contextCanonicalRefs,$selectedCanonicalRef
+        );
         $result['billing']=[
             'ai_billed'=>false,'credit_units_charged'=>0,
             'usage'=>$usageCollector->summary(),
