@@ -1349,6 +1349,36 @@ button.context-list-item:hover{background:#1d2530}
   border-color:#7d3a4a;
   color:#f4b5c4;
 }
+.chat-message-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin:6px 7px 0;
+}
+.chat-message-action{
+  min-height:28px;
+  padding:4px 8px;
+  border:1px solid #354154;
+  border-radius:8px;
+  background:#111720;
+  color:#aeb8c7;
+  font-size:.68rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.chat-message-action:hover:not(:disabled),
+.chat-message-action:focus-visible{
+  border-color:#66758b;
+  color:#f2f5f9;
+}
+.chat-message-action:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+.chat-message.pending .chat-message-actions{
+  visibility:hidden;
+}
+
 .chat-message-meta{
   display:flex;
   flex-wrap:wrap;
