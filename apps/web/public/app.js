@@ -1284,6 +1284,23 @@
       );
     }
 
+    const broadRecall=used.broad_recall_context;
+    const recalled=Array.isArray(broadRecall?.items)?broadRecall.items:[];
+    if(used.broad_recall===true&&recalled.length>0){
+      const rendered=recalled.map((item,index)=>{
+        return 'MEMORIA '+(index+1)+' · '+(item.kind||'memoria')+' · '+(item.validation_state||'unverified')+' · confianza '+Number(item.confidence||0).toFixed(2)+'\n'
+          +'Ref: '+(item.logical_ref||'')+'\n'
+          +'Pregunta: '+(item.question||'')+'\n'
+          +'Contenido: '+(item.answer||'');
+      }).join('\n\n');
+      sections.push('RECUPERACIÓN AMPLIA DE MEMORIA · '+(broadRecall.subject||'')+'\n'+rendered);
+      badges.push(
+        memoryBadge(number(recalled.length)+' memorias relacionadas','route-badge route-ai-memory'),
+        memoryBadge('Entidad: '+(broadRecall.subject||'—')),
+        memoryBadge(broadRecall.selection?.strategy||'broad-entity-recall')
+      );
+    }
+
     if(sections.length>0){
       contextInjectedAnswer.textContent=sections.join('\n\n---\n\n');
       contextInjectedMeta.replaceChildren(...badges);
@@ -1303,6 +1320,13 @@
       memoryBadge(number(total)+' tokens'),
       memoryBadge(number(billing.credit_units_charged||0)+' créditos')
     );
+    const providerUsage=Array.isArray(billing.provider_usage)?billing.provider_usage:[];
+    for(const component of providerUsage){
+      const componentTokens=Number(component.input_tokens||0)+Number(component.output_tokens||0)+Number(component.embedding_tokens||0);
+      contextInjectedMeta.append(
+        memoryBadge((component.kind||'modelo')+' · '+number(componentTokens)+' tokens · '+(component.provider_id||'proveedor'))
+      );
+    }
 
     for(const node of contextTraceList.querySelectorAll('.context-list-item')){
       node.classList.toggle('selected',node.dataset.traceId===trace.trace_id);
