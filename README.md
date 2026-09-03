@@ -141,6 +141,8 @@ The same generation request may also receive the bounded conversational context 
 
 The next layer is now merged in `main` from PR #8: **multi-memory RAG**. When generation is required, MCMA can combine several trusted actor-visible KnowledgeRecords in one request, rank them using similarity + confidence + freshness + provenance + validation, and cap both the number of selected memories and their conservative context budget. Direct exact/semantic reuse remains stricter and unchanged.
 
+Broad memory questions such as **“¿Qué sabes de mailit.click?”** use a separate bounded recall intent. MCMA searches the authenticated user's actor-visible Knowledge and durable interaction archive for that entity/topic, keeps validation/confidence/provenance metadata, excludes retracted/disputed material, and asks the configured generation provider to synthesize the selected memories instead of stopping at one exact/semantic hit. The selected material remains untrusted reference data and is visible in **Contexto MCMA**.
+
 
 ## Local AI
 
@@ -222,6 +224,10 @@ Conversation turns are stored once under `memory://interactions/...`; the chat s
 
 Opening a previous conversation restores its visible archived turns and keeps using that `conversation_id` for new turns. Generation fallback can now use a **bounded conversational Context Builder**: MCMA considers only a small recent candidate window, re-reads candidate turns through the `ai` actor permissions, excludes retracted/disputed turns, keeps a couple of recent continuity anchors, adds lexically relevant older turns, and enforces configurable max-turn and conservative token-budget limits. The full transcript is never injected automatically.
 
+Chat requests can carry a client-generated `request_id`. If an upstream proxy/network timeout occurs after PHP/provider work has started, the browser does not resubmit generation: it polls the authenticated request-status route and recovers the canonical encrypted interaction when it appears. The pending id survives a same-tab reload through `sessionStorage`, preventing duplicate generation/credits for the same interrupted request.
+
+Natural-language owner commands can update or retire a canonical `memory://user/...` memory. Mutations are actor-aware and versioned through the normal Library update path: the stable object id is preserved, the revision increments, `previous_storage_hash` links the prior encrypted revision, and semantic/Knowledge mirrors are refreshed or retracted. Ambiguous targets are refused until a unique memory is identified; “delete” creates a versioned tombstone rather than silently erasing history.
+
 ~~~text
 GET  /login
 GET  /callback
@@ -229,6 +235,7 @@ GET  /mcma/v1/health
 GET  /mcma/v1/me
 GET  /mcma/v1/conversations
 GET  /mcma/v1/conversations/conv_<32-hex>
+GET  /mcma/v1/requests/req_<32-hex>?conversation_id=conv_<32-hex>
 POST /mcma/v1/register
 POST /mcma/v1/ask
 POST /logout
@@ -240,6 +247,8 @@ See `docs/WEB.md` and `config/nginx/mcma-web.conf.example`.
 ## Metering, credits and SuperAdmin
 
 MCMA can meter AI usage without SQL. Each user has encrypted daily billing ledgers with input, output, cached and embedding tokens, provider/model identity, pricing snapshot, credit charge and cost in integer currency micros.
+
+Per-call provider components are also retained for web requests: embedding and generation calls keep their provider/model id, input/output/embedding token counts and duration. The same component detail is copied into the encrypted interaction/context trace so **Contexto MCMA** can explain where tokens were spent. When billing is disabled, model calls are still metered for transparency; only the monetary/credit charge remains zero.
 
 The web application supports user balances, API keys, external Bearer API calls and a SuperAdmin panel at `/admin.html`.
 
