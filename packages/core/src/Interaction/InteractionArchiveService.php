@@ -209,6 +209,38 @@ final class InteractionArchiveService
         ];
     }
 
+    public function renameConversation(string $actor,string $conversationId,string $title): array
+    {
+        if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)){
+            throw new RuntimeException('Invalid conversation id');
+        }
+
+        $title=self::cleanLabel($title);
+        if($title===''||strlen($title)>120){
+            throw new RuntimeException('Conversation title must be between 1 and 120 bytes');
+        }
+
+        $index=$this->conversationIndex($actor);
+        $conversation=$index['conversations'][$conversationId]??null;
+        if(!is_array($conversation)){
+            throw new RuntimeException('Conversation not found: '.$conversationId);
+        }
+
+        $conversation['title']=$title;
+        $conversation['custom_title']=true;
+        $conversation['renamed_at']=gmdate('Y-m-d\TH:i:s\Z');
+        $index['conversations'][$conversationId]=$conversation;
+        $index['updated_at']=gmdate('Y-m-d\TH:i:s\Z');
+        $this->persistConversationIndex($actor,$index);
+
+        return self::conversationSummary($conversation)+[
+            'custom_title'=>true,
+            'renamed_at'=>(string)$conversation['renamed_at'],
+            'ai_tokens_used'=>0,
+            'credit_units_charged'=>0,
+        ];
+    }
+
     public function search(string $actor,string $query,int $limit=20): array
     {
         $query=trim($query);
@@ -839,7 +871,7 @@ final class InteractionArchiveService
         $firstAt=(string)($existing['first_at']??'');
         if($firstAt===''||($at!==''&&(strtotime($at)?:0)<(strtotime($firstAt)?:0))){
             $existing['first_at']=$at;
-            $existing['title']=$title;
+            if(($existing['custom_title']??false)!==true) $existing['title']=$title;
         }
         $lastAt=(string)($existing['last_at']??'');
         if($lastAt===''||($at!==''&&(strtotime($at)?:0)>=(strtotime($lastAt)?:0))){
@@ -906,6 +938,8 @@ final class InteractionArchiveService
             'last_at'=>(string)($conversation['last_at']??''),
             'interaction_count'=>(int)($conversation['interaction_count']??0),
             'projects'=>self::labels($conversation['projects']??[]),
+            'custom_title'=>(bool)($conversation['custom_title']??false),
+            'renamed_at'=>isset($conversation['renamed_at'])?(string)$conversation['renamed_at']:null,
         ];
     }
 

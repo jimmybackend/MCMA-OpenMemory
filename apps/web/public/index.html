@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-7">
+  <link rel="stylesheet" href="app.css?v=20260903-8">
 </head>
 <body>
   <main class="shell">
@@ -153,6 +153,7 @@
               </div>
 
               <div id="interactionActions" class="memory-detail-actions" hidden>
+                <button id="interactionRenameConversation" type="button" class="secondary-button">Editar nombre de conversación</button>
                 <button id="interactionApprove" type="button" class="confirm-button">✓ Aprobar como conocimiento</button>
                 <button id="interactionDiscard" type="button" class="danger-button">Descartar conocimiento</button>
                 <span id="interactionValidationStatus" class="memory-validation-status"></span>
@@ -261,6 +262,7 @@
         <div>
           <h2>Contexto MCMA</h2>
           <p>Transparencia de la memoria persistente y del contexto usado en cada pregunta.</p>
+          <small id="contextCatalogStatus" class="context-catalog-status">Preparando catálogo local…</small>
         </div>
         <span class="zero-ai-badge">Lectura · 0 tokens IA</span>
       </div>
@@ -372,9 +374,13 @@
         <section class="chat-sidebar-section conversations-section">
           <div class="chat-sidebar-label-row">
             <span class="chat-sidebar-label">Conversaciones</span>
-            <span class="zero-ai-mini">0 IA</span>
+            <span class="conversation-list-tools">
+              <button id="conversationPageUp" type="button" class="conversation-scroll-button" aria-label="Ver cuatro conversaciones anteriores" title="Subir 4">↑</button>
+              <button id="conversationPageDown" type="button" class="conversation-scroll-button" aria-label="Ver cuatro conversaciones siguientes" title="Bajar 4">↓</button>
+              <span class="zero-ai-mini">0 IA</span>
+            </span>
           </div>
-          <div id="conversationList" class="conversation-list" aria-live="polite">
+          <div id="conversationList" class="conversation-list" aria-live="polite" tabindex="0" aria-label="Historial de conversaciones, cuatro visibles por página">
             <div class="conversation-empty">Cargando archivo…</div>
           </div>
         </section>
@@ -409,7 +415,15 @@
           <button id="conversationSidebarToggle" class="chat-sidebar-toggle" type="button" aria-label="Mostrar conversaciones" aria-expanded="false">☰</button>
           <div class="chat-title-group">
             <span class="chat-eyebrow">Chat · archivo persistente</span>
-            <h2 id="conversationTitle">Nueva conversación</h2>
+            <div class="conversation-title-row">
+              <h2 id="conversationTitle">Nueva conversación</h2>
+              <button id="conversationRenameOpen" type="button" class="conversation-rename-button" aria-label="Editar nombre de la conversación" title="Editar nombre">✎</button>
+            </div>
+            <form id="conversationRenameForm" class="conversation-rename-form" hidden>
+              <input id="conversationRenameInput" type="text" maxlength="120" autocomplete="off" aria-label="Nuevo nombre de conversación">
+              <button id="conversationRenameSave" type="submit">Guardar</button>
+              <button id="conversationRenameCancel" type="button" class="secondary-button">Cancelar</button>
+            </form>
             <span class="conversation-id-line">ID <strong id="conversationLabel">—</strong></span>
           </div>
           <span id="conversationReadCost" class="zero-ai-badge">0 tokens IA · 0 créditos</span>
@@ -464,6 +478,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-5" defer></script>
+  <script src="app.js?v=20260903-6" defer></script>
 </body>
 </html>

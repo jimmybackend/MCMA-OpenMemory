@@ -23,10 +23,12 @@
   const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
   const libraryInlineEditActions=$('libraryInlineEditActions'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
   const libraryInlineEditForm=$('libraryInlineEditForm'),libraryInlineEditText=$('libraryInlineEditText'),libraryInlineEditSave=$('libraryInlineEditSave'),libraryInlineEditCancel=$('libraryInlineEditCancel');
-  const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
+  const interactionActions=$('interactionActions'),interactionRenameConversation=$('interactionRenameConversation'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
+  const conversationPageUp=$('conversationPageUp'),conversationPageDown=$('conversationPageDown');
   const conversationTitle=$('conversationTitle'),conversationReadCost=$('conversationReadCost'),conversationSidebarToggle=$('conversationSidebarToggle'),chatWorkspace=$('askPanel'),chatMessages=$('chatMessages');
+  const conversationRenameOpen=$('conversationRenameOpen'),conversationRenameForm=$('conversationRenameForm'),conversationRenameInput=$('conversationRenameInput'),conversationRenameSave=$('conversationRenameSave'),conversationRenameCancel=$('conversationRenameCancel');
   const composerStatus=$('composerStatus'),questionInput=$('question');
   const memoryEditTarget=$('memoryEditTarget'),memoryEditTargetTitle=$('memoryEditTargetTitle'),memoryEditTargetRef=$('memoryEditTargetRef'),memoryEditTargetClear=$('memoryEditTargetClear');
   const conversationState={items:[],filter:'',loading:false};
@@ -39,11 +41,12 @@
   const memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
   const memoryState={
     page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,
-    selectedRef:null,selectedKind:null,selectedEditableText:'',
+    selectedRef:null,selectedKind:null,selectedEditableText:'',selectedConversationId:null,
     selectedListRef:null,selectedListEditableText:''
   };
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
-  const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
+  const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh'),contextCatalogStatus=$('contextCatalogStatus');
+  const contextState={loading:false};
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
   const contextLastEmpty=$('contextLastEmpty'),contextLastContent=$('contextLastContent');
   const contextLastQuestion=$('contextLastQuestion'),contextLastRoute=$('contextLastRoute'),contextLastProvider=$('contextLastProvider'),contextLastAt=$('contextLastAt');
@@ -194,13 +197,11 @@
     const date=new Date(value||'');
     if(Number.isNaN(date.getTime()))return 'Anteriores';
     const now=new Date();
-    const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    const day=new Date(date.getFullYear(),date.getMonth(),date.getDate());
-    const days=Math.floor((today-day)/86400000);
-    if(days<=0)return 'Hoy';
-    if(days===1)return 'Ayer';
-    if(days<=7)return 'Últimos 7 días';
-    return 'Anteriores';
+    return (
+      date.getFullYear()===now.getFullYear()
+      &&date.getMonth()===now.getMonth()
+      &&date.getDate()===now.getDate()
+    )?'Hoy':'Anteriores';
   }
 
   function conversationDate(value){
@@ -453,7 +454,20 @@
     }
   }
 
+  function updateConversationScrollButtons(){
+    const max=Math.max(0,conversationList.scrollHeight-conversationList.clientHeight);
+    conversationPageUp.disabled=conversationList.scrollTop<=1;
+    conversationPageDown.disabled=conversationList.scrollTop>=max-1;
+  }
+
+  function scrollConversationPage(direction){
+    const first=conversationList.querySelector('.conversation-item');
+    const row=first?Math.max(1,first.getBoundingClientRect().height+4):44;
+    conversationList.scrollBy({top:direction*row*4,behavior:'smooth'});
+  }
+
   function renderConversationList(){
+    const previousScroll=conversationList.scrollTop;
     conversationList.replaceChildren();
     const filter=normalizedSearch(conversationState.filter);
     const current=currentConversationId();
@@ -474,7 +488,7 @@
       return;
     }
 
-    const order=['Hoy','Ayer','Últimos 7 días','Anteriores'];
+    const order=['Hoy','Anteriores'];
     const grouped=new Map(order.map(label=>[label,[]]));
     for(const item of filtered)grouped.get(conversationGroup(item.last_at)).push(item);
 
@@ -513,6 +527,10 @@
       }
       conversationList.appendChild(group);
     }
+    requestAnimationFrame(()=>{
+      conversationList.scrollTop=Math.min(previousScroll,Math.max(0,conversationList.scrollHeight-conversationList.clientHeight));
+      updateConversationScrollButtons();
+    });
   }
 
   function markActiveConversation(){
@@ -522,8 +540,85 @@
     }
   }
 
+  function currentConversationSummary(){
+    const id=currentConversationId();
+    return conversationState.items.find(item=>item.conversation_id===id)||null;
+  }
+
+  async function renameConversation(conversationId,title){
+    const value=String(title||'').replace(/\s+/g,' ').trim();
+    if(!/^conv_[0-9a-f]{32}$/.test(conversationId)||value==='')return null;
+    const data=await api('/mcma/v1/conversations/'+encodeURIComponent(conversationId),{
+      method:'PATCH',
+      body:JSON.stringify({title:value})
+    });
+    const updated=data.conversation||{};
+    const position=conversationState.items.findIndex(item=>item.conversation_id===conversationId);
+    if(position>=0)conversationState.items[position]={...conversationState.items[position],...updated};
+    renderConversationList();
+    if(currentConversationId()===conversationId)conversationTitle.textContent=updated.title||value;
+    memoryState.tree=null;
+    return updated;
+  }
+
+  function openConversationRename(){
+    const summary=currentConversationSummary();
+    if(!summary)return;
+    conversationRenameInput.value=summary.title||conversationTitle.textContent||'Conversación';
+    conversationRenameForm.hidden=false;
+    conversationRenameOpen.hidden=true;
+    conversationRenameInput.focus();
+    conversationRenameInput.select();
+  }
+
+  function closeConversationRename(){
+    conversationRenameForm.hidden=true;
+    conversationRenameOpen.hidden=currentConversationSummary()===null;
+    conversationRenameInput.value='';
+  }
+
+  async function saveConversationRename(event){
+    event.preventDefault();
+    const summary=currentConversationSummary();
+    const value=conversationRenameInput.value.trim();
+    if(!summary||value==='')return;
+    conversationRenameSave.disabled=true;
+    conversationRenameCancel.disabled=true;
+    try{
+      await renameConversation(summary.conversation_id,value);
+      composerStatus.textContent='Nombre de conversación actualizado · 0 tokens IA.';
+      closeConversationRename();
+    }catch(error){
+      composerStatus.textContent='No se pudo cambiar el nombre: '+error.message;
+    }finally{
+      conversationRenameSave.disabled=false;
+      conversationRenameCancel.disabled=false;
+    }
+  }
+
+  async function renameSelectedLibraryConversation(){
+    const conversationId=memoryState.selectedConversationId;
+    if(!conversationId)return;
+    const current=conversationState.items.find(item=>item.conversation_id===conversationId);
+    const proposed=window.prompt('Nuevo nombre de la conversación',current?.title||'Conversación');
+    if(proposed===null||proposed.trim()==='')return;
+    interactionRenameConversation.disabled=true;
+    interactionValidationStatus.textContent='Actualizando nombre…';
+    try{
+      const updated=await renameConversation(conversationId,proposed);
+      interactionValidationStatus.textContent='Conversación renombrada: '+(updated?.title||proposed.trim())+' · 0 tokens IA';
+      memoryState.tree=null;
+    }catch(error){
+      interactionValidationStatus.textContent='No se pudo renombrar: '+error.message;
+    }finally{
+      interactionRenameConversation.disabled=false;
+    }
+  }
+
   function renderNewConversation(clearInput=true){
     conversationTitle.textContent='Nueva conversación';
+    conversationRenameOpen.hidden=true;
+    closeConversationRename();
     answerMeta.hidden=true;
     answer.textContent='';
     composerStatus.textContent='Listo · el historial visible no se reinjecta automáticamente al modelo.';
@@ -586,6 +681,8 @@
       setConversationId(conversationId);
       renderMemoryEditTarget(conversationId);
       conversationTitle.textContent=summary.title||'Conversación';
+      conversationRenameOpen.hidden=false;
+      closeConversationRename();
       clearChatMessages();
 
       for(const interaction of interactions){
@@ -866,6 +963,7 @@
     memoryState.selectedRef=null;
     memoryState.selectedKind=null;
     memoryState.selectedEditableText='';
+    memoryState.selectedConversationId=null;
     memoryTreeDetailContent.hidden=true;
     memoryTreeDetailEmpty.hidden=false;
     memoryTreeDetailEmpty.textContent='Selecciona un elemento de la biblioteca para descifrarlo.';
@@ -1062,6 +1160,9 @@
       const interaction=object.interaction||{};
       const catalog=interaction.catalog&&typeof interaction.catalog==='object'?interaction.catalog:{};
       const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
+      memoryState.selectedConversationId=/^conv_[0-9a-f]{32}$/.test(interaction.conversation_id||'')
+        ?interaction.conversation_id
+        :null;
       memoryTreeDetailTitle.textContent=catalog.title||interaction.question||'Interacción';
       libraryAnswerLabel.textContent='Respuesta descifrada';
       memoryTreeDetailAnswer.textContent=treeDisplayContent(interaction.answer?.value);
@@ -1620,11 +1721,19 @@
     const traces=Array.isArray(data.traces)?data.traces:[];
     const generated=Array.isArray(data.generated_memories)?data.generated_memories:[];
     const systemObjects=Array.isArray(data.system_objects)?data.system_objects:[];
+    const catalog=data.catalog&&typeof data.catalog==='object'?data.catalog:{};
 
     contextPersistentTotal.textContent=number(summary.total||0);
     contextReusableTotal.textContent=number(summary.reusable||0);
     contextGeneratedTotal.textContent=number(summary.generated_by_model||0);
     contextTraceTotal.textContent=number(traces.length);
+
+    const indexed=Number(catalog.indexed??summary.cataloged??0);
+    const total=Number(catalog.total??summary.total??0);
+    const pending=Number(catalog.pending??summary.pending??0);
+    contextCatalogStatus.textContent=(catalog.complete===true||pending===0)
+      ?'Catálogo de contexto actualizado · '+number(total)+' memorias · 0 tokens IA'
+      :'Actualizando catálogo local · '+number(indexed)+' / '+number(total)+' revisadas · '+number(pending)+' pendientes';
 
     contextGeneratedList.replaceChildren();
     if(generated.length===0){
@@ -1667,16 +1776,48 @@
     renderContextTrace(traces[0]||null);
   }
 
-  async function loadContext(){
+  async function loadContext({maxPasses=12}={}){
+    if(contextState.loading)return;
+    contextState.loading=true;
     contextRefresh.disabled=true;
+    contextCatalogStatus.textContent='Leyendo catálogo de contexto…';
     try{
-      const data=await api('/mcma/v1/context',{method:'GET',headers:{}});
-      renderContext(data.context||{});
+      for(let pass=0;pass<Math.max(1,maxPasses);pass++){
+        const data=await api('/mcma/v1/context',{method:'GET',headers:{}});
+        const context=data.context||{};
+        renderContext(context);
+        const catalog=context.catalog||{};
+        if(catalog.complete===true||Number(catalog.pending||0)===0)break;
+        await sleep(120);
+      }
     }catch(error){
+      contextCatalogStatus.textContent='No se pudo completar el catálogo: '+error.message;
       contextLastEmpty.hidden=false;
       contextLastContent.hidden=true;
       contextLastEmpty.textContent='No se pudo leer el contexto: '+error.message;
+      if(contextPersistentTotal.textContent==='—'){
+        contextPersistentTotal.textContent='0';
+        contextReusableTotal.textContent='0';
+        contextGeneratedTotal.textContent='0';
+        contextTraceTotal.textContent='0';
+      }
+      contextGeneratedList.replaceChildren();
+      const generatedError=document.createElement('div');
+      generatedError.className='context-empty';
+      generatedError.textContent='Contexto no disponible todavía.';
+      contextGeneratedList.appendChild(generatedError);
+      contextSystemList.replaceChildren();
+      const systemError=document.createElement('div');
+      systemError.className='context-empty';
+      systemError.textContent='Objetos internos no disponibles todavía.';
+      contextSystemList.appendChild(systemError);
+      contextTraceList.replaceChildren();
+      const traceError=document.createElement('div');
+      traceError.className='context-empty';
+      traceError.textContent='Trazas no disponibles todavía.';
+      contextTraceList.appendChild(traceError);
     }finally{
+      contextState.loading=false;
       contextRefresh.disabled=false;
     }
   }
@@ -1697,6 +1838,7 @@
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
       activateTab('ask');
       await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadConversations()]);
+      loadContext({maxPasses:2});
       await recoverStoredPendingRequest();
     }catch(error){
       account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;accountDrawer.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
@@ -1728,11 +1870,13 @@
       const cid=result.interaction_archive.conversation_id;
       if(/^conv_[0-9a-f]{32}$/.test(cid))setConversationId(cid);
       memoryState.tree=null;
-      conversationTitle.textContent=shortConversationTitle(question);
       composerStatus.textContent=result.interaction_archive.recovered===true
         ?'Respuesta recuperada del archivo cifrado después de una interrupción.'
         :'Respuesta archivada en la conversación actual.';
       await loadConversations({openCurrent:false});
+      const summary=currentConversationSummary();
+      conversationTitle.textContent=summary?.title||shortConversationTitle(question);
+      conversationRenameOpen.hidden=summary===null;
     }else{
       composerStatus.textContent='Respuesta recibida, pero el archivo persistente no confirmó esta interacción.';
     }
@@ -1859,6 +2003,7 @@
     button.focus();
   });
 
+  contextRefresh.addEventListener('click',()=>loadContext({maxPasses:12}));
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
@@ -1870,8 +2015,15 @@
     composerStatus.textContent='Selección exacta quitada · MCMA volverá a resolver la memoria por contexto cuando sea necesario.';
     questionInput.focus();
   });
+  interactionRenameConversation.addEventListener('click',renameSelectedLibraryConversation);
   interactionApprove.addEventListener('click',()=>validateInteraction('approve'));
   interactionDiscard.addEventListener('click',()=>validateInteraction('discard'));
+  conversationRenameOpen.addEventListener('click',openConversationRename);
+  conversationRenameCancel.addEventListener('click',closeConversationRename);
+  conversationRenameForm.addEventListener('submit',saveConversationRename);
+  conversationPageUp.addEventListener('click',()=>scrollConversationPage(-1));
+  conversationPageDown.addEventListener('click',()=>scrollConversationPage(1));
+  conversationList.addEventListener('scroll',updateConversationScrollButtons,{passive:true});
   newConversation.addEventListener('click',startNewConversation);
   conversationSearch.addEventListener('input',()=>{
     conversationState.filter=conversationSearch.value;
