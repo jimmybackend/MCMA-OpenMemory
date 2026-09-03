@@ -143,7 +143,7 @@ final class WebFactory
     private static function providerMaxTokens(string $provider): string
     {
         return match($provider){
-            'bedrock-converse'=>self::optional('MCMA_BEDROCK_MAX_TOKENS')??'1024',
+            'bedrock-converse'=>self::optional('MCMA_BEDROCK_MAX_TOKENS')??'5000',
             'ollama'=>self::optional('MCMA_OLLAMA_MAX_TOKENS')??'1024',
             'llamacpp'=>self::optional('MCMA_LLAMACPP_MAX_TOKENS')??'512',
             default=>'1024',
