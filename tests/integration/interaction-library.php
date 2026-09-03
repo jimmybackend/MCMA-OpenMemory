@@ -428,9 +428,24 @@ try{
     $broadResult=$broadAsk->ask(
         'ai','¿Qué sabes de mailit.click?',false,0.75,0.78,5,false
     );
-    interaction_ok($broadGenerator->calls===1,'Broad recall should synthesize through generation');
-    interaction_ok(is_array($broadGenerator->lastContext['broad_recall_context']??null),'Broad recall context was not sent to generation');
+    interaction_ok($broadGenerator->calls===0,'Confirmed canonical recall must not call generation');
+    interaction_ok(($broadResult['route']??null)==='memory-canonical','Broad canonical recall did not use deterministic memory route');
+    interaction_ok(($broadResult['provider_called']??true)===false,'Canonical recall incorrectly called provider');
+    interaction_ok(is_string($broadResult['canonical_memory_ref']??null),'Canonical recall did not expose primary memory ref');
+    interaction_ok(str_starts_with((string)$broadResult['canonical_memory_ref'],'memory://user/'),'Canonical recall primary ref is not personal memory');
+    interaction_ok(str_contains((string)($broadResult['answer']['value']??''),'mailit.click'),'Canonical recall did not return stored mailit.click content');
+    interaction_ok(($broadResult['context_used']['canonical']??false)===true,'Canonical recall transparency flag missing');
     interaction_ok(($broadResult['context_used']['broad_recall']??false)===true,'Broad recall transparency flag missing');
+
+    $recallConversation='conv_'.str_repeat('7',32);
+    $recallRequest='req_'.str_repeat('8',32);
+    $archive->archive(
+        'owner',$recallRequest,$recallConversation,'¿Qué sabes de mailit.click?',$broadResult
+    );
+    interaction_ok(
+        $archive->latestCanonicalMemoryRef('owner',$recallConversation)===($broadResult['canonical_memory_ref']??null),
+        'Conversation did not retain the canonical memory anchor from recall'
+    );
 
     $afterTree=$archive->libraryTree('owner');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por temas']['IA']),'Topic view missing approved interaction');
