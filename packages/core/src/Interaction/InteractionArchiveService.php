@@ -345,6 +345,8 @@ final class InteractionArchiveService
                 'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
                 'route'=>(string)($interaction['route']??'unknown'),
                 'validation'=>is_array($interaction['validation']??null)?$interaction['validation']:[],
+                'canonical_memory_ref'=>is_string($interaction['canonical_memory_ref']??null)
+                    ?(string)$interaction['canonical_memory_ref']:null,
             ];
         }
 
@@ -353,6 +355,23 @@ final class InteractionArchiveService
             'candidates'=>$candidates,
             'candidate_count'=>count($candidates),
         ];
+    }
+
+    public function latestCanonicalMemoryRef(string $actor,string $conversationId): ?string
+    {
+        $context=$this->contextCandidates($actor,$conversationId,32);
+        foreach($context['candidates']??[] as $candidate){
+            if(!is_array($candidate)) continue;
+            $ref=$candidate['canonical_memory_ref']??null;
+            if(!is_string($ref)||!str_starts_with($ref,'memory://user/')) continue;
+            try{
+                $this->library->readAs($actor,$ref);
+                return $ref;
+            }catch(Throwable){
+                continue;
+            }
+        }
+        return null;
     }
 
     public function validate(

@@ -46,9 +46,60 @@ final class AskService
     ): array {
         $normalized = KnowledgeRecord::normalizeIntent($question);
         $languageInstruction=self::responseLanguageInstruction($responseLanguage);
-        $broadRecallRequested=$this->generationProvider!==null
-            && $this->broadMemoryRecallBuilder!==null
+        $broadRecallRequested=$this->broadMemoryRecallBuilder!==null
             && BroadMemoryRecallBuilder::isBroadRecallRequest($question);
+
+        // Canonical personal memory is authoritative for explicit recall.
+        // If confirmed actor-visible memory contains the requested subject,
+        // return it deterministically instead of asking a model to "remember".
+        // This prevents provider training data from overriding user-owned memory.
+        $directCanonicalRecall=null;
+        if($broadRecallRequested){
+            try{
+                $directCanonicalRecall=$this->broadMemoryRecallBuilder?->canonicalRecall(
+                    $actor,$question,$minConfidence
+                );
+            }catch(\Throwable $e){
+                error_log('MCMA deterministic canonical recall error: '.$e->getMessage());
+                $directCanonicalRecall=null;
+            }
+        }
+        if(is_array($directCanonicalRecall)){
+            $primary=(string)($directCanonicalRecall['primary_ref']??'');
+            return [
+                'found'=>true,
+                'reusable'=>true,
+                'decision'=>'canonical-recall',
+                'route'=>'memory-canonical',
+                'provider_called'=>false,
+                'provider_id'=>null,
+                'logical_ref'=>$primary,
+                'canonical_memory_ref'=>$primary,
+                'canonical_memory_refs'=>is_array($directCanonicalRecall['canonical_refs']??null)
+                    ?$directCanonicalRecall['canonical_refs']:[$primary],
+                'normalized_intent'=>$normalized,
+                'answer'=>[
+                    'format'=>'text',
+                    'value'=>(string)($directCanonicalRecall['answer']??''),
+                ],
+                'stored'=>false,
+                'response_language'=>$responseLanguage??'question-language',
+                'memory_attempt'=>[
+                    'found'=>true,
+                    'reusable'=>true,
+                    'decision'=>'canonical-recall',
+                    'logical_ref'=>$primary,
+                    'validation_state'=>'verified',
+                ],
+                'context_used'=>[
+                    'memory'=>true,
+                    'canonical'=>true,
+                    'logical_ref'=>$primary,
+                    'broad_recall'=>true,
+                    'broad_recall_context'=>$directCanonicalRecall,
+                ],
+            ];
+        }
 
         $exact = $this->knowledge->directAnswer($actor, $question, $currentRequired, $minConfidence);
         if (!$broadRecallRequested && ($exact['reusable'] ?? false) === true && isset($exact['answer'])) {
