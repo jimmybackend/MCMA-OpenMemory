@@ -21,7 +21,7 @@ That checkout retains its `.git` metadata. If the EC2 user's SSH key already has
 ## What the installer does
 
 - detects Linux package manager;
-- installs nginx, PHP 8.2+ runtime/PHP-FPM dependencies when possible;
+- installs PHP 8.2+ runtime/PHP-FPM dependencies when possible;
 - refuses PHP older than 8.2;
 - deploys/keeps the Git checkout;
 - creates `/etc/mcma/mcma.env` with mode 600;
@@ -30,10 +30,10 @@ That checkout retains its `.git` metadata. If the EC2 user's SSH key already has
 - generates MCMA-local random peppers/session secrets on a fresh install;
 - never invents AWS/OIDC/Stripe/cloud credentials;
 - passes configured env names into PHP-FPM;
-- writes an nginx MCMA server block;
-- validates nginx;
+- ships a generic Nginx example for manual operator review only;
+- never writes, replaces, enables, restarts or reloads the host web server;
 - runs a CLI smoke test;
-- runs the HTTP health check when web/OIDC variables are complete.
+- leaves public HTTP health verification to the deployment operator after their proxy/CDN configuration is applied.
 
 ## Existing environment file
 
@@ -127,45 +127,17 @@ This is a valid existing deployment layout. The installer continues to use `/opt
 
 The persistent Chat release was updated there with `git pull --ff-only`, focused integration tests, a dedicated PHP-FPM restart and public health/asset/authentication checks.
 
-### Repository-managed mailit.click Nginx
+## Host web-server ownership boundary
 
-The live MCMA V1 routing for the historical `/var/www/memory` deployment is now versioned in:
+MCMA deliberately does not manage Nginx, Apache, CloudFront or any other reverse proxy on the host. `install.sh` does not install Nginx packages, write under `/etc/nginx`, create virtual hosts, enable/restart/reload Nginx, or migrate an existing server configuration.
 
-~~~text
-config/nginx/mcma-mailit-v1.conf
-~~~
-
-It is a **server-block fragment**, not a complete virtual host. The live parent include remains:
+The repository provides only:
 
 ~~~text
-/etc/nginx/mcma-mailit.conf
+config/nginx/mcma-web.conf.example
 ~~~
 
-and the repository-managed fragment is installed at:
+That file is an **example**, not a production manifest. The server/SaaS operator is responsible for reviewing and adapting routes, TLS, CDN behavior, PHP-FPM sockets, cache policy, request-size limits and timeouts to their environment.
 
-~~~text
-/etc/nginx/mcma-mailit-v1-managed.conf
-~~~
-
-Use the repository deployer after pulling a reviewed/merged commit:
-
-~~~bash
-cd /var/www/memory
-git pull --ff-only
-sudo bash scripts/deploy-mailit-nginx.sh --apply
-sudo bash scripts/deploy-mailit-nginx.sh --check
-~~~
-
-On first adoption the script backs up `/etc/nginx/mcma-mailit.conf`, removes only the known inline MCMA V1/static/OIDC locations, leaves historical `/mcma/v2/*` compatibility routes intact, installs one include line for the managed fragment, runs `nginx -t`, reloads only after validation, and restores the backup if validation fails.
-
-The managed production fragment pins the dedicated runtime boundary:
-
-~~~text
-checkout: /var/www/memory
-front controller: /var/www/memory/apps/web/public/index.php
-PHP-FPM socket: /run/php-fpm-mcma/mcma.sock
-FastCGI read/send timeout: 180s
-~~~
-
-Secrets, OIDC credentials, AWS credentials and MCMA keys never belong in this Nginx fragment.
+For long-running generation, MCMA recommends that the operator consider an upstream/FastCGI timeout such as 180 seconds where appropriate. MCMA's request-id recovery remains application-level protection if an external proxy or client disconnects earlier.
 
