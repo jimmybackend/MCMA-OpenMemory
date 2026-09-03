@@ -59,6 +59,8 @@ try{
     $library=$users->resolveUserIdForService($record['user_id']);
 
     $catalog=new BillingCatalog($root);
+    $defaultFree=$catalog->plan('free');
+    qassert(($defaultFree['daily_request_limit']??0)===50,'Built-in Free daily request limit must be 50');
     $catalog->setPlan('free',[
         'api_enabled'=>false,
         'embedding_enabled'=>true,
