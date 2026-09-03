@@ -129,6 +129,10 @@ try{
         'allowed_providers'=>['quota:*'],
     ]);
 
+    // Keep the regression focused on token quota rather than the independent
+    // credit-balance guard.
+    $billing->credit($library,1000,'token quota regression headroom','test');
+
     $embedCalls=$embed->calls;
     $genCalls=$gen->calls;
     $secondResult=$ask->ask('quota_req_2','web','second unknown question',false,0.75,0.99,5,false);
