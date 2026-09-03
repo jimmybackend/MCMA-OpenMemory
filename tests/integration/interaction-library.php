@@ -376,8 +376,16 @@ try{
         static fn(array $item): bool => ($item['kind']??null)==='canonical-user-memory'
     ));
     interaction_ok(count($canonicalItems)>=1,'Broad recall ignored canonical user memory without Knowledge mirror');
-    interaction_ok(($canonicalItems[0]['logical_ref']??null)===$canonicalMailitRef,'Broad recall returned wrong canonical user memory');
-    interaction_ok(str_contains((string)($canonicalItems[0]['answer']??''),'CloudFront'),'Canonical user memory content was not supplied to recall');
+    $explicitCanonical=array_values(array_filter(
+        $canonicalItems,
+        static fn(array $item): bool => ($item['logical_ref']??null)===$canonicalMailitRef
+    ));
+    interaction_ok(count($explicitCanonical)===1,'Broad recall lost explicit canonical user memory');
+    interaction_ok(str_contains((string)($explicitCanonical[0]['answer']??''),'CloudFront'),'Explicit canonical user memory content was not supplied to recall');
+    interaction_ok(
+        ($canonicalItems[0]['memory_metadata']['maturity']??null)==='confirmed',
+        'Highest-ranked canonical memory should be confirmed'
+    );
 
     $knowledge=new KnowledgeService($lib);
     $reuse=$knowledge->directAnswer('owner',$question);
