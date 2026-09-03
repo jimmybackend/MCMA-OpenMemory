@@ -353,6 +353,27 @@ Do not enable paid model billing until pricing entries are configured.
 
 Multi-user deployments must continue to leave MCMA_MASTER_KEY_B64 unset and use MCMA_KEY_DIR.
 
+## Per-model usage transparency
+
+Every real embedding/generation invocation goes through MCMA's metered provider wrappers. The encrypted billing ledger already stores the complete `provider_usage` component list for charged requests. Web settlement now also returns that component list and copies it into the canonical interaction and Context trace.
+
+A component identifies:
+
+~~~text
+kind = embedding | generation
+provider_id / model identity
+input_tokens
+output_tokens
+cached_tokens
+embedding_tokens
+total_tokens
+duration_ms
+~~~
+
+Provider-reported token counts are preferred; connector estimates remain explicitly marked by the existing usage metadata when exact counts are unavailable. Deterministic memory reads, RAG packing, broad-recall selection and conversation selection do not invent token charges by themselves. An embedding query is charged/metered when an embedding provider is actually invoked; selected RAG/conversation/broad-recall bytes contribute to generation input when they are actually sent to the generation provider.
+
+Metering is also retained when `MCMA_BILLING_ENABLED=false`: the web request uses the same metered wrappers and persists the usage component detail for transparency, while credit/currency charging remains zero.
+
 ## Live web configuration — 2026-09-02
 
 The persistent-Chat production deployment was rechecked after the UI/archive release. The public health response reports:
@@ -369,7 +390,7 @@ Conversation-history navigation is intentionally outside AI charging: `GET /mcma
 
 When a new question requires generation, the bounded conversation selector itself is deterministic and makes no extra embedding/model call. Only the selected historical material that is actually sent to generation contributes to generation input usage/credits.
 
-Multi-memory RAG follows the same principle. The semantic query embedding is performed once and reused for direct selection plus RAG candidate discovery. RAG ranking/packing itself is deterministic and adds no model call. When embedding reserves credits before generation, the reservation includes both the configured conversation-context budget and the configured multi-memory RAG budget. Final generation metering serializes `memory_context`, `multi_memory_context` and `conversation_context` actually supplied to the provider.
+Multi-memory RAG follows the same principle. The semantic query embedding is performed once and reused for direct selection plus RAG candidate discovery. RAG ranking/packing itself is deterministic and adds no model call. When embedding reserves credits before generation, the reservation includes both the configured conversation-context budget and the configured multi-memory RAG budget. Final generation metering serializes `memory_context`, `multi_memory_context`, `conversation_context` and `broad_recall_context` actually supplied to the provider.
 
 Stripe Checkout creation and the cancel-return path have been exercised on the live deployment without completing a charge. A successful live/test paid Checkout plus webhook fulfillment remains a separate payment smoke test; the one-time/subscription implementation and automated tests are already complete.
 
