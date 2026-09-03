@@ -259,6 +259,51 @@ try{
     interaction_ok(($approved['catalog']['people'][0]??null)==='Jimmy','Approval catalog person missing');
     interaction_ok($generator->calls===1,'Approval should classify exactly once');
 
+    $legacyMailitRef='memory://user/sistemas/correo/mantenimiento/actualizaciones-y-reparaciones-mailit-click';
+    $lib->writeAs(
+        'owner',
+        $legacyMailitRef,
+        [
+            'title'=>'Actualizaciones y Reparaciones en Sistemas de mailit.click',
+            'content'=>'En mailit.click debo reparar index.php por un error en pvisit con un id. También hay pendientes de analytics, respaldo de /var/www/, up.php y pruebas de agentes.',
+            'classification'=>[
+                'category_path'=>['sistemas','correo','mantenimiento'],
+            ],
+        ],
+        'json','hot','90-projects','project','confirmed'
+    );
+    $legacyRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabe de mailit.click?',0.75);
+    interaction_ok(is_array($legacyRecall),'Legacy canonical broad recall returned no context');
+    $legacyItems=array_values(array_filter(
+        $legacyRecall['items']??[],
+        static fn(array $item): bool => ($item['logical_ref']??null)===$legacyMailitRef
+    ));
+    interaction_ok(count($legacyItems)===1,'Broad recall ignored legacy canonical user memory');
+    interaction_ok(($legacyItems[0]['kind']??null)==='canonical-user-memory','Legacy memory was not treated as canonical user memory');
+    interaction_ok(($legacyItems[0]['validation_state']??null)==='verified','Confirmed legacy memory lost trusted maturity');
+    interaction_ok(str_contains((string)($legacyItems[0]['answer']??''),'pvisit'),'Legacy mailit.click content was not supplied to recall');
+
+    // A derived thematic summary may mention the same subject, but broad recall
+    // must not treat it as another canonical personal memory.
+    $derivedRef='memory://user/temas/mailit-click/resumenes/req_'.str_repeat('9',32);
+    $lib->writeAs(
+        'owner',
+        $derivedRef,
+        [
+            'thematic_summary_version'=>'1.0',
+            'title'=>'Resumen sobre mailit.click',
+            'summary'=>'Tema derivado sobre mailit.click.',
+            'content'=>'Este campo no debe convertir el resumen derivado en memoria canónica.',
+        ],
+        'json','warm','40-semantic','user','observed'
+    );
+    $derivedRecall=(new BroadMemoryRecallBuilder($lib,8,16000))->build('ai','¿Qué sabe de mailit.click?',0.75);
+    $derivedCanonical=array_values(array_filter(
+        $derivedRecall['items']??[],
+        static fn(array $item): bool => ($item['logical_ref']??null)===$derivedRef
+    ));
+    interaction_ok($derivedCanonical===[],'Derived thematic summary leaked into canonical broad recall');
+
     $canonicalMailitRef='memory://user/configuraciones/servidores/mailit-click-recuerdo';
     $lib->writeAs(
         'owner',

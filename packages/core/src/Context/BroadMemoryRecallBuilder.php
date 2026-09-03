@@ -136,20 +136,36 @@ final class BroadMemoryRecallBuilder
         $content=$payload['content']??null;
         $metadata=is_array($payload['metadata']??null)?$payload['metadata']:[];
 
-        if(!is_array($content)||!isset($content['explicit_memory_version'])) return null;
+        if(!is_array($content)) return null;
+
+        // Derived thematic summaries are intentionally not canonical memory.
+        // They may live under memory://user/... for browsing, but broad recall
+        // must resolve back to original user memories/interactions instead.
+        if(
+            isset($content['thematic_summary_version'])
+            || preg_match('#^memory://user/temas/[^/]+/resumenes/#',$logicalRef)===1
+        ){
+            return null;
+        }
 
         $answer=$content['content']??null;
         if(!is_string($answer)||trim($answer)==='') return null;
 
-        $title=is_string($content['title']??null)?(string)$content['title']:'';
+        $title=is_string($content['title']??null)?trim((string)$content['title']):'';
+        $classification=is_array($content['classification']??null)?$content['classification']:[];
+        $isExplicit=isset($content['explicit_memory_version']);
+        $isLegacyCanonical=$title!==''||$classification!==[];
+        if(!$isExplicit&&!$isLegacyCanonical) return null;
+
         $retrieval=is_array($content['retrieval']??null)?$content['retrieval']:[];
         $retrievalQuestion=is_string($retrieval['question']??null)?(string)$retrieval['question']:'';
-        $classification=is_array($content['classification']??null)?$content['classification']:[];
         $categories=is_array($classification['category_path']??null)
             ?implode(' ',array_values(array_filter($classification['category_path'],'is_string')))
             :'';
+        $source=is_array($content['source']??null)?$content['source']:[];
+        $original=is_string($source['original']??null)?(string)$source['original']:'';
 
-        $searchable=implode("\n",[$logicalRef,$title,$retrievalQuestion,$categories,$answer]);
+        $searchable=implode("\n",[$logicalRef,$title,$retrievalQuestion,$categories,$answer,$original]);
         if(!self::containsText($searchable,$subject)) return null;
 
         $confirmed=(string)($metadata['maturity']??'')==='confirmed';
@@ -166,7 +182,9 @@ final class BroadMemoryRecallBuilder
             'provenance'=>[[
                 'source_type'=>'user',
                 'reference'=>$logicalRef,
-                'note'=>'Canonical actor-visible personal memory',
+                'note'=>$isExplicit
+                    ?'Canonical actor-visible explicit personal memory'
+                    :'Canonical actor-visible legacy personal memory',
             ]],
         ];
     }
