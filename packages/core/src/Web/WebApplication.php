@@ -504,6 +504,7 @@ final class WebApplication
 
         $requestId=$this->requestId($input);
         $conversationId=$this->conversationId($input);
+        $responseLanguage=$this->responseLanguage($input,$request);
         $existing=(new InteractionArchiveService($principal['library']))->interactionByRequestId('owner',$conversationId,$requestId);
         if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
         $result=$this->captureExplicitMemory($principal,$text,$requestId);
@@ -576,7 +577,8 @@ final class WebApplication
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
                 isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
                 isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null,
-                $conversationId
+                $conversationId,
+                $responseLanguage
             );
         }else{
             $usageCollector=new UsageCollector();
@@ -597,7 +599,8 @@ final class WebApplication
                 $remember,$capture,
                 isset($this->providerOptions['candidate-similarity'])?(float)$this->providerOptions['candidate-similarity']:null,
                 isset($this->providerOptions['min-rerank-score'])?(float)$this->providerOptions['min-rerank-score']:null,
-                $conversationId
+                $conversationId,
+                $responseLanguage
             );
             $result['billing']=[
                 'ai_billed'=>false,
@@ -715,6 +718,27 @@ final class WebApplication
             (int)($this->providerOptions['rag-max-answer-bytes']??4500),
             (int)($this->providerOptions['rag-max-provenance']??4)
         );
+    }
+
+    private function responseLanguage(array $input,HttpRequest $request): ?string
+    {
+        $candidate=$input['response_language']??null;
+        if(is_string($candidate)&&trim($candidate)!==''){
+            $candidate=trim($candidate);
+            if(strlen($candidate)>32||!preg_match('/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/',$candidate)){
+                throw new WebException(400,'invalid_response_language','response_language must be a valid BCP-47-style language tag');
+            }
+            return $candidate;
+        }
+
+        $accept=(string)($request->header('accept-language')??'');
+        foreach(explode(',',$accept) as $part){
+            $tag=trim(explode(';',$part,2)[0]);
+            if($tag!==''&&strlen($tag)<=32&&preg_match('/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/',$tag)){
+                return $tag;
+            }
+        }
+        return null;
     }
 
     private function requestId(array $input): string
