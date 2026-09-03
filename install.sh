@@ -22,8 +22,8 @@ Options:
   --install-dir PATH   Deployment checkout path (default: /opt/MCMA-OpenMemory)
   --env-file PATH      Protected runtime env file (default: /etc/mcma/mcma.env)
   --env-source PATH    Install a pre-populated env file if --env-file does not exist
-  --domain HOST        Nginx server_name; also used for local health test
-  --skip-packages      Do not install nginx/php packages
+  --domain HOST        Deprecated compatibility flag; host proxy is operator-managed
+  --skip-packages      Do not install PHP runtime packages
   --skip-nginx         Deprecated compatibility flag; MCMA never modifies Nginx
   -h, --help           Show this help
 
@@ -67,16 +67,16 @@ install_packages() {
   ((SKIP_PACKAGES==1)) && { log "Skipping package installation."; return; }
 
   if command -v dnf >/dev/null 2>&1; then
-    log "Installing nginx, PHP-FPM and PHP runtime packages with dnf."
-    dnf install -y nginx php php-cli php-fpm php-opcache php-mbstring
+    log "Installing PHP-FPM and PHP runtime packages with dnf."
+    dnf install -y php php-cli php-fpm php-opcache php-mbstring
     dnf install -y php-curl >/dev/null 2>&1 || true
   elif command -v apt-get >/dev/null 2>&1; then
-    log "Installing nginx, PHP-FPM and PHP runtime packages with apt."
+    log "Installing PHP-FPM and PHP runtime packages with apt."
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y nginx php-cli php-fpm php-curl php-mbstring php-opcache
+    apt-get install -y php-cli php-fpm php-curl php-mbstring php-opcache
   else
-    die "Supported package manager not found (dnf or apt-get). Use --skip-packages after installing PHP 8.2+, PHP-FPM and nginx manually."
+    die "Supported package manager not found (dnf or apt-get). Use --skip-packages after installing PHP 8.2+ and PHP-FPM manually."
   fi
 }
 
