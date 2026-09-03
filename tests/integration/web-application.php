@@ -307,9 +307,10 @@ try {
         &&($libraryEditBody['result']['canonical_memory_ref']??null)===$libraryEditRef,
         'Web mutation_ref did not bind the exact canonical memory'
     );
+    $aliceLibraryAfterEdit=$users->resolve('https://id.example.test','alice-provider-subject');
     assert_web_app(
         str_contains(
-            (string)($aliceLibraryObject->readAs('owner',$libraryEditRef)['payload']['content']['content']??''),
+            (string)($aliceLibraryAfterEdit->readAs('owner',$libraryEditRef)['payload']['content']['content']??''),
             'corregidas desde Biblioteca'
         ),
         'Exact Biblioteca mutation content was not persisted'
@@ -317,7 +318,7 @@ try {
     assert_web_app(
         hash_equals(
             (string)$decoyBefore['storage_hash'],
-            (string)$aliceLibraryObject->readAs('owner',$libraryDecoyRef)['storage_hash']
+            (string)$aliceLibraryAfterEdit->readAs('owner',$libraryDecoyRef)['storage_hash']
         ),
         'Exact Biblioteca mutation changed an unrelated canonical memory'
     );
