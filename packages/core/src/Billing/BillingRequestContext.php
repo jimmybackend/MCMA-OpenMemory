@@ -75,6 +75,7 @@ final class BillingRequestContext
                 'ai_billed'=>false,
                 'credit_units_charged'=>0,
                 'usage'=>$this->collector->summary(),
+                'provider_usage'=>$this->collector->components(),
                 'reason'=>'no-ai-provider-called',
             ];
         }
@@ -95,6 +96,8 @@ final class BillingRequestContext
             'cost_micros'=>(int)($result['usage']['cost_micros']??0),
             'currency'=>(string)($result['usage']['currency']??'USD'),
             'usage'=>$this->collector->summary(),
+            'provider_usage'=>$this->collector->components(),
+            'pricing_snapshots'=>is_array($result['usage']['pricing_snapshots']??null)?$result['usage']['pricing_snapshots']:[],
             'balance_units'=>(int)($result['balance']['balance_units']??0),
             'reserved_units'=>(int)($result['balance']['reserved_units']??0),
         ];
