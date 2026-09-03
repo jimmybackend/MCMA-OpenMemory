@@ -273,6 +273,31 @@ final class WebApplication
                 if(str_contains($e->getMessage(),'Memory not found:')) throw new WebException(404,'library_object_not_found','Library object not found');
                 throw $e;
             }
+
+            $content=$stored['payload']['content']??null;
+            $knowledgeState=null;
+            if($kind==='memory'&&is_array($content)){
+                $knowledgeRef=$content['retrieval']['knowledge_ref']??null;
+                if(is_string($knowledgeRef)&&preg_match('#^memory://knowledge/q-([0-9a-f]{64})$#',$knowledgeRef,$km)){
+                    try{
+                        $detail=(new KnowledgeService($principal['library']))->inspectId(
+                            'owner',$km[1],(float)($this->providerOptions['min-confidence']??0.75)
+                        );
+                        $knowledgeState=[
+                            'logical_ref'=>$knowledgeRef,
+                            'validation_state'=>$detail['validation_state']??'unverified',
+                            'confidence'=>(float)($detail['confidence']??0.0),
+                            'temperature'=>$detail['temperature']??'warm',
+                            'freshness_class'=>$detail['freshness_class']??'stable',
+                            'reusable'=>(bool)($detail['reusable']??false),
+                            'captured_at'=>$detail['captured_at']??null,
+                        ];
+                    }catch(Throwable $e){
+                        error_log('MCMA Biblioteca Knowledge mirror detail unavailable: '.$e->getMessage());
+                    }
+                }
+            }
+
             return HttpResponse::json([
                 'ok'=>true,
                 'object'=>[
@@ -281,7 +306,8 @@ final class WebApplication
                     'object_id'=>$stored['object_id']??null,
                     'storage_hash'=>$stored['storage_hash']??null,
                     'metadata'=>$stored['payload']['metadata']??[],
-                    'content'=>$stored['payload']['content']??null,
+                    'content'=>$content,
+                    'knowledge_state'=>$knowledgeState,
                     'ai_tokens_used'=>0,
                     'credit_units_charged'=>0,
                 ],
