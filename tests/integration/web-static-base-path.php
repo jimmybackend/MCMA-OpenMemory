@@ -59,6 +59,12 @@ check(str_contains($app,"navigator.clipboard.writeText"),'assistant copy action 
 check(str_contains($app,"SpeechSynthesisUtterance"),'assistant read-aloud action is wired');
 check(str_contains($app,"speechSynthesis"),'browser speech synthesis integration is present');
 check(str_contains($app,"loadConversations({openCurrent:false})"),'conversation sidebar refreshes after archive');
+check(str_contains($app,"request_id:requestId"),'chat sends stable client request id');
+check(str_contains($app,"/mcma/v1/requests/"),'chat request recovery endpoint is wired');
+check(str_contains($app,"mcma_pending_request_v1"),'pending request survives reload in session storage');
+check(str_contains($app,"recoverRequest("),'timed-out response recovery polling is wired');
+check(str_contains($app,"broad_recall_context"),'broad memory recall transparency is rendered');
+check(str_contains($app,"provider_usage"),'per-provider usage detail is rendered');
 check(str_contains($app,"switchMemoryView('tree')"),'memory tree view switch is wired');
 check(str_contains($app,"switchMemoryView('list')"),'memory list view switch is wired');
 check(str_contains($app,"'/validation'"),'memory explorer validation endpoint is wired');
