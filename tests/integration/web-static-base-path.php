@@ -14,10 +14,10 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-5"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-6"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
-check(str_contains($index,'src="app.js?v=20260903-4"'),'app script is base-path relative and cache-busted');
+check(str_contains($index,'src="app.js?v=20260903-5"'),'app script is base-path relative and cache-busted');
 check(str_contains($index,'id="memoryExplorer"'),'memory explorer markup is present');
 check(str_contains($index,'id="memoryConfirm"'),'memory confirm action is present');
 check(str_contains($index,'id="memoryDiscard"'),'memory discard action is present');
@@ -28,6 +28,11 @@ check(str_contains($index,'id="memoryTreeDetailContent"'),'decrypted tree detail
 check(str_contains($index,'id="memoryUpdateInChat"'),'Biblioteca exact-memory update action is present');
 check(str_contains($index,'id="memoryEditTarget"'),'Chat exact-memory target banner is present');
 check(str_contains($index,'id="memoryEditTargetClear"'),'Chat exact-memory target clear action is present');
+check(str_contains($index,'<dialog id="accountDrawer"'),'account settings uses a modal dialog');
+check(str_contains($index,'id="accountSettingsOpen"'),'Chat sidebar account settings button is present');
+check(str_contains($index,'id="accountSettingsClose"'),'account settings modal close button is present');
+check(str_contains($index,'id="identityName">usuario</strong>'),'sidebar identity shows only a private account handle');
+check(!str_contains($index,'id="identityEmail"'),'full email field is not rendered in the UI');
 check(str_contains($index,'id="libraryInlineEditOpen"'),'tree inline edit action is present');
 check(str_contains($index,'id="libraryInlineEditForm"'),'tree inline edit form is present');
 check(str_contains($index,'id="memoryInlineEditOpen"'),'list inline edit action is present');
@@ -67,9 +72,17 @@ check(str_contains($css,'grid-template-columns:minmax(0,1fr) auto'),'Chat input 
 check(str_contains($css,'.chat-send-icon'),'Chat send SVG icon styling is present');
 check(str_contains($css,'.chat-send-label'),'Chat send label responsive styling is present');
 check(str_contains($css,'.memory-inline-editor'),'Biblioteca inline editor styling is present');
+check(str_contains($css,'.account-modal'),'account settings modal styling is present');
+check(str_contains($css,'.sidebar-account-row'),'sidebar private account row styling is present');
+check(str_contains($css,'height:clamp(400px,calc(100dvh - 150px),920px)'),'desktop Chat uses reclaimed account-header height');
 check(str_contains($css,'grid-template-columns:minmax(0,1fr) 44px'),'small-screen Chat send control is compact');
 
 check(is_string($app),'app.js readable');
+check(str_contains($app,'privateAccountHandle'),'UI derives a private account handle from email');
+check(!str_contains($app,'profile.name'),'Google full name is not rendered by the web UI');
+check(!str_contains($app,'identityEmail'),'full email is not rendered by the web UI');
+check(str_contains($app,'openAccountSettings'),'account settings modal open handler is wired');
+check(str_contains($app,'closeAccountSettings'),'account settings modal close handler is wired');
 check(str_contains($app,"fetch('logout'"),'logout endpoint is base-path relative');
 check(str_contains($app,"location.replace('./?signed_out=1')"),'logout refresh is base-path relative');
 check(str_contains($app,"'/mcma/v1/memories?'"),'memory explorer list endpoint is wired');
