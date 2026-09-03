@@ -44,9 +44,11 @@ final class AskService
         ?string $conversationId = null
     ): array {
         $normalized = KnowledgeRecord::normalizeIntent($question);
+        $broadRecallRequested=$this->broadMemoryRecallBuilder!==null
+            && BroadMemoryRecallBuilder::isBroadRecallRequest($question);
 
         $exact = $this->knowledge->directAnswer($actor, $question, $currentRequired, $minConfidence);
-        if (($exact['reusable'] ?? false) === true && isset($exact['answer'])) {
+        if (!$broadRecallRequested && ($exact['reusable'] ?? false) === true && isset($exact['answer'])) {
             $exact['route'] = 'memory-exact';
             $exact['provider_called'] = false;
             return $exact;
@@ -88,7 +90,7 @@ final class AskService
                 $minRerankScore
             );
 
-            if (($memoryAttempt['reusable'] ?? false) === true && isset($memoryAttempt['answer'])) {
+            if (!$broadRecallRequested && ($memoryAttempt['reusable'] ?? false) === true && isset($memoryAttempt['answer'])) {
                 $memoryAttempt['route'] = 'memory-semantic';
                 $memoryAttempt['provider_called'] = false;
                 return $memoryAttempt;
