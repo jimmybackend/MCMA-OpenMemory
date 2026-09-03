@@ -1850,3 +1850,474 @@ button.context-list-item:hover{background:#1d2530}
     padding:2px 10px 12px;
   }
 }
+
+
+/* ============================================================
+   Desktop density at browser zoom 100%
+   Keep the application visually close to the previous 75%-zoom
+   working view without using CSS zoom/transform scaling.
+   ============================================================ */
+@media (min-width:901px){
+  body{
+    font-size:14px;
+  }
+
+  .shell{
+    max-width:1540px;
+    padding:10px 14px 18px;
+  }
+
+  .topbar{
+    min-height:38px;
+    margin-bottom:3px;
+  }
+  .brand{
+    min-width:220px;
+  }
+  .brand h1{
+    font-size:1.18rem;
+  }
+  .brand p{
+    margin-top:2px;
+    font-size:.67rem;
+  }
+
+  .main-tabs{
+    gap:4px;
+    margin:4px 0;
+    padding:3px;
+    border-radius:9px;
+  }
+  .tab-button{
+    padding:5px 9px;
+    font-size:.76rem;
+  }
+
+  .card{
+    padding:12px;
+    margin:8px 0;
+    border-radius:11px;
+  }
+  .stats{
+    gap:8px;
+  }
+  .stats div{
+    padding:8px;
+    border-radius:8px;
+  }
+
+  .chat-workspace{
+    grid-template-columns:250px minmax(0,1fr);
+    height:clamp(520px,calc(100vh - 100px),980px);
+    height:clamp(520px,calc(100dvh - 100px),980px);
+    margin-top:5px;
+    border-radius:12px;
+  }
+
+  .chat-sidebar-brand{
+    gap:8px;
+    padding:10px 11px 7px;
+  }
+  .chat-sidebar-brand strong{
+    font-size:.82rem;
+  }
+  .chat-sidebar-brand small{
+    font-size:.62rem;
+  }
+  .chat-brand-mark{
+    width:28px;
+    height:28px;
+    border-radius:9px;
+  }
+
+  .chat-sidebar-controls{
+    padding:7px 10px 9px;
+  }
+  .btn-new-conversation{
+    min-height:34px;
+    padding:6px 9px;
+    border-radius:9px;
+    font-size:.76rem;
+  }
+  .conversation-search{
+    margin-top:7px;
+  }
+  .conversation-search input{
+    min-height:31px;
+    padding:6px 8px 6px 28px;
+    border-radius:8px;
+    font-size:.72rem;
+  }
+  .conversation-search>span{
+    left:9px;
+    font-size:.72rem;
+  }
+
+  .chat-sidebar-section{
+    padding:8px 10px;
+  }
+  .chat-sidebar-label,
+  .chat-sidebar-label-row{
+    font-size:.61rem;
+  }
+  .chat-sidebar-label-row{
+    margin-bottom:5px;
+  }
+  .zero-ai-mini{
+    padding:1px 5px;
+    font-size:.56rem;
+  }
+  .conversation-projects{
+    gap:4px;
+    margin-top:6px;
+  }
+  .conversation-project{
+    padding:3px 6px;
+    font-size:.64rem;
+  }
+  .conversation-group+.conversation-group{
+    margin-top:6px;
+  }
+  .conversation-group-title{
+    padding:3px 4px 2px;
+    font-size:.61rem;
+  }
+  .conversation-item{
+    padding:6px 7px;
+    border-radius:8px;
+  }
+  .conversation-item-title{
+    font-size:.74rem;
+  }
+  .conversation-item-meta{
+    gap:5px;
+    margin-top:2px;
+    font-size:.59rem;
+  }
+
+  .chat-sidebar-footer{
+    gap:7px;
+    padding:7px 9px;
+    font-size:.64rem;
+  }
+  .chat-history-note{
+    gap:1px;
+  }
+  .sidebar-account-row{
+    grid-template-columns:28px minmax(0,1fr) 30px;
+    gap:7px;
+    padding-top:6px;
+  }
+  .sidebar-avatar{
+    width:28px;
+    height:28px;
+    min-width:28px;
+    flex-basis:28px;
+  }
+  .sidebar-account-copy strong{
+    font-size:.7rem;
+  }
+  .sidebar-account-copy small{
+    font-size:.58rem;
+  }
+  .sidebar-settings-button{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+  }
+  .sidebar-settings-button svg{
+    width:15px;
+    height:15px;
+  }
+
+  .chat-conversation-header{
+    min-height:50px;
+    gap:10px;
+    padding:7px 12px;
+  }
+  .chat-title-group h2{
+    margin:1px 0;
+    font-size:.86rem;
+  }
+  .chat-eyebrow,
+  .conversation-id-line{
+    font-size:.59rem;
+  }
+  .zero-ai-badge{
+    gap:4px;
+    padding:4px 7px;
+    font-size:.67rem;
+  }
+
+  .chat-messages{
+    padding:13px 24px 9px;
+  }
+  .chat-empty-state{
+    gap:6px;
+  }
+  .chat-empty-state .chat-empty-mark{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+  }
+  .chat-empty-state h3{
+    font-size:.98rem;
+  }
+  .chat-empty-state p{
+    font-size:.76rem;
+  }
+  .chat-message{
+    margin-bottom:11px;
+  }
+  .chat-message-role{
+    margin:0 6px 3px;
+    font-size:.59rem;
+  }
+  .chat-message-content{
+    max-width:min(86%,900px);
+    padding:8px 11px;
+    border-radius:13px;
+    font-size:.84rem;
+    line-height:1.5;
+  }
+  .chat-message-actions{
+    gap:4px;
+    margin:4px 6px 0;
+  }
+  .chat-message-action{
+    min-height:24px;
+    padding:3px 7px;
+    border-radius:7px;
+    font-size:.6rem;
+  }
+  .chat-message-meta{
+    gap:4px;
+    margin:3px 6px 0;
+    font-size:.58rem;
+  }
+
+  .chat-composer{
+    padding:6px 10px 7px;
+  }
+  .chat-composer-meta{
+    min-height:17px;
+    gap:7px;
+    margin:0 1px 3px;
+    font-size:.6rem;
+  }
+  .memory-edit-target{
+    gap:8px;
+    margin:0 1px 5px;
+    padding:6px 8px;
+    border-radius:8px;
+  }
+  .memory-edit-target strong{
+    font-size:.67rem;
+  }
+  .memory-edit-target span{
+    font-size:.65rem;
+  }
+  .memory-edit-target code{
+    font-size:.57rem;
+  }
+  .memory-edit-target .secondary-button{
+    padding:4px 6px;
+    font-size:.62rem;
+  }
+  .chat-input-shell{
+    gap:6px;
+    padding:4px;
+    border-radius:10px;
+  }
+  .chat-input-shell textarea{
+    min-height:36px;
+    max-height:130px;
+    padding:8px 8px 6px;
+    font-size:.78rem;
+  }
+  .chat-send-button{
+    min-width:78px;
+    min-height:34px;
+    padding:6px 9px;
+    border-radius:8px;
+    font-size:.72rem;
+  }
+  .chat-send-icon{
+    width:15px;
+    height:15px;
+  }
+  .chat-composer-actions{
+    gap:8px;
+    margin-top:4px;
+  }
+  .chat-composer-options{
+    gap:9px;
+  }
+  .chat-option{
+    gap:4px;
+    font-size:.64rem;
+  }
+
+  .memory-title-row{
+    margin-bottom:9px;
+  }
+  .memory-view-switch{
+    gap:4px;
+    margin-bottom:9px;
+    padding:3px;
+  }
+  .memory-view-button{
+    padding:5px 8px;
+    font-size:.71rem;
+  }
+  .memory-layout{
+    grid-template-columns:minmax(230px,31%) minmax(0,1fr);
+    gap:9px;
+    min-height:300px;
+  }
+  .memory-tree-panel{
+    min-height:330px;
+  }
+  .memory-tree-heading{
+    gap:2px;
+    padding:8px 10px;
+  }
+  .memory-tree-heading strong{
+    font-size:.75rem;
+  }
+  .memory-tree-heading span{
+    font-size:.62rem;
+  }
+  .memory-tree{
+    max-height:500px;
+    padding:6px 5px 9px;
+  }
+  .memory-tree-folder>summary,
+  .memory-tree-file{
+    padding:5px 6px;
+    font-size:.73rem;
+  }
+  .memory-tree-children{
+    margin-left:9px;
+    padding-left:6px;
+  }
+  .memory-detail{
+    padding:11px;
+  }
+  .memory-detail h3{
+    margin:10px 0 8px;
+    font-size:.94rem;
+  }
+  .memory-path{
+    margin:-2px 0 9px;
+    padding:6px 8px;
+    font-size:.64rem;
+  }
+  .memory-answer{
+    min-height:90px;
+    max-height:330px;
+    padding:9px;
+  }
+  .memory-answer-label{
+    margin-bottom:5px;
+    font-size:.66rem;
+  }
+  .memory-metadata{
+    gap:6px;
+    margin:9px 0;
+  }
+  .memory-metadata div{
+    padding:6px;
+  }
+  .memory-metadata dt{
+    font-size:.61rem;
+  }
+  .memory-metadata dd{
+    margin-top:2px;
+    font-size:.73rem;
+  }
+  .memory-detail-actions{
+    gap:6px;
+  }
+  .memory-detail-actions button{
+    padding:5px 8px;
+    font-size:.7rem;
+  }
+  .memory-list{
+    max-height:470px;
+  }
+  .memory-list-item{
+    padding:8px;
+  }
+  .memory-list-item strong{
+    font-size:.78rem;
+  }
+  .memory-list-meta{
+    gap:5px;
+    margin-top:5px;
+    font-size:.61rem;
+  }
+  .memory-controls{
+    grid-template-columns:minmax(200px,1fr) minmax(130px,170px) minmax(130px,170px) auto auto;
+    gap:6px;
+    margin-bottom:9px;
+  }
+  .memory-controls input,
+  .memory-controls select{
+    padding:6px 8px;
+    font-size:.7rem;
+  }
+
+  .context-title-row,
+  .context-stats{
+    margin-bottom:9px;
+  }
+  .context-grid{
+    gap:8px;
+  }
+  .context-box{
+    padding:10px;
+    border-radius:9px;
+  }
+  .context-box h3{
+    font-size:.84rem;
+  }
+  .context-box>p,
+  .context-box .row p{
+    font-size:.7rem;
+  }
+  .context-code{
+    min-height:72px;
+    max-height:250px;
+    margin:5px 0 7px;
+    padding:8px;
+    font-size:.69rem;
+  }
+  .context-list{
+    gap:5px;
+    max-height:280px;
+    margin-top:7px;
+  }
+  .context-list-item{
+    padding:6px 8px;
+  }
+  .context-list-item strong{
+    font-size:.71rem;
+  }
+  .context-list-item small{
+    font-size:.61rem;
+  }
+
+  .account-modal{
+    width:min(820px,calc(100vw - 40px));
+  }
+  .account-modal-header{
+    padding:12px 14px 10px;
+  }
+  .account-modal-session{
+    padding:8px 14px;
+  }
+  .account-drawer-content{
+    padding:2px 10px 12px;
+  }
+}
