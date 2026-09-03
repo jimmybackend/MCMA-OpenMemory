@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-3">
+  <link rel="stylesheet" href="app.css?v=20260903-4">
 </head>
 <body>
   <main class="shell">
@@ -395,7 +395,12 @@
 
           <div class="chat-input-shell">
             <textarea id="question" maxlength="32768" required rows="1" placeholder="Escribe tu mensaje o «Guarda esto: …»" aria-label="Mensaje para MCMA"></textarea>
-            <button id="send" type="submit" class="chat-send-button" aria-label="Enviar mensaje">Enviar <span aria-hidden="true">↑</span></button>
+            <button id="send" type="submit" class="chat-send-button" aria-label="Enviar mensaje">
+              <span class="chat-send-label">Enviar</span>
+              <svg class="chat-send-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 19V5m0 0-6 6m6-6 6 6"></path>
+              </svg>
+            </button>
           </div>
 
           <div class="chat-composer-actions">

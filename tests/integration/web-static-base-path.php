@@ -9,11 +9,12 @@ function check(bool $condition,string $message): void
 $root=dirname(__DIR__,2).'/apps/web/public';
 $index=file_get_contents($root.'/index.html');
 $app=file_get_contents($root.'/app.js');
+$css=file_get_contents($root.'/app.css');
 $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-3"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-4"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
 check(str_contains($index,'src="app.js?v=20260903-3"'),'app script is base-path relative and cache-busted');
@@ -27,6 +28,8 @@ check(str_contains($index,'id="memoryTreeDetailContent"'),'decrypted tree detail
 check(str_contains($index,'id="memoryUpdateInChat"'),'Biblioteca exact-memory update action is present');
 check(str_contains($index,'id="memoryEditTarget"'),'Chat exact-memory target banner is present');
 check(str_contains($index,'id="memoryEditTargetClear"'),'Chat exact-memory target clear action is present');
+check(str_contains($index,'class="chat-send-label"'),'responsive send label is present');
+check(str_contains($index,'class="chat-send-icon"'),'responsive send SVG icon is present');
 $inputShellPos=strpos($index,'<div class="chat-input-shell">');
 $sendButtonPos=strpos($index,'<button id="send"');
 $composerActionsPos=strpos($index,'<div class="chat-composer-actions">');
@@ -52,6 +55,14 @@ check(str_contains($index,'data-tab-target="memory"'),'Memory tab is present');
 check(str_contains($index,'data-tab-target="context"'),'Context tab is present');
 check(str_contains($index,'id="contextPanel"'),'Context transparency panel is present');
 check(str_contains($index,'Contexto MCMA'),'Context tab label is present');
+
+check(is_string($css),'app.css readable');
+check(str_contains($css,'height:clamp(400px,calc(100dvh - 190px),900px)'),'desktop Chat height is viewport-aware');
+check(!str_contains($css,'min-height:620px'),'obsolete fixed Chat minimum height remains');
+check(str_contains($css,'grid-template-columns:minmax(0,1fr) auto'),'Chat input keeps send control beside textarea');
+check(str_contains($css,'.chat-send-icon'),'Chat send SVG icon styling is present');
+check(str_contains($css,'.chat-send-label'),'Chat send label responsive styling is present');
+check(str_contains($css,'grid-template-columns:minmax(0,1fr) 44px'),'small-screen Chat send control is compact');
 
 check(is_string($app),'app.js readable');
 check(str_contains($app,"fetch('logout'"),'logout endpoint is base-path relative');
