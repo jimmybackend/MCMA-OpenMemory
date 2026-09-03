@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MCMA OpenMemory</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260901-5">
-  <link rel="stylesheet" href="app.css?v=20260903-5">
+  <link rel="stylesheet" href="app.css?v=20260903-6">
 </head>
 <body>
   <main class="shell">
@@ -14,28 +14,8 @@
         <h1>MCMA OpenMemory</h1>
         <p>Memoria cifrada, multiusuario y portable.</p>
       </div>
-
       <div class="account-area">
-        <div id="identity" class="identity-chip" hidden>
-          <span class="avatar-shell">
-            <span id="avatarFallback" class="avatar-fallback" aria-hidden="true">M</span>
-            <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
-          </span>
-          <span class="identity-text">
-            <strong id="identityName">Usuario</strong>
-            <small id="identityEmail"></small>
-          </span>
-        </div>
-
-        <div class="session-actions">
-          <span id="status" class="session-pill pending">
-            <span class="session-dot"></span>
-            <span id="statusText">Comprobando sesión…</span>
-          </span>
-          <a id="adminLink" href="admin.html" hidden>Administrar</a>
-          <a id="login" href="login" hidden>Iniciar sesión</a>
-          <button id="logout" type="button" hidden>Salir</button>
-        </div>
+        <a id="login" href="login" hidden>Iniciar sesión</a>
       </div>
     </header>
 
@@ -60,13 +40,35 @@
       <button id="tabContext" type="button" role="tab" class="tab-button" data-tab-target="context" aria-controls="contextPanel" aria-selected="false">Contexto MCMA</button>
     </nav>
 
-    <details id="accountDrawer" class="account-drawer" hidden>
-      <summary>
-        <span>Cuenta, billing y API</span>
-        <small>Plan, créditos, Stripe y claves de acceso</small>
-      </summary>
-      <div id="accountDrawerContent" class="account-drawer-content"></div>
-    </details>
+    <dialog id="accountDrawer" class="account-modal" aria-labelledby="accountModalTitle" hidden>
+      <div class="account-modal-shell">
+        <div class="account-modal-header">
+          <div>
+            <span class="account-modal-eyebrow">MCMA OpenMemory</span>
+            <h2 id="accountModalTitle">Configuración</h2>
+            <p>Cuenta, billing, Stripe y API.</p>
+          </div>
+          <button id="accountSettingsClose" type="button" class="account-modal-close" aria-label="Cerrar configuración">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6 6l12 12M18 6 6 18"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="account-modal-session">
+          <span id="status" class="session-pill pending">
+            <span class="session-dot"></span>
+            <span id="statusText">Comprobando sesión…</span>
+          </span>
+          <div class="session-actions">
+            <a id="adminLink" href="admin.html" hidden>Administrar</a>
+            <button id="logout" type="button" hidden>Salir</button>
+          </div>
+        </div>
+
+        <div id="accountDrawerContent" class="account-drawer-content"></div>
+      </div>
+    </dialog>
 
     <section id="memoryExplorer" class="card memory-explorer tab-panel" role="tabpanel" aria-labelledby="tabMemory" data-tab-panel="memory" hidden>
       <div class="row between memory-title-row">
@@ -378,8 +380,27 @@
         </section>
 
         <div class="chat-sidebar-footer">
-          <strong>Historial persistente</strong>
-          <span>Leer y navegar no consume tokens ni créditos.</span>
+          <div class="chat-history-note">
+            <strong>Historial persistente</strong>
+            <span>Leer y navegar no consume tokens ni créditos.</span>
+          </div>
+
+          <div id="identity" class="sidebar-account-row" hidden>
+            <span class="avatar-shell sidebar-avatar">
+              <span id="avatarFallback" class="avatar-fallback" aria-hidden="true">M</span>
+              <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+            </span>
+            <span class="sidebar-account-copy">
+              <strong id="identityName">usuario</strong>
+              <small>Cuenta activa</small>
+            </span>
+            <button id="accountSettingsOpen" type="button" class="sidebar-settings-button" aria-label="Abrir configuración de cuenta" title="Configuración">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.86 1.86-.06-.06A1.7 1.7 0 0 0 16 18.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V20h-2.6v-.1a1.7 1.7 0 0 0-1.4-1.67 1.7 1.7 0 0 0-1.48.47l-.06.06-1.86-1.86.06-.06A1.7 1.7 0 0 0 7.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H5.8V11h.1A1.7 1.7 0 0 0 7.57 9.6a1.7 1.7 0 0 0-.47-1.48l-.06-.06L8.9 6.2l.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V4.8h2.6v.1a1.7 1.7 0 0 0 1.4 1.67 1.7 1.7 0 0 0 1.48-.47l.06-.06 1.86 1.86-.06.06A1.7 1.7 0 0 0 19.4 9.8c.13.37.35.7.64.96.3.26.68.4 1.08.4h.08v2.6h-.08a1.7 1.7 0 0 0-1.72 1.24Z"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -443,6 +464,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=20260903-4" defer></script>
+  <script src="app.js?v=20260903-5" defer></script>
 </body>
 </html>
