@@ -140,6 +140,8 @@
 - [x] multi-user /mcma/v1/me and /mcma/v1/ask
 - [x] same-origin web UI
 - [x] Nginx/PHP-FPM deployment example
+- [x] repository-managed `mailit.click` MCMA V1 Nginx fragment with 180s FastCGI timeouts
+- [x] safe production Nginx adoption/deploy script with backup, validation, rollback and V2 preservation
 - [ ] pepper rotation/migration
 - [ ] bulk multi-user recovery workflow
 
