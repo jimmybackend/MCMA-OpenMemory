@@ -248,6 +248,79 @@ final class MemoryMutationService
         );
     }
 
+    private function resolveContextualTarget(string $actor,string $requestText,array $parsed,array $contextRefs): array
+    {
+        if($contextRefs===[]) return ['status'=>'not-found','candidates'=>[]];
+
+        $visible=[];
+        foreach($contextRefs as $ref){
+            try{$stored=$this->library->readAs($actor,$ref);}catch(Throwable){continue;}
+            $visible[]=['logical_ref'=>$ref,'stored'=>$stored];
+        }
+        if($visible===[]) return ['status'=>'not-found','candidates'=>[]];
+        if(count($visible)===1){
+            return ['status'=>'resolved','logical_ref'=>$visible[0]['logical_ref'],'candidates'=>[]];
+        }
+
+        $query=trim((string)($parsed['new_content']??''));
+        if($query==='') $query=$requestText;
+        $tokens=self::relevanceTokens($query);
+        if($tokens===[]){
+            return ['status'=>'ambiguous','candidates'=>array_map(
+                static fn(array $item): array => ['logical_ref'=>$item['logical_ref'],'score'=>0],
+                array_slice($visible,0,8)
+            )];
+        }
+
+        $scored=[];
+        foreach($visible as $item){
+            $ref=(string)$item['logical_ref'];
+            $content=$item['stored']['payload']['content']??null;
+            if(is_array($content)&&($content['lifecycle']['status']??null)==='deleted') continue;
+
+            $title=is_array($content)&&is_string($content['title']??null)?trim((string)$content['title']):'';
+            $retrieval=is_array($content)&&is_string($content['retrieval']['question']??null)?trim((string)$content['retrieval']['question']):'';
+            $category='';
+            if(is_array($content)&&is_array($content['classification']['category_path']??null)){
+                $category=implode(' ',array_values(array_filter($content['classification']['category_path'],'is_string')));
+            }
+            $body=is_string($content)?$content:(is_array($content)&&is_string($content['content']??null)
+                ?(string)$content['content']
+                :(json_encode($content,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:''));
+
+            $score=self::contextualRelevanceScore($tokens,implode("\n",[$ref,$title,$retrieval,$category,$body]),$ref,$title);
+            $scored[]=['logical_ref'=>$ref,'title'=>$title,'score'=>$score];
+        }
+
+        usort($scored,static fn(array $a,array $b): int => $b['score']<=>$a['score']?:$a['logical_ref']<=>$b['logical_ref']);
+        if($scored===[]) return ['status'=>'not-found','candidates'=>[]];
+
+        $best=(int)$scored[0]['score'];
+        $second=(int)($scored[1]['score']??0);
+        if($best<12||($second>0&&($best-$second)<5)){
+            return ['status'=>'ambiguous','candidates'=>array_slice($scored,0,8)];
+        }
+
+        return [
+            'status'=>'resolved',
+            'logical_ref'=>(string)$scored[0]['logical_ref'],
+            'candidates'=>array_slice($scored,0,8),
+            'resolution'=>'validated-contextual-match',
+            'score'=>$best,
+        ];
+    }
+
+    private static function normalizeContextRefs(array|string|null $value): array
+    {
+        $items=is_array($value)?$value:($value===null?[]:[$value]);
+        $refs=[];
+        foreach($items as $ref){
+            if(!is_string($ref)||!str_starts_with($ref,'memory://user/')) continue;
+            if(!in_array($ref,$refs,true)) $refs[]=$ref;
+        }
+        return array_slice($refs,0,32);
+    }
+
     private function resolveTarget(string $actor,string $target): array
     {
         $target=trim($target," \t\n\r\0\x0B\"'");
