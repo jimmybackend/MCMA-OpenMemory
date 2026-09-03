@@ -197,13 +197,11 @@
     const date=new Date(value||'');
     if(Number.isNaN(date.getTime()))return 'Anteriores';
     const now=new Date();
-    const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    const day=new Date(date.getFullYear(),date.getMonth(),date.getDate());
-    const days=Math.floor((today-day)/86400000);
-    if(days<=0)return 'Hoy';
-    if(days===1)return 'Ayer';
-    if(days<=7)return 'Últimos 7 días';
-    return 'Anteriores';
+    return (
+      date.getFullYear()===now.getFullYear()
+      &&date.getMonth()===now.getMonth()
+      &&date.getDate()===now.getDate()
+    )?'Hoy':'Anteriores';
   }
 
   function conversationDate(value){
@@ -456,7 +454,20 @@
     }
   }
 
+  function updateConversationScrollButtons(){
+    const max=Math.max(0,conversationList.scrollHeight-conversationList.clientHeight);
+    conversationPageUp.disabled=conversationList.scrollTop<=1;
+    conversationPageDown.disabled=conversationList.scrollTop>=max-1;
+  }
+
+  function scrollConversationPage(direction){
+    const first=conversationList.querySelector('.conversation-item');
+    const row=first?Math.max(1,first.getBoundingClientRect().height+4):44;
+    conversationList.scrollBy({top:direction*row*4,behavior:'smooth'});
+  }
+
   function renderConversationList(){
+    const previousScroll=conversationList.scrollTop;
     conversationList.replaceChildren();
     const filter=normalizedSearch(conversationState.filter);
     const current=currentConversationId();
@@ -477,7 +488,7 @@
       return;
     }
 
-    const order=['Hoy','Ayer','Últimos 7 días','Anteriores'];
+    const order=['Hoy','Anteriores'];
     const grouped=new Map(order.map(label=>[label,[]]));
     for(const item of filtered)grouped.get(conversationGroup(item.last_at)).push(item);
 
@@ -516,12 +527,91 @@
       }
       conversationList.appendChild(group);
     }
+    requestAnimationFrame(()=>{
+      conversationList.scrollTop=Math.min(previousScroll,Math.max(0,conversationList.scrollHeight-conversationList.clientHeight));
+      updateConversationScrollButtons();
+    });
   }
 
   function markActiveConversation(){
     const current=currentConversationId();
     for(const button of conversationList.querySelectorAll('[data-conversation-id]')){
       button.classList.toggle('active',button.dataset.conversationId===current);
+    }
+  }
+
+  function currentConversationSummary(){
+    const id=currentConversationId();
+    return conversationState.items.find(item=>item.conversation_id===id)||null;
+  }
+
+  async function renameConversation(conversationId,title){
+    const value=String(title||'').replace(/\s+/g,' ').trim();
+    if(!/^conv_[0-9a-f]{32}$/.test(conversationId)||value==='')return null;
+    const data=await api('/mcma/v1/conversations/'+encodeURIComponent(conversationId),{
+      method:'PATCH',
+      body:JSON.stringify({title:value})
+    });
+    const updated=data.conversation||{};
+    const position=conversationState.items.findIndex(item=>item.conversation_id===conversationId);
+    if(position>=0)conversationState.items[position]={...conversationState.items[position],...updated};
+    renderConversationList();
+    if(currentConversationId()===conversationId)conversationTitle.textContent=updated.title||value;
+    memoryState.tree=null;
+    return updated;
+  }
+
+  function openConversationRename(){
+    const summary=currentConversationSummary();
+    if(!summary)return;
+    conversationRenameInput.value=summary.title||conversationTitle.textContent||'Conversación';
+    conversationRenameForm.hidden=false;
+    conversationRenameOpen.hidden=true;
+    conversationRenameInput.focus();
+    conversationRenameInput.select();
+  }
+
+  function closeConversationRename(){
+    conversationRenameForm.hidden=true;
+    conversationRenameOpen.hidden=false;
+    conversationRenameInput.value='';
+  }
+
+  async function saveConversationRename(event){
+    event.preventDefault();
+    const summary=currentConversationSummary();
+    const value=conversationRenameInput.value.trim();
+    if(!summary||value==='')return;
+    conversationRenameSave.disabled=true;
+    conversationRenameCancel.disabled=true;
+    try{
+      await renameConversation(summary.conversation_id,value);
+      composerStatus.textContent='Nombre de conversación actualizado · 0 tokens IA.';
+      closeConversationRename();
+    }catch(error){
+      composerStatus.textContent='No se pudo cambiar el nombre: '+error.message;
+    }finally{
+      conversationRenameSave.disabled=false;
+      conversationRenameCancel.disabled=false;
+    }
+  }
+
+  async function renameSelectedLibraryConversation(){
+    const conversationId=memoryState.selectedConversationId;
+    if(!conversationId)return;
+    const current=conversationState.items.find(item=>item.conversation_id===conversationId);
+    const proposed=window.prompt('Nuevo nombre de la conversación',current?.title||'Conversación');
+    if(proposed===null||proposed.trim()==='')return;
+    interactionRenameConversation.disabled=true;
+    interactionValidationStatus.textContent='Actualizando nombre…';
+    try{
+      const updated=await renameConversation(conversationId,proposed);
+      interactionValidationStatus.textContent='Conversación renombrada: '+(updated?.title||proposed.trim())+' · 0 tokens IA';
+      memoryState.tree=null;
+    }catch(error){
+      interactionValidationStatus.textContent='No se pudo renombrar: '+error.message;
+    }finally{
+      interactionRenameConversation.disabled=false;
     }
   }
 
