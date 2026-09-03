@@ -8,8 +8,6 @@ use MCMA\Core\Interaction\InteractionCatalogService;
 use MCMA\Core\Interaction\ThematicSummaryService;
 use MCMA\Core\Library;
 use MCMA\Core\Storage\LocalFilesystemAdapter;
-use RuntimeException;
-use Throwable;
 
 function thematic_ok(bool $condition,string $message): void
 {
