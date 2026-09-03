@@ -318,6 +318,71 @@ try{
         'Canonical mutation did not persist replacement content'
     );
 
+    // Legacy canonical memories must preserve their rich structure when a
+    // conversational anchor such as "ese conocimiento" is updated.
+    $legacyRef='memory://user/sistemas/correo/mantenimiento/mailit-click-legacy-versionado';
+    $lib->writeAs(
+        'owner',
+        $legacyRef,
+        [
+            'title'=>'Mantenimiento de mailit.click',
+            'content'=>'mailit.click tiene un pendiente en index.php y pvisit.',
+            'classification'=>[
+                'category_path'=>['sistemas','correo','mantenimiento'],
+                'cognitive_layer'=>'90-projects',
+                'scope'=>'project',
+                'temperature'=>'hot',
+            ],
+        ],
+        'json','hot','90-projects','project','confirmed'
+    );
+    $legacyBefore=$lib->readAs('owner',$legacyRef);
+    explicit_memory_ok(
+        \MCMA\Core\Memory\MemoryMutationService::isMutationRequest(
+            'actualiza ese conocimiento con mailit.click ya corrigió pvisit y conserva analytics.'
+        ),
+        'Contextual knowledge update wording was not recognized'
+    );
+    $legacyUpdate=$mutation->execute(
+        'owner',
+        'actualiza ese conocimiento con mailit.click ya corrigió pvisit y conserva analytics.',
+        $legacyRef
+    );
+    $legacyAfter=$lib->readAs('owner',$legacyRef);
+    explicit_memory_ok(($legacyUpdate['canonical_memory_ref']??null)===$legacyRef,'Contextual mutation lost canonical memory ref');
+    explicit_memory_ok(
+        (int)($legacyAfter['payload']['metadata']['revision']??0)===(int)($legacyBefore['payload']['metadata']['revision']??1)+1,
+        'Contextual legacy update did not create a new revision'
+    );
+    explicit_memory_ok(
+        ($legacyAfter['payload']['content']['title']??null)==='Mantenimiento de mailit.click',
+        'Legacy update destroyed memory title'
+    );
+    explicit_memory_ok(
+        ($legacyAfter['payload']['content']['classification']['category_path']??null)===['sistemas','correo','mantenimiento'],
+        'Legacy update destroyed memory classification'
+    );
+    explicit_memory_ok(
+        str_contains((string)($legacyAfter['payload']['content']['content']??''),'corrigió pvisit'),
+        'Contextual legacy update did not replace knowledge content'
+    );
+
+    $legacyAppend=$mutation->execute(
+        'owner',
+        'actualiza ese conocimiento y agrega: también se verificaron las pruebas de agentes.',
+        $legacyRef
+    );
+    $legacyAppended=$lib->readAs('owner',$legacyRef);
+    explicit_memory_ok(
+        str_contains((string)($legacyAppended['payload']['content']['content']??''),'corrigió pvisit')
+        && str_contains((string)($legacyAppended['payload']['content']['content']??''),'pruebas de agentes'),
+        'Append mutation did not preserve prior knowledge and add the new concept'
+    );
+    explicit_memory_ok(
+        (int)($legacyAppended['payload']['metadata']['revision']??0)===(int)($legacyAfter['payload']['metadata']['revision']??0)+1,
+        'Append mutation did not create another revision'
+    );
+
     $deletedMutation = $mutation->execute('owner', 'elimina memoria ' . $originalRef);
     explicit_memory_ok(($deletedMutation['mutation']['action'] ?? null) === 'delete', 'Delete mutation action mismatch');
     $deletedStored = $lib->readAs('owner', $originalRef);
