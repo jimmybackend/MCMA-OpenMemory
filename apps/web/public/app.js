@@ -2003,6 +2003,7 @@
     button.focus();
   });
 
+  contextRefresh.addEventListener('click',()=>loadContext({maxPasses:12}));
   memoryTreeView.addEventListener('click',()=>switchMemoryView('tree'));
   memoryListView.addEventListener('click',()=>switchMemoryView('list'));
   memoryUpdateInChat.addEventListener('click',updateSelectedMemoryInChat);
