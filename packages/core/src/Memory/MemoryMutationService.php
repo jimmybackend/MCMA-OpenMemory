@@ -26,10 +26,17 @@ final class MemoryMutationService
             && (preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1||str_contains($text,'memory://user/'));
     }
 
-    public function execute(string $actor,string $requestText,array|string|null $contextCanonicalRefs=null): array
+    public function execute(
+        string $actor,
+        string $requestText,
+        array|string|null $contextCanonicalRefs=null,
+        ?string $selectedCanonicalRef=null
+    ): array
     {
         $parsed=self::parse($requestText);
-        if(($parsed['target']??null)==='@context'){
+        if(is_string($selectedCanonicalRef)&&trim($selectedCanonicalRef)!==''){
+            $resolved=$this->resolveSelectedTarget($actor,trim($selectedCanonicalRef));
+        }elseif(($parsed['target']??null)==='@context'){
             $resolved=$this->resolveContextualTarget(
                 $actor,
                 $requestText,
@@ -246,6 +253,31 @@ final class MemoryMutationService
             $retrievalSync['semantic_index'],
             $retrievalSync
         );
+    }
+
+    private function resolveSelectedTarget(string $actor,string $selectedCanonicalRef): array
+    {
+        if(!str_starts_with($selectedCanonicalRef,'memory://user/')){
+            return ['status'=>'not-found','candidates'=>[],'resolution'=>'invalid-explicit-selection'];
+        }
+
+        try{
+            $stored=$this->library->readAs($actor,$selectedCanonicalRef);
+        }catch(Throwable){
+            return ['status'=>'not-found','candidates'=>[],'resolution'=>'unreadable-explicit-selection'];
+        }
+
+        $content=$stored['payload']['content']??null;
+        if(is_array($content)&&($content['lifecycle']['status']??null)==='deleted'){
+            return ['status'=>'not-found','candidates'=>[],'resolution'=>'deleted-explicit-selection'];
+        }
+
+        return [
+            'status'=>'resolved',
+            'logical_ref'=>$selectedCanonicalRef,
+            'candidates'=>[],
+            'resolution'=>'explicit-library-selection',
+        ];
     }
 
     private function resolveContextualTarget(string $actor,string $requestText,array $parsed,array $contextRefs): array
