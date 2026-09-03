@@ -1146,6 +1146,53 @@
     questionInput.setSelectionRange(questionInput.value.length,questionInput.value.length);
   }
 
+  function openTreeInlineEditor(){
+    if(
+      !memoryState.selectedRef
+      ||!['memory','knowledge'].includes(memoryState.selectedKind)
+    )return;
+    libraryInlineEditText.value=memoryState.selectedEditableText||'';
+    libraryInlineEditForm.hidden=false;
+    libraryInlineEditStatus.textContent='';
+    libraryInlineEditText.focus();
+    libraryInlineEditText.setSelectionRange(
+      libraryInlineEditText.value.length,
+      libraryInlineEditText.value.length
+    );
+  }
+
+  function closeTreeInlineEditor(){
+    libraryInlineEditForm.hidden=true;
+    libraryInlineEditText.value='';
+  }
+
+  async function saveTreeInlineEditor(event){
+    event.preventDefault();
+    const ref=memoryState.selectedRef;
+    const content=libraryInlineEditText.value.trim();
+    if(!ref||content==='')return;
+
+    libraryInlineEditSave.disabled=true;
+    libraryInlineEditCancel.disabled=true;
+    libraryInlineEditStatus.textContent='Guardando corrección y regenerando embedding…';
+    try{
+      const data=await saveLibraryObjectEdit(ref,content);
+      const summary=libraryEditSummary(data.edit||{});
+      memoryState.items=[];
+      memoryState.tree=null;
+      closeTreeInlineEditor();
+      await loadMemoryTree();
+      await loadMemoryTreeDetail(ref);
+      libraryInlineEditStatus.textContent=summary;
+      await loadBilling();
+    }catch(error){
+      libraryInlineEditStatus.textContent='No se pudo guardar: '+error.message;
+    }finally{
+      libraryInlineEditSave.disabled=false;
+      libraryInlineEditCancel.disabled=false;
+    }
+  }
+
   async function loadMemoryTreeDetail(logicalRef){
     memoryTreeDetailEmpty.textContent='Descifrando elemento…';
     try{
@@ -1189,9 +1236,13 @@
 
   function clearMemoryDetail(){
     memoryState.selectedId=null;
+    memoryState.selectedListRef=null;
+    memoryState.selectedListEditableText='';
     memoryDetailContent.hidden=true;
     memoryDetailEmpty.hidden=false;
     memoryValidationStatus.textContent='';
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
     for(const node of memoryList.querySelectorAll('.memory-list-item'))node.classList.remove('selected');
   }
 
@@ -1277,9 +1328,16 @@
 
   function renderMemoryDetail(memory){
     memoryState.selectedId=memory.id;
+    memoryState.selectedListRef=memory.logical_ref||null;
+    const selectedValue=memory.answer?.value;
+    memoryState.selectedListEditableText=typeof selectedValue==='string'
+      ?selectedValue
+      :(selectedValue===null||selectedValue===undefined?'':JSON.stringify(selectedValue,null,2));
     memoryDetailEmpty.hidden=true;
     memoryDetailContent.hidden=false;
     memoryValidationStatus.textContent='';
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
 
     for(const node of memoryList.querySelectorAll('.memory-list-item')){
       node.classList.toggle('selected',node.dataset.memoryId===memory.id);
@@ -1317,6 +1375,50 @@
       renderMemoryDetail(data.memory||{});
     }catch(error){
       memoryValidationStatus.textContent='No se pudo descifrar: '+error.message;
+    }
+  }
+
+  function openListInlineEditor(){
+    if(!memoryState.selectedId||!memoryState.selectedListRef)return;
+    memoryInlineEditText.value=memoryState.selectedListEditableText||'';
+    memoryInlineEditForm.hidden=false;
+    memoryValidationStatus.textContent='';
+    memoryInlineEditText.focus();
+    memoryInlineEditText.setSelectionRange(
+      memoryInlineEditText.value.length,
+      memoryInlineEditText.value.length
+    );
+  }
+
+  function closeListInlineEditor(){
+    memoryInlineEditForm.hidden=true;
+    memoryInlineEditText.value='';
+  }
+
+  async function saveListInlineEditor(event){
+    event.preventDefault();
+    const ref=memoryState.selectedListRef;
+    const id=memoryState.selectedId;
+    const content=memoryInlineEditText.value.trim();
+    if(!ref||!id||content==='')return;
+
+    memoryInlineEditSave.disabled=true;
+    memoryInlineEditCancel.disabled=true;
+    memoryValidationStatus.textContent='Guardando corrección y regenerando embedding…';
+    try{
+      const data=await saveLibraryObjectEdit(ref,content);
+      const summary=libraryEditSummary(data.edit||{});
+      closeListInlineEditor();
+      await loadMemories(memoryState.page);
+      await loadMemoryDetail(id);
+      memoryValidationStatus.textContent=summary;
+      memoryState.tree=null;
+      await loadBilling();
+    }catch(error){
+      memoryValidationStatus.textContent='No se pudo guardar: '+error.message;
+    }finally{
+      memoryInlineEditSave.disabled=false;
+      memoryInlineEditCancel.disabled=false;
     }
   }
 
