@@ -23,10 +23,12 @@
   const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
   const libraryInlineEditActions=$('libraryInlineEditActions'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
   const libraryInlineEditForm=$('libraryInlineEditForm'),libraryInlineEditText=$('libraryInlineEditText'),libraryInlineEditSave=$('libraryInlineEditSave'),libraryInlineEditCancel=$('libraryInlineEditCancel');
-  const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
+  const interactionActions=$('interactionActions'),interactionRenameConversation=$('interactionRenameConversation'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
+  const conversationPageUp=$('conversationPageUp'),conversationPageDown=$('conversationPageDown');
   const conversationTitle=$('conversationTitle'),conversationReadCost=$('conversationReadCost'),conversationSidebarToggle=$('conversationSidebarToggle'),chatWorkspace=$('askPanel'),chatMessages=$('chatMessages');
+  const conversationRenameOpen=$('conversationRenameOpen'),conversationRenameForm=$('conversationRenameForm'),conversationRenameInput=$('conversationRenameInput'),conversationRenameSave=$('conversationRenameSave'),conversationRenameCancel=$('conversationRenameCancel');
   const composerStatus=$('composerStatus'),questionInput=$('question');
   const memoryEditTarget=$('memoryEditTarget'),memoryEditTargetTitle=$('memoryEditTargetTitle'),memoryEditTargetRef=$('memoryEditTargetRef'),memoryEditTargetClear=$('memoryEditTargetClear');
   const conversationState={items:[],filter:'',loading:false};
@@ -39,11 +41,12 @@
   const memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
   const memoryState={
     page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,
-    selectedRef:null,selectedKind:null,selectedEditableText:'',
+    selectedRef:null,selectedKind:null,selectedEditableText:'',selectedConversationId:null,
     selectedListRef:null,selectedListEditableText:''
   };
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
-  const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
+  const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh'),contextCatalogStatus=$('contextCatalogStatus');
+  const contextState={loading:false};
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
   const contextLastEmpty=$('contextLastEmpty'),contextLastContent=$('contextLastContent');
   const contextLastQuestion=$('contextLastQuestion'),contextLastRoute=$('contextLastRoute'),contextLastProvider=$('contextLastProvider'),contextLastAt=$('contextLastAt');
