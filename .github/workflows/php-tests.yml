@@ -95,6 +95,7 @@ jobs:
           php tests/integration/knowledge-core.php
           php tests/integration/explicit-memory-capture.php
           php tests/integration/interaction-library.php
+          php tests/integration/thematic-interaction-summaries.php
 
       - name: Semantic retrieval
         run: |
