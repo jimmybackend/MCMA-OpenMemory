@@ -70,6 +70,7 @@ MCMA-OpenMemory/
 │   ├── LOCAL-AI.md
 │   ├── MEMORY-TAXONOMY.md
 │   ├── MULTIUSER.md
+│   ├── MULTIMODAL-MEMORY.md
 │   ├── PERMISSIONS-VAULT.md
 │   ├── PHP-OOP.md
 │   ├── REPOSITORY-STRUCTURE.md
@@ -110,6 +111,10 @@ Memory remains usable without an AI provider.
 ### Multi-user web/API
 
 The web application uses OIDC Authorization Code + PKCE and encrypted HttpOnly sessions. External clients can use HMAC-backed `mcma_api_*` API keys. Both resolve to an isolated user MCMA Library.
+
+### Future multimodal assets
+
+The current runtime is text-first. The planned multimodal layer is documented in docs/MULTIMODAL-MEMORY.md and will add encrypted canonical binary assets plus derived OCR/transcript/vision/embedding artifacts without changing StorageAdapter independence.
 
 ### Metering and billing
 
