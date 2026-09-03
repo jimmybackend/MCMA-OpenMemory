@@ -75,6 +75,23 @@ try {
     $aliceRead = $aliceLibrary->readAs('owner', 'memory://projects/alice-private');
     assert_multiuser(($aliceRead['payload']['content'] ?? null) === 'Alice-only memory', 'Alice memory write/read failed');
 
+    // Persist a legacy policy without AI read, then resolve the user again.
+    // MultiUserService must safely upgrade the role on open.
+    $alicePolicy=$aliceLibrary->permissions('owner');
+    $alicePolicy['roles']['ai']=['allow'=>['summarize']];
+    $aliceLibrary->setPermissions($alicePolicy,'owner');
+    $legacyDenied=false;
+    try{$aliceLibrary->readAs('ai','memory://projects/alice-private');}
+    catch(RuntimeException){$legacyDenied=true;}
+    assert_multiuser($legacyDenied,'Legacy test policy unexpectedly allowed AI read');
+
+    $aliceLibrary=$service->resolve($issuer,$aliceSubject);
+    $aiAlice=$aliceLibrary->readAs('ai','memory://projects/alice-private');
+    assert_multiuser(
+        ($aiAlice['payload']['content']??null)==='Alice-only memory',
+        'Resolving existing user did not upgrade legacy AI recall access'
+    );
+
     $bobRefs = [];
     foreach ($bobLibrary->listAs('owner') as $entry) {
         foreach (($entry['logical_refs'] ?? []) as $ref) $bobRefs[] = $ref;
