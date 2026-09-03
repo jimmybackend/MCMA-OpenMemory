@@ -16,7 +16,7 @@ final class BillableMemoryMutationService
         private readonly ?EmbeddingProvider $embeddingProvider
     ) {}
 
-    public function execute(string $requestId,string $origin,string $text,array $metadata=[],?string $contextCanonicalRef=null): array
+    public function execute(string $requestId,string $origin,string $text,array $metadata=[],array $contextCanonicalRefs=[]): array
     {
         $this->billing->authorizeChannel($this->library,$origin);
         $context=new BillingRequestContext(
@@ -28,7 +28,7 @@ final class BillableMemoryMutationService
             ?new MeteredEmbeddingProvider($this->embeddingProvider,$context->collector(),$before)
             :null;
         try{
-            $result=(new MemoryMutationService($this->library,$embedding))->execute('owner',$text,$contextCanonicalRef);
+            $result=(new MemoryMutationService($this->library,$embedding))->execute('owner',$text,$contextCanonicalRefs);
             $result['billing']=$context->settle('success',['route'=>'memory-mutation']+$metadata);
             return $result;
         }catch(Throwable $e){

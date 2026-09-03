@@ -447,6 +447,107 @@ try{
         'Conversation did not retain the canonical memory anchor from recall'
     );
 
+    // Contextual mutation must validate the update payload against all recent
+    // canonical anchors. The newest recalled memory must never win merely by
+    // recency when the update clearly describes another subject.
+    $targetConversation='conv_'.str_repeat('6',32);
+    $targetMailitRef='memory://user/proyectos/mailit-click-target-validation';
+    $targetBirthRef='memory://user/familia/fechas-de-nacimiento/target-validation';
+
+    $lib->writeAs(
+        'owner',$targetMailitRef,
+        [
+            'title'=>'Pendientes operativos de mailit.click',
+            'content'=>'mailit.click tiene pendientes en index.php, pvisit, analytics, respaldo de /var/www/ y drive.esforzados.com.',
+            'classification'=>['category_path'=>['proyectos','mailit.click']],
+        ],
+        'json','hot','90-projects','project','confirmed'
+    );
+    $lib->writeAs(
+        'owner',$targetBirthRef,
+        [
+            'title'=>'Fechas de nacimiento de prueba',
+            'content'=>'Registro sintético de fechas de nacimiento para pruebas de memoria familiar.',
+            'classification'=>['category_path'=>['familia','fechas de nacimiento']],
+        ],
+        'json','warm','40-semantic','user','confirmed'
+    );
+
+    $archive->archive(
+        'owner','req_'.str_repeat('4',32),$targetConversation,
+        '¿Qué sabes de mailit.click?',
+        [
+            'route'=>'memory-canonical','provider_called'=>false,
+            'canonical_memory_ref'=>$targetMailitRef,
+            'logical_ref'=>$targetMailitRef,
+            'answer'=>['format'=>'text','value'=>'Pendientes operativos de mailit.click.'],
+            'stored'=>false,
+        ]
+    );
+    $archive->archive(
+        'owner','req_'.str_repeat('5',32),$targetConversation,
+        '¿Qué sabes de fechas de nacimiento?',
+        [
+            'route'=>'memory-canonical','provider_called'=>false,
+            'canonical_memory_ref'=>$targetBirthRef,
+            'logical_ref'=>$targetBirthRef,
+            'answer'=>['format'=>'text','value'=>'Fechas de nacimiento de prueba.'],
+            'stored'=>false,
+        ]
+    );
+
+    $recentTargets=$archive->recentCanonicalMemoryRefs('owner',$targetConversation,12);
+    interaction_ok(
+        ($recentTargets[0]??null)===$targetBirthRef&&in_array($targetMailitRef,$recentTargets,true),
+        'Recent canonical anchors did not preserve both recalled memories'
+    );
+
+    $birthBefore=$lib->readAs('owner',$targetBirthRef);
+    $mailitBefore=$lib->readAs('owner',$targetMailitRef);
+    $targetMutation=new \MCMA\Core\Memory\MemoryMutationService($lib);
+    $targetResult=$targetMutation->execute(
+        'owner',
+        'Actualiza ese conocimiento con: Estado actualizado de trabajos de mailit.click. Completado: corregido index.php y pvisit; corregido respaldo de /var/www/. Pendiente: analytics y drive.esforzados.com.',
+        $recentTargets
+    );
+
+    interaction_ok(
+        ($targetResult['canonical_memory_ref']??null)===$targetMailitRef,
+        'Contextual mutation selected the newest unrelated birth-date memory instead of mailit.click'
+    );
+    $mailitAfter=$lib->readAs('owner',$targetMailitRef);
+    $birthAfter=$lib->readAs('owner',$targetBirthRef);
+    interaction_ok(
+        !hash_equals((string)$mailitBefore['storage_hash'],(string)$mailitAfter['storage_hash']),
+        'Validated mailit.click memory was not versioned'
+    );
+    interaction_ok(
+        hash_equals((string)$birthBefore['storage_hash'],(string)$birthAfter['storage_hash']),
+        'Unrelated birth-date memory was modified by contextual update'
+    );
+    interaction_ok(
+        str_contains((string)($mailitAfter['payload']['content']['content']??''),'corregido index.php'),
+        'Validated mailit.click update content was not persisted'
+    );
+
+    $mailitHashBeforeAmbiguous=(string)$mailitAfter['storage_hash'];
+    $birthHashBeforeAmbiguous=(string)$birthAfter['storage_hash'];
+    $ambiguousTarget=$targetMutation->execute(
+        'owner',
+        'Actualiza ese conocimiento con: ya quedó listo.',
+        $recentTargets
+    );
+    interaction_ok(
+        ($ambiguousTarget['mutation']['status']??null)==='ambiguous'
+        &&($ambiguousTarget['stored']??true)===false,
+        'Ambiguous contextual update should require an explicit target'
+    );
+    interaction_ok(
+        hash_equals($mailitHashBeforeAmbiguous,(string)$lib->readAs('owner',$targetMailitRef)['storage_hash'])
+        &&hash_equals($birthHashBeforeAmbiguous,(string)$lib->readAs('owner',$targetBirthRef)['storage_hash']),
+        'Ambiguous contextual update modified a canonical memory'
+    );
+
     $afterTree=$archive->libraryTree('owner');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por temas']['IA']),'Topic view missing approved interaction');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por proyectos']['MCMA']),'Project view missing approved interaction');
@@ -466,7 +567,7 @@ try{
     interaction_ok(($discarded['validation_state']??null)==='retracted','Discarded interaction was not retracted');
 
     $afterSecondConversation=$archive->conversations('owner');
-    interaction_ok(($afterSecondConversation['total']??0)===4,'Expected original, context-selection, canonical-recall and discarded conversations in encrypted index');
+    interaction_ok(($afterSecondConversation['total']??0)===5,'Expected original, context-selection, canonical-recall, target-validation and discarded conversations in encrypted index');
     interaction_ok(($afterSecondConversation['ai_tokens_used']??-1)===0,'Updated conversation index browse used AI tokens');
 
     $verify=$lib->verify();

@@ -26,16 +26,16 @@ final class MemoryMutationService
             && (preg_match('/\b(?:memoria|recuerdo|archivo|conocimiento|concepto|memory|file|knowledge|concept)\b/iu',$text)===1||str_contains($text,'memory://user/'));
     }
 
-    public function execute(string $actor,string $requestText,?string $contextCanonicalRef=null): array
+    public function execute(string $actor,string $requestText,array|string|null $contextCanonicalRefs=null): array
     {
         $parsed=self::parse($requestText);
-        if(($parsed['target']??null)==='@context'&&is_string($contextCanonicalRef)&&str_starts_with($contextCanonicalRef,'memory://user/')){
-            try{
-                $this->library->readAs($actor,$contextCanonicalRef);
-                $resolved=['status'=>'resolved','logical_ref'=>$contextCanonicalRef,'candidates'=>[]];
-            }catch(Throwable){
-                $resolved=['status'=>'not-found','candidates'=>[]];
-            }
+        if(($parsed['target']??null)==='@context'){
+            $resolved=$this->resolveContextualTarget(
+                $actor,
+                $requestText,
+                $parsed,
+                self::normalizeContextRefs($contextCanonicalRefs)
+            );
         }else{
             $resolved=$this->resolveTarget($actor,(string)($parsed['target']??''));
         }
@@ -248,6 +248,79 @@ final class MemoryMutationService
         );
     }
 
+    private function resolveContextualTarget(string $actor,string $requestText,array $parsed,array $contextRefs): array
+    {
+        if($contextRefs===[]) return ['status'=>'not-found','candidates'=>[]];
+
+        $visible=[];
+        foreach($contextRefs as $ref){
+            try{$stored=$this->library->readAs($actor,$ref);}catch(Throwable){continue;}
+            $visible[]=['logical_ref'=>$ref,'stored'=>$stored];
+        }
+        if($visible===[]) return ['status'=>'not-found','candidates'=>[]];
+        if(count($visible)===1){
+            return ['status'=>'resolved','logical_ref'=>$visible[0]['logical_ref'],'candidates'=>[]];
+        }
+
+        $query=trim((string)($parsed['new_content']??''));
+        if($query==='') $query=$requestText;
+        $tokens=self::relevanceTokens($query);
+        if($tokens===[]){
+            return ['status'=>'ambiguous','candidates'=>array_map(
+                static fn(array $item): array => ['logical_ref'=>$item['logical_ref'],'score'=>0],
+                array_slice($visible,0,8)
+            )];
+        }
+
+        $scored=[];
+        foreach($visible as $item){
+            $ref=(string)$item['logical_ref'];
+            $content=$item['stored']['payload']['content']??null;
+            if(is_array($content)&&($content['lifecycle']['status']??null)==='deleted') continue;
+
+            $title=is_array($content)&&is_string($content['title']??null)?trim((string)$content['title']):'';
+            $retrieval=is_array($content)&&is_string($content['retrieval']['question']??null)?trim((string)$content['retrieval']['question']):'';
+            $category='';
+            if(is_array($content)&&is_array($content['classification']['category_path']??null)){
+                $category=implode(' ',array_values(array_filter($content['classification']['category_path'],'is_string')));
+            }
+            $body=is_string($content)?$content:(is_array($content)&&is_string($content['content']??null)
+                ?(string)$content['content']
+                :(json_encode($content,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:''));
+
+            $score=self::contextualRelevanceScore($tokens,implode("\n",[$ref,$title,$retrieval,$category,$body]),$ref,$title);
+            $scored[]=['logical_ref'=>$ref,'title'=>$title,'score'=>$score];
+        }
+
+        usort($scored,static fn(array $a,array $b): int => $b['score']<=>$a['score']?:$a['logical_ref']<=>$b['logical_ref']);
+        if($scored===[]) return ['status'=>'not-found','candidates'=>[]];
+
+        $best=(int)$scored[0]['score'];
+        $second=(int)($scored[1]['score']??0);
+        if($best<12||($second>0&&($best-$second)<5)){
+            return ['status'=>'ambiguous','candidates'=>array_slice($scored,0,8)];
+        }
+
+        return [
+            'status'=>'resolved',
+            'logical_ref'=>(string)$scored[0]['logical_ref'],
+            'candidates'=>array_slice($scored,0,8),
+            'resolution'=>'validated-contextual-match',
+            'score'=>$best,
+        ];
+    }
+
+    private static function normalizeContextRefs(array|string|null $value): array
+    {
+        $items=is_array($value)?$value:($value===null?[]:[$value]);
+        $refs=[];
+        foreach($items as $ref){
+            if(!is_string($ref)||!str_starts_with($ref,'memory://user/')) continue;
+            if(!in_array($ref,$refs,true)) $refs[]=$ref;
+        }
+        return array_slice($refs,0,32);
+    }
+
     private function resolveTarget(string $actor,string $target): array
     {
         $target=trim($target," \t\n\r\0\x0B\"'");
@@ -390,6 +463,52 @@ final class MemoryMutationService
             'volatile'=>[86400,'revalidate-if-stale'],
             default=>[31536000,'reuse-unless-stale'],
         };
+    }
+
+    private static function contextualRelevanceScore(array $queryTokens,string $corpus,string $logicalRef,string $title): int
+    {
+        $normalizedCorpus=self::normalize($corpus);
+        $normalizedRef=self::normalize($logicalRef);
+        $normalizedTitle=self::normalize($title);
+        $score=0;
+
+        foreach($queryTokens as $token){
+            if(!str_contains($normalizedCorpus,$token)) continue;
+
+            $weight=3;
+            if(str_contains($token,'.')||str_contains($token,'/')) $weight=20;
+            elseif(strlen($token)>=10) $weight=10;
+            elseif(strlen($token)>=7) $weight=6;
+            elseif(strlen($token)>=5) $weight=4;
+
+            $score+=$weight;
+            if(str_contains($normalizedRef,$token)) $score+=5;
+            if($normalizedTitle!==''&&str_contains($normalizedTitle,$token)) $score+=3;
+        }
+
+        return $score;
+    }
+
+    private static function relevanceTokens(string $value): array
+    {
+        $value=self::normalize($value);
+        preg_match_all('/[\\p{L}\\p{N}][\\p{L}\\p{N}._\\/-]{2,}/u',$value,$matches);
+        $tokens=array_values(array_unique($matches[0]??[]));
+        $stop=[
+            'actualiza','actualizar','actualizado','actualizada','modifica','modificar','edita','editar',
+            'corrige','corregir','cambia','cambiar','agrega','agregar','añade','anade','incorpora',
+            'conocimiento','memoria','recuerdo','archivo','concepto','estado','trabajos','sistemas',
+            'relacionados','relacionado','completado','completada','pendiente','pendientes','corregido',
+            'corregida','reparar','verificar','conserva','confirmado','confirmada','versiona','mismo',
+            'misma','esto','esta','este','eso','ese','esa','tambien','también','para',
+            'with','update','updated','memory','knowledge','file','concept','status','completed','pending',
+            'keep','same','this','that','also'
+        ];
+        return array_values(array_filter($tokens,static function(string $token) use($stop): bool {
+            if(in_array($token,$stop,true)) return false;
+            if(strlen($token)<4&&!str_contains($token,'.')&&!str_contains($token,'/')) return false;
+            return true;
+        }));
     }
 
     private static function normalize(string $value): string
