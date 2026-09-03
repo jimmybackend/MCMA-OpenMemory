@@ -20,6 +20,8 @@
   const memoryTreeDetailObject=$('memoryTreeDetailObject'),memoryTreeDetailHash=$('memoryTreeDetailHash');
   const libraryAnswerLabel=$('libraryAnswerLabel'),librarySourceLabel=$('librarySourceLabel'),libraryCatalogWrap=$('libraryCatalogWrap'),libraryCatalogBadges=$('libraryCatalogBadges');
   const canonicalMemoryActions=$('canonicalMemoryActions'),memoryUpdateInChat=$('memoryUpdateInChat'),memoryUpdateInChatStatus=$('memoryUpdateInChatStatus');
+  const libraryInlineEditActions=$('libraryInlineEditActions'),libraryInlineEditOpen=$('libraryInlineEditOpen'),libraryInlineEditStatus=$('libraryInlineEditStatus');
+  const libraryInlineEditForm=$('libraryInlineEditForm'),libraryInlineEditText=$('libraryInlineEditText'),libraryInlineEditSave=$('libraryInlineEditSave'),libraryInlineEditCancel=$('libraryInlineEditCancel');
   const interactionActions=$('interactionActions'),interactionApprove=$('interactionApprove'),interactionDiscard=$('interactionDiscard'),interactionValidationStatus=$('interactionValidationStatus');
   const conversationLabel=$('conversationLabel'),newConversation=$('newConversation');
   const conversationSearch=$('conversationSearch'),conversationList=$('conversationList'),conversationProjectsWrap=$('conversationProjectsWrap'),conversationProjects=$('conversationProjects');
@@ -33,7 +35,12 @@
   const memoryDetailTemperature=$('memoryDetailTemperature'),memoryDetailFreshness=$('memoryDetailFreshness');
   const memoryDetailCaptured=$('memoryDetailCaptured'),memoryDetailReusable=$('memoryDetailReusable');
   const memoryItemPrev=$('memoryItemPrev'),memoryItemNext=$('memoryItemNext'),memoryConfirm=$('memoryConfirm'),memoryDiscard=$('memoryDiscard'),memoryValidationStatus=$('memoryValidationStatus');
-  const memoryState={page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,selectedRef:null,selectedKind:null};
+  const memoryInlineEditOpen=$('memoryInlineEditOpen'),memoryInlineEditForm=$('memoryInlineEditForm'),memoryInlineEditText=$('memoryInlineEditText'),memoryInlineEditSave=$('memoryInlineEditSave'),memoryInlineEditCancel=$('memoryInlineEditCancel');
+  const memoryState={
+    page:1,limit:20,pages:1,total:0,items:[],selectedId:null,mode:'tree',tree:null,treeTotal:0,
+    selectedRef:null,selectedKind:null,selectedEditableText:'',
+    selectedListRef:null,selectedListEditableText:''
+  };
   const mainTabs=$('mainTabs'),tabButtons=[...document.querySelectorAll('[data-tab-target]')],tabPanels=[...document.querySelectorAll('[data-tab-panel]')];
   const contextPanel=$('contextPanel'),contextRefresh=$('contextRefresh');
   const contextPersistentTotal=$('contextPersistentTotal'),contextReusableTotal=$('contextReusableTotal'),contextGeneratedTotal=$('contextGeneratedTotal'),contextTraceTotal=$('contextTraceTotal');
