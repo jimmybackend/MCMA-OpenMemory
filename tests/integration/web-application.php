@@ -536,12 +536,39 @@ try {
     assert_web_app(($conversationListBody['archive']['credit_units_charged']??-1)===0,'Conversation list route charged credits');
     assert_web_app(!str_contains($conversationList->body(),'memory://system/'),'Conversation list exposed internal system refs');
 
+    $renameConversation=$app->handle(new HttpRequest(
+        'PATCH',
+        '/mcma/v1/conversations/'.$conversationId,
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['title'=>'Despliegue MCMA documentado'],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($renameConversation->status()===200,'Conversation rename route failed');
+    $renameConversationBody=json_decode($renameConversation->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($renameConversationBody['conversation']['title']??null)==='Despliegue MCMA documentado',
+        'Conversation rename response title mismatch'
+    );
+    assert_web_app(($renameConversationBody['conversation']['custom_title']??false)===true,'Conversation rename did not mark custom title');
+
+    $crossOriginRename=$app->handle(new HttpRequest(
+        'PATCH',
+        '/mcma/v1/conversations/'.$conversationId,
+        ['origin'=>'https://evil.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode(['title'=>'No debe guardarse'],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($crossOriginRename->status()===403,'Cross-origin conversation rename was accepted');
+
     $conversationDetail=$app->handle(new HttpRequest(
         'GET','/mcma/v1/conversations/'.$conversationId,[],[],['mcma_session'=>$aliceCookie]
     ));
     assert_web_app($conversationDetail->status()===200,'Conversation detail route failed');
     $conversationDetailBody=json_decode($conversationDetail->body(),true,64,JSON_THROW_ON_ERROR);
     assert_web_app(($conversationDetailBody['archive']['conversation']['conversation_id']??null)===$conversationId,'Conversation detail id mismatch');
+    assert_web_app(($conversationDetailBody['archive']['conversation']['title']??null)==='Despliegue MCMA documentado','Conversation detail lost renamed title');
     assert_web_app(count($conversationDetailBody['archive']['interactions']??[])===1,'Conversation detail turn count mismatch');
     assert_web_app(
         ($conversationDetailBody['archive']['interactions'][0]['question']??null)==='Las decisiones de despliegue de MCMA deben documentarse.',
@@ -723,6 +750,19 @@ try {
     $aliceContextBody = json_decode($aliceContext->body(), true, 64, JSON_THROW_ON_ERROR);
     assert_web_app(($aliceContextBody['context']['ai_tokens_used']??-1) === 0, 'Context transparency read used AI tokens');
     assert_web_app(($aliceContextBody['context']['credit_units_charged']??-1) === 0, 'Context transparency read charged credits');
+    assert_web_app(
+        ($aliceContextBody['context']['summary']['total']??-1)>=1,
+        'Context summary did not expose persistent memory count'
+    );
+    assert_web_app(
+        array_key_exists('catalog',$aliceContextBody['context']??[])
+        &&array_key_exists('indexed',$aliceContextBody['context']['catalog']??[]),
+        'Context response did not expose incremental catalog progress'
+    );
+    assert_web_app(
+        ($aliceContextBody['context']['catalog']['indexed']??0)<=($aliceContextBody['context']['catalog']['total']??0),
+        'Context catalog indexed count exceeds total'
+    );
     assert_web_app(count($aliceContextBody['context']['traces']??[]) >= 1, 'Alice context trace list is empty');
     assert_web_app(($aliceContextBody['context']['traces'][0]['question']??null) === 'What is MCMA?', 'Context trace question mismatch');
 
