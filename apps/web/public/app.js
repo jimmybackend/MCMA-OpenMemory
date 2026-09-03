@@ -74,6 +74,56 @@
     return setConversationId(id);
   }
 
+  const pendingRequestKey='mcma_pending_request_v1';
+
+  function setPendingRequest(value){
+    try{sessionStorage.setItem(pendingRequestKey,JSON.stringify(value));}catch(error){}
+  }
+
+  function getPendingRequest(){
+    try{
+      const value=JSON.parse(sessionStorage.getItem(pendingRequestKey)||'null');
+      if(value&&/^req_[0-9a-f]{32}$/.test(value.request_id||'')&&/^conv_[0-9a-f]{32}$/.test(value.conversation_id||''))return value;
+    }catch(error){}
+    return null;
+  }
+
+  function clearPendingRequest(requestId=null){
+    const current=getPendingRequest();
+    if(requestId&&current&&current.request_id!==requestId)return;
+    try{sessionStorage.removeItem(pendingRequestKey);}catch(error){}
+  }
+
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+  async function recoverRequest(requestId,conversationId,maxAttempts=45){
+    for(let attempt=0;attempt<maxAttempts;attempt++){
+      try{
+        const data=await api('/mcma/v1/requests/'+encodeURIComponent(requestId)+'?conversation_id='+encodeURIComponent(conversationId),{method:'GET',headers:{}});
+        if(data.status==='completed'&&data.result)return data.result;
+      }catch(error){
+        if(error.status===401||error.status===403||error.status===400)throw error;
+      }
+      await sleep(2000);
+    }
+    return null;
+  }
+
+  async function recoverStoredPendingRequest(){
+    const pending=getPendingRequest();
+    if(!pending)return;
+    composerStatus.textContent='Recuperando una respuesta que quedó procesándose…';
+    const recovered=await recoverRequest(pending.request_id,pending.conversation_id,15);
+    if(recovered){
+      clearPendingRequest(pending.request_id);
+      setConversationId(pending.conversation_id);
+      await loadConversations({openCurrent:true});
+      composerStatus.textContent='Respuesta recuperada del archivo cifrado después de la interrupción.';
+    }else{
+      composerStatus.textContent='La respuesta sigue procesándose. MCMA volverá a comprobarla cuando recargues o continúes en esta sesión.';
+    }
+  }
+
   function prepareAccountDrawer(){
     if(!accountDrawerContent)return;
     for(const panel of [account,stripeBox,apiKeysBox]){
@@ -295,22 +345,32 @@
     if(message.meta.childElementCount>0&&!message.meta.isConnected)message.article.appendChild(message.meta);
   }
 
-  function interactionMeta(interaction){
-    const billing=interaction.billing&&typeof interaction.billing==='object'?interaction.billing:{};
-    const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
-    const tokens=Number(billing.total_tokens||0);
-    const credits=Number(billing.credit_units_charged||0);
-    const meta=[routeLabel(interaction.route),number(tokens)+' tokens',number(credits)+' créditos'];
-    if(validation.state)meta.push('Estado: '+validation.state);
+  function usageMeta(route,billing,validation=null){
+    const usage=billing&&typeof billing.usage==='object'?billing.usage:{};
+    const total=Number(billing?.total_tokens??usage.total_tokens??usage.totalTokens??0);
+    const input=Number(usage.input_tokens??usage.inputTokens??0);
+    const output=Number(usage.output_tokens??usage.outputTokens??0);
+    const embedding=Number(usage.embedding_tokens??0);
+    const calls=Number(usage.model_calls??0);
+    const credits=Number(billing?.credit_units_charged??0);
+    const meta=[routeLabel(route),number(total)+' tokens',number(credits)+' créditos'];
+    if(input>0)meta.push('entrada '+number(input));
+    if(output>0)meta.push('salida '+number(output));
+    if(embedding>0)meta.push('embedding '+number(embedding));
+    if(calls>0)meta.push(number(calls)+' llamada'+(calls===1?'':'s')+' IA');
+    if(validation?.state)meta.push('Estado: '+validation.state);
     return meta;
   }
 
+  function interactionMeta(interaction){
+    const billing=interaction.billing&&typeof interaction.billing==='object'?interaction.billing:{};
+    const validation=interaction.validation&&typeof interaction.validation==='object'?interaction.validation:{};
+    return usageMeta(interaction.route,billing,validation);
+  }
+
   function resultMessageMeta(result){
-    const billing=result.billing&&typeof result.billing==='object'?result.billing:{};
-    const usage=billing.usage||result.usage||{};
-    const tokens=Number(usage.total_tokens??usage.totalTokens??0);
-    const credits=Number(billing.credit_units_charged??0);
-    return [routeLabel(result.route),number(tokens)+' tokens',number(credits)+' créditos'];
+    const billing=result.billing&&typeof result.billing==='object'?result.billing:{usage:result.usage||{}};
+    return usageMeta(result.route,billing);
   }
 
   function renderConversationProjects(){
@@ -494,6 +554,7 @@
       'memory-exact':'Memoria exacta',
       'memory-semantic':'Memoria semántica',
       'memory-capture':'Memoria guardada',
+      'memory-mutation':'Memoria modificada',
       'provider':'IA / proveedor',
       'ask':'Sin proveedor'
     })[route]||route||'—';
@@ -1223,6 +1284,23 @@
       );
     }
 
+    const broadRecall=used.broad_recall_context;
+    const recalled=Array.isArray(broadRecall?.items)?broadRecall.items:[];
+    if(used.broad_recall===true&&recalled.length>0){
+      const rendered=recalled.map((item,index)=>{
+        return 'MEMORIA '+(index+1)+' · '+(item.kind||'memoria')+' · '+(item.validation_state||'unverified')+' · confianza '+Number(item.confidence||0).toFixed(2)+'\n'
+          +'Ref: '+(item.logical_ref||'')+'\n'
+          +'Pregunta: '+(item.question||'')+'\n'
+          +'Contenido: '+(item.answer||'');
+      }).join('\n\n');
+      sections.push('RECUPERACIÓN AMPLIA DE MEMORIA · '+(broadRecall.subject||'')+'\n'+rendered);
+      badges.push(
+        memoryBadge(number(recalled.length)+' memorias relacionadas','route-badge route-ai-memory'),
+        memoryBadge('Entidad: '+(broadRecall.subject||'—')),
+        memoryBadge(broadRecall.selection?.strategy||'broad-entity-recall')
+      );
+    }
+
     if(sections.length>0){
       contextInjectedAnswer.textContent=sections.join('\n\n---\n\n');
       contextInjectedMeta.replaceChildren(...badges);
@@ -1242,6 +1320,13 @@
       memoryBadge(number(total)+' tokens'),
       memoryBadge(number(billing.credit_units_charged||0)+' créditos')
     );
+    const providerUsage=Array.isArray(billing.provider_usage)?billing.provider_usage:[];
+    for(const component of providerUsage){
+      const componentTokens=Number(component.input_tokens||0)+Number(component.output_tokens||0)+Number(component.embedding_tokens||0);
+      contextInjectedMeta.append(
+        memoryBadge((component.kind||'modelo')+' · '+number(componentTokens)+' tokens · '+(component.provider_id||'proveedor'))
+      );
+    }
 
     for(const node of contextTraceList.querySelectorAll('.context-list-item')){
       node.classList.toggle('selected',node.dataset.traceId===trace.trace_id);
@@ -1340,6 +1425,7 @@
       form.querySelectorAll('textarea,input,button').forEach(el=>el.disabled=false);
       activateTab('ask');
       await Promise.all([loadBilling(),loadKeys(),loadStripe(),detectAdmin(),loadConversations()]);
+      await recoverStoredPendingRequest();
     }catch(error){
       account.hidden=true;apiKeysBox.hidden=true;stripeBox.hidden=true;accountDrawer.hidden=true;mainTabs.hidden=true;memoryExplorer.hidden=true;contextPanel.hidden=true;adminLink.hidden=true;clearIdentity();
       const signedOut=new URLSearchParams(location.search).get('signed_out')==='1';
@@ -1357,12 +1443,42 @@
     }
   }
 
+  async function applyChatResult(pending,result,question){
+    const answerValue=result.answer?.value ?? JSON.stringify(result,null,2);
+    pending.article.classList.remove('pending','error');
+    pending.content.textContent=displayChatValue(answerValue);
+    setChatMessageMeta(pending,resultMessageMeta(result));
+    answer.textContent=displayChatValue(answerValue);
+    renderAnswerMeta(result);
+    await loadBilling();
+
+    if(result.interaction_archive?.recorded===true){
+      const cid=result.interaction_archive.conversation_id;
+      if(/^conv_[0-9a-f]{32}$/.test(cid))setConversationId(cid);
+      memoryState.tree=null;
+      conversationTitle.textContent=shortConversationTitle(question);
+      composerStatus.textContent=result.interaction_archive.recovered===true
+        ?'Respuesta recuperada del archivo cifrado después de una interrupción.'
+        :'Respuesta archivada en la conversación actual.';
+      await loadConversations({openCurrent:false});
+    }else{
+      composerStatus.textContent='Respuesta recibida, pero el archivo persistente no confirmó esta interacción.';
+    }
+
+    if(result.stored===true)memoryState.items=[];
+    if(!memoryExplorer.hidden&&memoryState.mode==='tree')await loadMemoryTree();
+    else if(!memoryExplorer.hidden&&memoryState.mode==='list'&&result.stored===true)await loadMemories(1);
+  }
+
   form.addEventListener('submit',async event=>{
     event.preventDefault();
     const question=questionInput.value.trim();
     if(question==='')return;
 
     const conversationId=currentConversationId();
+    const requestId='req_'+randomHex(16);
+    setPendingRequest({request_id:requestId,conversation_id:conversationId,question,at:new Date().toISOString()});
+
     if(chatMessages.querySelector('.chat-empty-state'))clearChatMessages();
     appendChatMessage('user',question);
     const pending=appendChatMessage('assistant','MCMA está pensando…');
@@ -1375,41 +1491,40 @@
     questionInput.value='';
     questionInput.style.height='';
 
+    let completed=false;
+    let permanentFailure=false;
     try{
-      const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
-        question,current:$('current').checked,remember:$('remember').checked,
-        conversation_id:conversationId
-      })});
-      const result=data.result||{};
-      const answerValue=result.answer?.value ?? JSON.stringify(result,null,2);
-      pending.article.classList.remove('pending');
-      pending.content.textContent=displayChatValue(answerValue);
-      setChatMessageMeta(pending,resultMessageMeta(result));
-      answer.textContent=displayChatValue(answerValue);
-      renderAnswerMeta(result);
-      await loadBilling();
-
-      if(result.interaction_archive?.recorded===true){
-        const cid=result.interaction_archive.conversation_id;
-        if(/^conv_[0-9a-f]{32}$/.test(cid))setConversationId(cid);
-        memoryState.tree=null;
-        conversationTitle.textContent=shortConversationTitle(question);
-        composerStatus.textContent='Respuesta archivada en la conversación actual.';
-        await loadConversations({openCurrent:false});
-      }else{
-        composerStatus.textContent='Respuesta recibida, pero el archivo persistente no confirmó esta interacción.';
+      let result=null;
+      try{
+        const data=await api('/mcma/v1/ask',{method:'POST',body:JSON.stringify({
+          question,current:$('current').checked,remember:$('remember').checked,
+          conversation_id:conversationId,request_id:requestId
+        })});
+        result=data.result||{};
+      }catch(error){
+        const transient=(!error.status)||(error.status>=502&&error.status<=504&&!error.code);
+        if(!transient)throw error;
+        composerStatus.textContent='La conexión se interrumpió; MCMA está comprobando si la respuesta terminó…';
+        pending.content.textContent='La respuesta sigue procesándose…';
+        result=await recoverRequest(requestId,conversationId,45);
+        if(!result)throw new Error('La respuesta aún no aparece en el archivo. No se volvió a cobrar ni a generar; MCMA conservará el request_id para recuperarla.');
       }
 
-      if(result.stored===true)memoryState.items=[];
-      if(!memoryExplorer.hidden&&memoryState.mode==='tree')await loadMemoryTree();
-      else if(!memoryExplorer.hidden&&memoryState.mode==='list'&&result.stored===true)await loadMemories(1);
+      await applyChatResult(pending,result,question);
+      completed=true;
+      clearPendingRequest(requestId);
     }catch(error){
+      const keepPending=String(error.message||'').includes('conservará el request_id');
+      permanentFailure=!keepPending;
       pending.article.classList.remove('pending');
       pending.article.classList.add('error');
       pending.content.textContent=error.message;
       answer.textContent=error.message;
       answerMeta.hidden=true;
-      composerStatus.textContent='Error al responder: '+error.message;
+      composerStatus.textContent=keepPending
+        ?'La petición queda pendiente y podrá recuperarse sin volver a generar.'
+        :'Error al responder: '+error.message;
+      if(permanentFailure)clearPendingRequest(requestId);
     }finally{
       send.disabled=false;
       questionInput.focus();

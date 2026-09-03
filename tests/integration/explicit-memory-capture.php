@@ -292,6 +292,44 @@ try{
     }
     explicit_memory_ok($emptyRejected,'Empty explicit save command was stored');
 
+    // Versioned owner mutation of a canonical memory.
+    $mutation = new \MCMA\Core\Memory\MemoryMutationService($lib);
+    $originalRef = (string)$result['logical_ref'];
+    $originalStored = $lib->readAs('owner', $originalRef);
+    $originalRevision = (int)($originalStored['payload']['metadata']['revision'] ?? 1);
+
+    $updatedMutation = $mutation->execute(
+        'owner',
+        'modifica memoria ' . $originalRef . ' con mailit.click usa Nginx, CloudFront y PHP-FPM con configuración actualizada.'
+    );
+    explicit_memory_ok(($updatedMutation['mutation']['status'] ?? null) === 'completed', 'Versioned mutation did not complete');
+    explicit_memory_ok(($updatedMutation['mutation']['versioned'] ?? false) === true, 'Versioned mutation flag missing');
+    $updatedStored = $lib->readAs('owner', $originalRef);
+    explicit_memory_ok(
+        (int)($updatedStored['payload']['metadata']['revision'] ?? 0) === $originalRevision + 1,
+        'Canonical mutation did not increment revision'
+    );
+    explicit_memory_ok(
+        ($updatedStored['payload']['metadata']['previous_storage_hash'] ?? null) === $originalStored['storage_hash'],
+        'Canonical mutation did not preserve previous storage hash'
+    );
+    explicit_memory_ok(
+        str_contains((string)($updatedStored['payload']['content']['content'] ?? ''), 'mailit.click'),
+        'Canonical mutation did not persist replacement content'
+    );
+
+    $deletedMutation = $mutation->execute('owner', 'elimina memoria ' . $originalRef);
+    explicit_memory_ok(($deletedMutation['mutation']['action'] ?? null) === 'delete', 'Delete mutation action mismatch');
+    $deletedStored = $lib->readAs('owner', $originalRef);
+    explicit_memory_ok(
+        ($deletedStored['payload']['content']['lifecycle']['status'] ?? null) === 'deleted',
+        'Delete mutation did not create a versioned tombstone'
+    );
+    explicit_memory_ok(
+        (int)($deletedStored['payload']['metadata']['revision'] ?? 0) === $originalRevision + 2,
+        'Delete mutation did not increment revision'
+    );
+
     echo "MCMA explicit classified memory capture passed.\n";
 }finally{
     putenv('MCMA_MASTER_KEY_B64');

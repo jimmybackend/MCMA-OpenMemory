@@ -6,6 +6,7 @@ namespace MCMA\Core\Billing;
 use MCMA\Core\Agent\Librarian;
 use MCMA\Core\Ask\AskService;
 use MCMA\Core\Ask\GenerationProvider;
+use MCMA\Core\Context\BroadMemoryRecallBuilder;
 use MCMA\Core\Context\ConversationContextBuilder;
 use MCMA\Core\Context\MultiMemoryContextBuilder;
 use MCMA\Core\Knowledge\KnowledgeService;
@@ -23,7 +24,8 @@ final class BillableAskService
         private readonly ?GenerationProvider $generationProvider,
         private readonly int $maxOutputTokens = 1024,
         private readonly ?ConversationContextBuilder $conversationContextBuilder = null,
-        private readonly ?MultiMemoryContextBuilder $multiMemoryContextBuilder = null
+        private readonly ?MultiMemoryContextBuilder $multiMemoryContextBuilder = null,
+        private readonly ?BroadMemoryRecallBuilder $broadMemoryRecallBuilder = null
     ) {
     }
 
@@ -55,6 +57,7 @@ final class BillableAskService
             $this->maxOutputTokens,
             ($this->conversationContextBuilder?->tokenBudgetUpperBound()??0)
                 +($this->multiMemoryContextBuilder?->tokenBudgetUpperBound()??0)
+                +($this->broadMemoryRecallBuilder?->byteBudgetUpperBound()??0)
         );
 
         $before=fn(string $kind,string $providerId,string $input)=>$context->beforeModelCall($kind,$providerId,$input);
@@ -73,7 +76,7 @@ final class BillableAskService
 
         $ask=new AskService(
             $knowledge,$semantic,$embedding,$generation,$librarian,
-            $this->conversationContextBuilder,$this->multiMemoryContextBuilder
+            $this->conversationContextBuilder,$this->multiMemoryContextBuilder,$this->broadMemoryRecallBuilder
         );
 
         try{

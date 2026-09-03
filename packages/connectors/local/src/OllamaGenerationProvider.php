@@ -178,7 +178,8 @@ final class OllamaGenerationProvider implements GenerationProvider
         $memory=$context['memory_context']??null;
         $multiMemory=$context['multi_memory_context']??null;
         $conversation=$context['conversation_context']??null;
-        if(!is_array($memory)&&!is_array($multiMemory)&&!is_array($conversation)) return null;
+        $broadRecall=$context['broad_recall_context']??null;
+        if(!is_array($memory)&&!is_array($multiMemory)&&!is_array($conversation)&&!is_array($broadRecall)) return null;
 
         $payload=[
             'source'=>'mcma',
@@ -200,7 +201,11 @@ final class OllamaGenerationProvider implements GenerationProvider
             $payload['conversation']=$conversation;
         }
 
-        if($payload['answer']===''&&!isset($payload['multi_memory'])&&!isset($payload['conversation'])) return null;
+        if(is_array($broadRecall)&&is_array($broadRecall['items']??null)&&$broadRecall['items']!==[]){
+            $payload['broad_recall']=$broadRecall;
+        }
+
+        if($payload['answer']===''&&!isset($payload['multi_memory'])&&!isset($payload['conversation'])&&!isset($payload['broad_recall'])) return null;
         return json_encode($payload,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     }
 

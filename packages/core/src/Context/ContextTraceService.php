@@ -225,6 +225,7 @@ final class ContextTraceService
             'cost_micros' => (int)($billing['cost_micros'] ?? 0),
             'currency' => isset($billing['currency']) ? (string)$billing['currency'] : null,
             'usage' => is_array($billing['usage'] ?? null) ? $billing['usage'] : null,
+            'provider_usage' => is_array($billing['provider_usage'] ?? null) ? array_values($billing['provider_usage']) : [],
         ];
     }
 }

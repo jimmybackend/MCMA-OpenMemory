@@ -64,6 +64,12 @@ final class MeteredGenerationProvider implements GenerationProvider
             $encoded=json_encode($conversation,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
             if(is_string($encoded)) $parts[]=$encoded;
         }
+
+        $broadRecall=$context['broad_recall_context']??null;
+        if(is_array($broadRecall)){
+            $encoded=json_encode($broadRecall,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+            if(is_string($encoded)) $parts[]=$encoded;
+        }
         return implode("\n",$parts);
     }
 }

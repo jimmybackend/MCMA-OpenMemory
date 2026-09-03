@@ -97,6 +97,9 @@ final class WebFactory
             'rag-min-score'=>(float)(self::optional('MCMA_WEB_RAG_MIN_SCORE')??'0.50'),
             'rag-max-answer-bytes'=>(int)(self::optional('MCMA_WEB_RAG_MAX_ANSWER_BYTES')??'4500'),
             'rag-max-provenance'=>(int)(self::optional('MCMA_WEB_RAG_MAX_PROVENANCE')??'4'),
+            'broad-memory-recall-enabled'=>self::boolEnv('MCMA_WEB_BROAD_MEMORY_RECALL_ENABLED',true),
+            'broad-memory-recall-max-items'=>(int)(self::optional('MCMA_WEB_BROAD_MEMORY_RECALL_MAX_ITEMS')??'8'),
+            'broad-memory-recall-byte-budget'=>(int)(self::optional('MCMA_WEB_BROAD_MEMORY_RECALL_BYTE_BUDGET')??'16000'),
         ];
         $candidateSimilarity=self::optional('MCMA_WEB_CANDIDATE_SIMILARITY');
         if($candidateSimilarity!==null) $options['candidate-similarity']=(float)$candidateSimilarity;

@@ -198,6 +198,91 @@ final class InteractionArchiveService
         ];
     }
 
+    public function search(string $actor,string $query,int $limit=20): array
+    {
+        $query=trim($query);
+        if($query===''||strlen($query)>256) throw new RuntimeException('Interaction search query must be between 1 and 256 bytes');
+        if($limit<1||$limit>100) throw new RuntimeException('Interaction search limit must be between 1 and 100');
+
+        $matches=[];
+        foreach($this->library->listAs($actor) as $entry){
+            foreach($entry['logical_refs']??[] as $logicalRef){
+                if(!is_string($logicalRef)||!preg_match('#^memory://interactions/[0-9]{4}/[0-9]{2}/[0-9]{2}/conv_[0-9a-f]{32}/req_[0-9a-f]{32}$#',$logicalRef)) continue;
+                try{$detail=$this->read($actor,$logicalRef);}catch(Throwable){continue;}
+                $interaction=$detail['interaction'];
+                $validation=is_array($interaction['validation']??null)?$interaction['validation']:[];
+                if(in_array((string)($validation['state']??''),['retracted','disputed'],true)) continue;
+
+                $parts=[(string)($interaction['question']??'')];
+                $answer=$interaction['answer']['value']??null;
+                $parts[]=is_string($answer)?$answer:(json_encode($answer,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?:'');
+                $catalog=is_array($interaction['catalog']??null)?$interaction['catalog']:[];
+                foreach(['title','topics','projects','people','characters','entities','sources'] as $field){
+                    $value=$catalog[$field]??null;
+                    if(is_string($value)) $parts[]=$value;
+                    elseif(is_array($value)) $parts[]=implode(' ',array_values(array_filter($value,'is_string')));
+                }
+                if(!self::containsText(implode("\n",$parts),$query)) continue;
+
+                $matches[]=[
+                    'logical_ref'=>$logicalRef,
+                    'interaction_id'=>(string)($interaction['interaction_id']??''),
+                    'conversation_id'=>(string)($interaction['conversation_id']??''),
+                    'at'=>(string)($interaction['at']??''),
+                    'question'=>(string)($interaction['question']??''),
+                    'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
+                    'route'=>(string)($interaction['route']??'unknown'),
+                    'validation'=>$validation,
+                    'catalog'=>$catalog,
+                    'billing'=>is_array($interaction['billing']??null)?$interaction['billing']:null,
+                ];
+            }
+        }
+
+        usort($matches,static fn(array $a,array $b):int=>
+            (strtotime((string)($b['at']??''))?:0)<=>(strtotime((string)($a['at']??''))?:0)
+        );
+        return [
+            'query'=>$query,
+            'interactions'=>array_slice($matches,0,$limit),
+            'total_matches'=>count($matches),
+            'ai_tokens_used'=>0,
+            'credit_units_charged'=>0,
+        ];
+    }
+
+    public function interactionByRequestId(string $actor,string $conversationId,string $requestId): ?array
+    {
+        if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)||!preg_match('/^req_[0-9a-f]{32}$/',$requestId)){
+            throw new RuntimeException('Invalid conversation/request id');
+        }
+        $index=$this->conversationIndex($actor);
+        $conversation=$index['conversations'][$conversationId]??null;
+        if(!is_array($conversation)) return null;
+        foreach($conversation['interaction_refs']??[] as $logicalRef){
+            if(!is_string($logicalRef)||!str_ends_with($logicalRef,'/'.$requestId)) continue;
+            $detail=$this->read($actor,$logicalRef);
+            $interaction=$detail['interaction'];
+            return [
+                'logical_ref'=>$logicalRef,
+                'interaction_id'=>(string)($interaction['interaction_id']??''),
+                'conversation_id'=>(string)($interaction['conversation_id']??''),
+                'at'=>(string)($interaction['at']??''),
+                'question'=>(string)($interaction['question']??''),
+                'answer'=>is_array($interaction['answer']??null)?$interaction['answer']:['format'=>'text','value'=>null],
+                'route'=>(string)($interaction['route']??'unknown'),
+                'provider'=>is_array($interaction['provider']??null)?$interaction['provider']:['called'=>false,'id'=>null],
+                'validation'=>is_array($interaction['validation']??null)?$interaction['validation']:[],
+                'catalog'=>is_array($interaction['catalog']??null)?$interaction['catalog']:[],
+                'billing'=>is_array($interaction['billing']??null)?$interaction['billing']:null,
+                'stored'=>(bool)($interaction['stored']??false),
+                'canonical_memory_ref'=>$interaction['canonical_memory_ref']??null,
+                'knowledge_ref'=>$interaction['knowledge_ref']??null,
+            ];
+        }
+        return null;
+    }
+
     public function contextCandidates(string $actor,string $conversationId,int $limit=12): array
     {
         if(!preg_match('/^conv_[0-9a-f]{32}$/',$conversationId)){
@@ -873,10 +958,21 @@ final class InteractionArchiveService
     {
         if(!is_array($billing)) return null;
         $usage=is_array($billing['usage']??null)?$billing['usage']:[];
+        $providerUsage=is_array($billing['provider_usage']??null)?array_values($billing['provider_usage']):[];
         return [
             'credit_units_charged'=>(int)($billing['credit_units_charged']??0),
+            'cost_micros'=>(int)($billing['cost_micros']??0),
+            'currency'=>isset($billing['currency'])?(string)$billing['currency']:null,
             'total_tokens'=>(int)($usage['total_tokens']??$usage['totalTokens']??0),
+            'usage'=>$usage,
+            'provider_usage'=>$providerUsage,
         ];
+    }
+
+    private static function containsText(string $haystack,string $needle): bool
+    {
+        if(function_exists('mb_stripos')) return mb_stripos($haystack,$needle,0,'UTF-8')!==false;
+        return stripos($haystack,$needle)!==false;
     }
 
     private static function shortTitle(string $question): string
