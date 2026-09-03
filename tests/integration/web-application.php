@@ -268,6 +268,73 @@ try {
     assert_web_app(str_starts_with((string)($explicitAskBody['result']['logical_ref']??''),'memory://user/knowledge/'), 'Explicit /ask canonical route mismatch');
     assert_web_app(($explicitAskBody['result']['storage']['classification']['cognitive_layer']??null) === '40-semantic', 'No-provider explicit memory fallback classification mismatch');
 
+    // Biblioteca can bind an exact canonical user memory to the Chat
+    // composer. The web mutation_ref must be authoritative and actor-checked.
+    $aliceLibraryObject=$users->resolve('https://id.example.test','alice-provider-subject');
+    $libraryEditRef='memory://user/familia/fechas-de-nacimiento/web-edicion-exacta';
+    $libraryDecoyRef='memory://user/proyectos/mailit-click/web-edicion-decoy';
+    $aliceLibraryObject->writeAs(
+        'owner',$libraryEditRef,
+        ['title'=>'Fechas de nacimiento','content'=>'Contenido incorrecto.'],
+        'json','warm','40-semantic','user','confirmed'
+    );
+    $aliceLibraryObject->writeAs(
+        'owner',$libraryDecoyRef,
+        ['title'=>'mailit.click','content'=>'Pendiente de analytics.'],
+        'json','hot','90-projects','project','confirmed'
+    );
+    $decoyBefore=$aliceLibraryObject->readAs('owner',$libraryDecoyRef);
+
+    $libraryEditConversation='conv_'.str_repeat('a',32);
+    $libraryEditRequest=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/ask',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'question'=>'Actualiza esta memoria con: Fechas familiares corregidas desde Biblioteca.',
+            'remember'=>false,
+            'conversation_id'=>$libraryEditConversation,
+            'request_id'=>'req_'.str_repeat('a',32),
+            'mutation_ref'=>$libraryEditRef,
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($libraryEditRequest->status()===200,'Exact Biblioteca mutation request failed');
+    $libraryEditBody=json_decode($libraryEditRequest->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(
+        ($libraryEditBody['result']['route']??null)==='memory-mutation'
+        &&($libraryEditBody['result']['canonical_memory_ref']??null)===$libraryEditRef,
+        'Web mutation_ref did not bind the exact canonical memory'
+    );
+    assert_web_app(
+        str_contains(
+            (string)($aliceLibraryObject->readAs('owner',$libraryEditRef)['payload']['content']['content']??''),
+            'corregidas desde Biblioteca'
+        ),
+        'Exact Biblioteca mutation content was not persisted'
+    );
+    assert_web_app(
+        hash_equals(
+            (string)$decoyBefore['storage_hash'],
+            (string)$aliceLibraryObject->readAs('owner',$libraryDecoyRef)['storage_hash']
+        ),
+        'Exact Biblioteca mutation changed an unrelated canonical memory'
+    );
+
+    $invalidLibraryEdit=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/ask',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'question'=>'Actualiza esta memoria con: no debe escribirse.',
+            'mutation_ref'=>'memory://knowledge/q-invalid',
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($invalidLibraryEdit->status()===400,'Web accepted a non-user mutation_ref');
+
     $explicitEndpoint = $app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/memory',
