@@ -121,7 +121,7 @@ try {
     ok_ask(($generated['route'] ?? null) === 'provider', 'Ask miss did not use generation provider');
     ok_ask(($generated['response_language']??null)==='es-MX','Ask did not preserve preferred response language');
     ok_ask(str_contains((string)($generator->lastContext['system_instructions']??''),'es-MX'),'Generation provider did not receive browser response locale');
-    ok_ask(str_contains((string)($generator->lastContext['system_instructions']??''),'explicitly requests a different language'),'Language instruction did not preserve explicit user override');
+    ok_ask(str_contains((string)($generator->lastContext['system_instructions']??''),'explicitly requests another language'),'Language instruction did not preserve explicit user override');
     ok_ask(($generated['decision'] ?? null) === 'generated', 'Ask provider decision mismatch');
     ok_ask(($generated['provider_called'] ?? false) === true, 'Ask provider_called flag mismatch');
     ok_ask(($generated['stored'] ?? false) === true, 'Generated answer was not stored');
