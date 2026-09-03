@@ -299,6 +299,7 @@ Normal chat navigation uses:
 ~~~text
 GET /mcma/v1/conversations
 GET /mcma/v1/conversations/conv_<32-hex>
+GET /mcma/v1/requests/req_<32-hex>?conversation_id=conv_<32-hex>
 ~~~
 
 The list endpoint returns only safe conversation summaries. The detail endpoint decrypts only the canonical interaction references belonging to the requested conversation and returns the turns chronologically. Both routes are web-session actor-aware and explicitly report:
@@ -311,6 +312,8 @@ credit_units_charged = 0
 Neither route accepts a library id, actor or storage location, and neither returns the private system-index reference. A different user's session resolves a different MCMA Library and therefore cannot list or open another user's conversation archive.
 
 Opening a historical conversation remains a zero-AI **UI/navigation operation**. A new question sent while that conversation is open reuses its `conversation_id` for durable grouping. If exact/semantic memory cannot answer and generation is required, MCMA can now build bounded conversational context rather than concatenating the archive.
+
+Each Chat send may include a client-generated `request_id`. The same `(conversation_id, request_id)` pair is idempotent after archival. If Nginx, a CDN or the browser connection times out while PHP/provider work continues, the browser **does not POST again**. It polls the request-status route; `202 pending` means no canonical interaction has appeared yet, while `200 completed` reconstructs the already archived result. The pending id is stored in same-tab `sessionStorage`, so a reload can recover the finished answer without a second generation call or second credit charge.
 
 The default selection pipeline considers at most 12 recent indexed candidates, re-reads each candidate as actor `ai`, rejects permission-denied/retracted/disputed turns, keeps 2 recent continuity anchors, admits older turns when deterministic lexical relevance is at least `0.08`, ranks by relevance + recency, and selects at most 6 turns within a conservative 6000-unit context budget. These defaults are server-owned and configurable; the browser cannot override them per request.
 
@@ -372,6 +375,8 @@ Approving catalogs the interaction and creates or validates reusable Knowledge a
 
 Discarding marks the archived interaction `retracted`. When related generated Knowledge exists, it is retracted through the normal epistemic gates; no new embedding is needed for discard.
 
+Natural-language memory mutation is restricted to the authenticated user's canonical `memory://user/...` objects. Update commands preserve `object_id`, create a new revision, link `previous_storage_hash`, and refresh the Knowledge/semantic mirror when applicable. Delete/retire commands create a versioned tombstone and retract/remove reusable Knowledge/index entries instead of physically erasing prior encrypted revisions. Target resolution is actor-aware; tied/ambiguous matches are returned to the user for disambiguation rather than mutated by guesswork.
+
 The legacy personal-memory routes remain available for compatibility:
 
 ~~~text
@@ -420,7 +425,7 @@ After every `/mcma/v1/ask` request, MCMA writes a compact encrypted trace to:
 memory://system/context-traces
 ~~~
 
-The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary, the exact validated memory context supplied to generation and the exact bounded conversation turns selected when either was injected. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
+The trace is stored inside that user's isolated library and contains the request id/time, question, route, provider id, memory-attempt summary, whether generated knowledge was stored, billing summary, the exact validated memory/RAG context, the exact bounded conversation turns, and any broad entity-recall items actually supplied to generation. The billing summary includes per-provider/model usage components (embedding/generation, input/output/embedding tokens and duration) when a model was called. It never stores provider credentials, KeyStore keys, OIDC tokens or server secrets.
 
 Only the latest 50 **context traces** are retained in this first implementation. They are an operational transparency window, not the durable conversation archive. Complete Ask/response interactions are stored separately under `memory://interactions/...` without the 50-entry cap. The context-trace object is protected as owner-only system memory. Existing libraries are hardened on first use; new default permission policies include the restriction directly.
 
@@ -481,6 +486,8 @@ The provider receives the memory as clearly delimited reference data plus valida
 Billing remains fail-safe: the lazy reservation includes a conservative generation-context allowance, and fallback metering includes the serialized context when a provider cannot report exact usage.
 
 The guarded validated-memory Context Builder and bounded conversational Context Builder are now complemented by **multi-memory RAG**. Generation fallback can synthesize several actor-visible supported/verified KnowledgeRecords, prioritized by similarity, confidence, freshness, provenance and validation under one RAG budget. The remaining retrieval roadmap is now relation-graph reasoning and broader automatic maturity/temperature policies rather than basic multi-memory assembly.
+
+For explicitly broad questions such as `¿Qué sabes de mailit.click?`, `BroadMemoryRecallBuilder` performs a bounded deterministic search over actor-visible Knowledge and the durable interaction archive. Retracted/disputed items are excluded, verified/supported Knowledge ranks ahead of unverified episodic material, duplicate content is collapsed, and the selected items retain state/confidence/provenance. The provider receives them as untrusted reference data. Default limits are 8 items / 16000 bytes and the exact selection is shown in **Contexto MCMA**.
 
 Provider selection is server-side:
 
