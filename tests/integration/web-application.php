@@ -293,7 +293,7 @@ try {
         [],
         ['mcma_session'=>$aliceCookie],
         json_encode([
-            'question'=>'Actualiza esta memoria con: Fechas familiares corregidas desde Biblioteca.',
+            'question'=>'actualiza ese archivo de fecha de nacimiento por esta fecha 14 de octubre del 1977',
             'remember'=>false,
             'conversation_id'=>$libraryEditConversation,
             'request_id'=>'req_'.str_repeat('a',32),
@@ -311,7 +311,7 @@ try {
     assert_web_app(
         str_contains(
             (string)($aliceLibraryAfterEdit->readAs('owner',$libraryEditRef)['payload']['content']['content']??''),
-            'corregidas desde Biblioteca'
+            '14 de octubre del 1977'
         ),
         'Exact Biblioteca mutation content was not persisted'
     );
