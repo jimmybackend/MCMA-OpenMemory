@@ -278,7 +278,22 @@ final class BillingService
         if($todayReservations>=(int)$plan['daily_request_limit']) throw new BillingException('Daily request limit reached','daily_limit',429);
 
         $available=(int)$state['balance_units']-(int)$state['reserved_units'];
-        if($estimatedCreditUnits>$available) throw new BillingException('Insufficient credits','insufficient_credits',402);
+        if($available<=0) throw new BillingException('Insufficient credits','insufficient_credits',402);
+
+        $reservationUnits=$estimatedCreditUnits;
+        $allowanceBacked=(int)($plan['monthly_credit_allowance']??0)>0;
+        if($estimatedCreditUnits>$available){
+            if(!$allowanceBacked){
+                throw new BillingException('Insufficient credits','insufficient_credits',402);
+            }
+            // Allowance-backed plans such as Free must be usable down to their
+            // real remaining balance. Reservation estimates include bounded
+            // worst-case context/output headroom and can exceed the credits
+            // actually consumed by the provider. Reserve the remaining balance
+            // instead of falsely blocking while settled usage is still below
+            // the monthly quota. Settlement remains authoritative on real use.
+            $reservationUnits=$available;
+        }
 
         $reservationId='res_'.bin2hex(random_bytes(16));
         $event=[
@@ -289,12 +304,13 @@ final class BillingService
             'reservation_id'=>$reservationId,
             'origin'=>$origin,
             'provider_ids'=>array_values($providerIds),
-            'reserved_credit_units'=>$estimatedCreditUnits,
+            'reserved_credit_units'=>$reservationUnits,
+            'estimated_credit_units'=>$estimatedCreditUnits,
             'balance_delta_units'=>0,
-            'reserved_delta_units'=>$estimatedCreditUnits,
+            'reserved_delta_units'=>$reservationUnits,
         ];
         $ledger=$this->appendEvent($library,$event);
-        return ['reservation_id'=>$reservationId,'reserved_credit_units'=>$estimatedCreditUnits,'ledger'=>$ledger];
+        return ['reservation_id'=>$reservationId,'reserved_credit_units'=>$reservationUnits,'estimated_credit_units'=>$estimatedCreditUnits,'ledger'=>$ledger];
     }
 
     public function settle(
