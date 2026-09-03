@@ -66,7 +66,7 @@ check(str_contains($index,'id="contextPanel"'),'Context transparency panel is pr
 check(str_contains($index,'Contexto MCMA'),'Context tab label is present');
 
 check(is_string($css),'app.css readable');
-check(str_contains($css,'height:clamp(400px,calc(100dvh - 190px),900px)'),'desktop Chat height is viewport-aware');
+check(str_contains($css,'height:clamp(400px,calc(100dvh - 150px),920px)'),'desktop Chat height is viewport-aware');
 check(!str_contains($css,'min-height:620px'),'obsolete fixed Chat minimum height remains');
 check(str_contains($css,'grid-template-columns:minmax(0,1fr) auto'),'Chat input keeps send control beside textarea');
 check(str_contains($css,'.chat-send-icon'),'Chat send SVG icon styling is present');
