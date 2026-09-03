@@ -14,7 +14,7 @@ $admin=file_get_contents($root.'/admin.html');
 
 check(is_string($index),'index.html readable');
 check(str_contains($index,'href="favicon.svg?v=20260901-5"'),'favicon is base-path relative and cache-busted');
-check(str_contains($index,'href="app.css?v=20260903-6"'),'index stylesheet is base-path relative and cache-busted');
+check(str_contains($index,'href="app.css?v=20260903-7"'),'index stylesheet is base-path relative and cache-busted');
 check(str_contains($index,'href="admin.html"'),'admin link is base-path relative');
 check(str_contains($index,'href="login"'),'login link is base-path relative');
 check(str_contains($index,'src="app.js?v=20260903-5"'),'app script is base-path relative and cache-busted');
@@ -74,6 +74,11 @@ check(str_contains($css,'.chat-send-label'),'Chat send label responsive styling 
 check(str_contains($css,'.memory-inline-editor'),'Biblioteca inline editor styling is present');
 check(str_contains($css,'.account-modal'),'account settings modal styling is present');
 check(str_contains($css,'.sidebar-account-row'),'sidebar private account row styling is present');
+check(str_contains($css,'Desktop density at browser zoom 100%'),'desktop density section is present');
+check(str_contains($css,'grid-template-columns:250px minmax(0,1fr)'),'desktop Chat sidebar is compact');
+check(str_contains($css,'height:clamp(520px,calc(100dvh - 100px),980px)'),'compact desktop Chat fills available viewport');
+check(str_contains($css,'font-size:14px'),'desktop density reduces base UI size without browser zoom');
+check(!preg_match('/(^|[;{\\s])zoom\\s*:/m',$css),'CSS zoom must not be used for application density');
 check(str_contains($css,'height:clamp(400px,calc(100dvh - 150px),920px)'),'desktop Chat uses reclaimed account-header height');
 check(str_contains($css,'grid-template-columns:minmax(0,1fr) 44px'),'small-screen Chat send control is compact');
 
