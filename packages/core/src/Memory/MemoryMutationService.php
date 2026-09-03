@@ -465,6 +465,52 @@ final class MemoryMutationService
         };
     }
 
+    private static function contextualRelevanceScore(array $queryTokens,string $corpus,string $logicalRef,string $title): int
+    {
+        $normalizedCorpus=self::normalize($corpus);
+        $normalizedRef=self::normalize($logicalRef);
+        $normalizedTitle=self::normalize($title);
+        $score=0;
+
+        foreach($queryTokens as $token){
+            if(!str_contains($normalizedCorpus,$token)) continue;
+
+            $weight=3;
+            if(str_contains($token,'.')||str_contains($token,'/')) $weight=20;
+            elseif(strlen($token)>=10) $weight=10;
+            elseif(strlen($token)>=7) $weight=6;
+            elseif(strlen($token)>=5) $weight=4;
+
+            $score+=$weight;
+            if(str_contains($normalizedRef,$token)) $score+=5;
+            if($normalizedTitle!==''&&str_contains($normalizedTitle,$token)) $score+=3;
+        }
+
+        return $score;
+    }
+
+    private static function relevanceTokens(string $value): array
+    {
+        $value=self::normalize($value);
+        preg_match_all('/[\\p{L}\\p{N}][\\p{L}\\p{N}._\\/-]{2,}/u',$value,$matches);
+        $tokens=array_values(array_unique($matches[0]??[]));
+        $stop=[
+            'actualiza','actualizar','actualizado','actualizada','modifica','modificar','edita','editar',
+            'corrige','corregir','cambia','cambiar','agrega','agregar','añade','anade','incorpora',
+            'conocimiento','memoria','recuerdo','archivo','concepto','estado','trabajos','sistemas',
+            'relacionados','relacionado','completado','completada','pendiente','pendientes','corregido',
+            'corregida','reparar','verificar','conserva','confirmado','confirmada','versiona','mismo',
+            'misma','esto','esta','este','eso','ese','esa','tambien','también','para',
+            'with','update','updated','memory','knowledge','file','concept','status','completed','pending',
+            'keep','same','this','that','also'
+        ];
+        return array_values(array_filter($tokens,static function(string $token) use($stop): bool {
+            if(in_array($token,$stop,true)) return false;
+            if(strlen($token)<4&&!str_contains($token,'.')&&!str_contains($token,'/')) return false;
+            return true;
+        }));
+    }
+
     private static function normalize(string $value): string
     {
         $value=preg_replace('/\s+/u',' ',trim($value))??trim($value);
