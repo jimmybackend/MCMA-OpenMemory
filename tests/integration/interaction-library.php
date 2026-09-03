@@ -286,6 +286,24 @@ try{
         'Broad memory recall did not return the stored mailit.click memory'
     );
 
+    $broadGenerator=new ConversationContextGenerationProvider();
+    $broadAsk=new AskService(
+        $knowledge,
+        null,
+        null,
+        $broadGenerator,
+        null,
+        null,
+        null,
+        new BroadMemoryRecallBuilder($lib,8,16000)
+    );
+    $broadResult=$broadAsk->ask(
+        'ai','¿Qué sabes de mailit.click?',false,0.75,0.78,5,false
+    );
+    interaction_ok($broadGenerator->calls===1,'Broad recall should synthesize through generation');
+    interaction_ok(is_array($broadGenerator->lastContext['broad_recall_context']??null),'Broad recall context was not sent to generation');
+    interaction_ok(($broadResult['context_used']['broad_recall']??false)===true,'Broad recall transparency flag missing');
+
     $afterTree=$archive->libraryTree('owner');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por temas']['IA']),'Topic view missing approved interaction');
     interaction_ok(isset($afterTree['tree']['Conversaciones']['Por proyectos']['MCMA']),'Project view missing approved interaction');
