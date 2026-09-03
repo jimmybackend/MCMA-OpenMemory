@@ -57,6 +57,15 @@ try{
     );
     assert_true_knowledge(($first['created']??false)===true,'First knowledge capture must create object');
 
+    $knowledgeId=substr(KnowledgeRecord::logicalRef($question),strlen('memory://knowledge/q-'));
+    $renamed=$service->renameId('owner',$knowledgeId,'MCMA en una frase');
+    assert_true_knowledge(($renamed['display_title']??null)==='MCMA en una frase','Knowledge display title rename failed');
+    $renamedDetail=$service->inspectId('owner',$knowledgeId);
+    assert_true_knowledge(($renamedDetail['display_title']??null)==='MCMA en una frase','Knowledge display title was not persisted');
+    assert_true_knowledge(($renamedDetail['question']??null)===$question,'Display rename changed semantic question');
+    $renamedBrowse=$service->browse('owner','MCMA en una frase');
+    assert_true_knowledge(($renamedBrowse['total']??0)>=1,'Knowledge browser cannot search display title');
+
     $reuse=$service->directAnswer('ai',"  ¿qué   es MCMA?  ");
     assert_true_knowledge(($reuse['decision']??null)==='reuse','Supported fresh knowledge should be reused');
     assert_true_knowledge(($reuse['answer']['value']??null)==='MCMA es un archivo modular de memoria cognitiva.','Direct answer content mismatch');
