@@ -162,6 +162,7 @@ final class ThematicSummaryService
             'interaction_ref'=>$interactionRef,
             'conversation_id'=>(string)$interaction['conversation_id'],
             'interaction_id'=>(string)$interaction['interaction_id'],
+            'request_id'=>(string)$interaction['interaction_id'],
             'at'=>(string)($interaction['at']??''),
             'validation'=>[
                 'state'=>$state,
@@ -195,9 +196,11 @@ final class ThematicSummaryService
             if(!str_contains($e->getMessage(),'Memory not found:')) throw $e;
         }
 
+        $maturity=(($payload['validation']['trusted_for_conclusions']??false)===true)?'confirmed':'observed';
+
         if($existing===null){
             $stored=$this->library->writeAs(
-                $actor,$logicalRef,$payload,'json','warm','40-semantic','user','observed'
+                $actor,$logicalRef,$payload,'json','warm','40-semantic','user',$maturity
             );
             return [
                 'logical_ref'=>$logicalRef,
@@ -221,7 +224,6 @@ final class ThematicSummaryService
             ];
         }
 
-        $maturity=(($payload['validation']['trusted_for_conclusions']??false)===true)?'confirmed':'observed';
         $stored=$this->library->updateAs(
             $actor,$logicalRef,$payload,'json','warm','40-semantic','user',$maturity
         );
@@ -319,7 +321,8 @@ final class ThematicSummaryService
 
     private static function slugify(string $value): string
     {
-        $value=trim($value);
+        $original=trim($value);
+        $value=$original;
         if(function_exists('iconv')){
             $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
             if(is_string($ascii)&&$ascii!=='') $value=$ascii;
@@ -327,7 +330,7 @@ final class ThematicSummaryService
         $value=strtolower($value);
         $value=preg_replace('/[^a-z0-9]+/','-',$value)??'';
         $value=trim($value,'-');
-        if($value==='') $value='tema-'.substr(hash('sha256',$value),0,12);
+        if($value==='') $value='tema-'.substr(hash('sha256',$original),0,12);
         return substr($value,0,72);
     }
 
