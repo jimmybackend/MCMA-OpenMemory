@@ -530,8 +530,8 @@ final class WebApplication
         if($existing!==null) return HttpResponse::json(['ok'=>true,'result'=>self::resultFromArchivedInteraction($existing)]);
 
         if(MemoryMutationService::isMutationRequest($question)){
-            $contextCanonicalRef=$archiveService->latestCanonicalMemoryRef('owner',$conversationId);
-            $result=$this->mutateMemory($principal,$question,$requestId,$contextCanonicalRef);
+            $contextCanonicalRefs=$archiveService->recentCanonicalMemoryRefs('owner',$conversationId,12);
+            $result=$this->mutateMemory($principal,$question,$requestId,$contextCanonicalRefs);
             $result=$this->recordContextTrace($principal,$requestId,$question,false,true,$result);
             $result=$this->recordInteraction($principal,$requestId,$conversationId,$question,$result);
             return HttpResponse::json(['ok'=>true,'result'=>$result]);
@@ -656,7 +656,7 @@ final class WebApplication
         }
     }
 
-    private function mutateMemory(array $principal,string $text,string $requestId,?string $contextCanonicalRef=null): array
+    private function mutateMemory(array $principal,string $text,string $requestId,array $contextCanonicalRefs=[]): array
     {
         $embedding=$this->providers->embedding($this->providerOptions,true);
         if($this->billingEnabled){
@@ -667,12 +667,12 @@ final class WebApplication
             ))->execute(
                 $requestId,$principal['kind'],$text,
                 array_filter(['api_key_id'=>$principal['api_key_id']??null],static fn($v)=>$v!==null),
-                $contextCanonicalRef
+                $contextCanonicalRefs
             );
         }
         $usageCollector=new UsageCollector();
         $meteredEmbedding=$embedding!==null?new MeteredEmbeddingProvider($embedding,$usageCollector):null;
-        $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute('owner',$text,$contextCanonicalRef);
+        $result=(new MemoryMutationService($principal['library'],$meteredEmbedding))->execute('owner',$text,$contextCanonicalRefs);
         $result['billing']=[
             'ai_billed'=>false,'credit_units_charged'=>0,
             'usage'=>$usageCollector->summary(),
