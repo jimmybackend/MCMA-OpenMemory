@@ -405,6 +405,32 @@ try {
         'Incomplete memory update did not return a safe needs-content response'
     );
 
+    $directCanonicalEdit=$app->handle(new HttpRequest(
+        'POST',
+        '/mcma/v1/library-object/edit',
+        ['origin'=>'https://memory.example.test','content-type'=>'application/json'],
+        [],
+        ['mcma_session'=>$aliceCookie],
+        json_encode([
+            'ref'=>$libraryEditRef,
+            'content'=>'Fecha de nacimiento corregida por el usuario: 14 de octubre de 1977.',
+            'request_id'=>'req_'.str_repeat('d',32),
+        ],JSON_THROW_ON_ERROR)
+    ));
+    assert_web_app($directCanonicalEdit->status()===200,'Direct canonical Biblioteca edit failed');
+    $directCanonicalEditBody=json_decode($directCanonicalEdit->body(),true,64,JSON_THROW_ON_ERROR);
+    assert_web_app(($directCanonicalEditBody['edit']['kind']??null)==='memory','Direct canonical edit kind mismatch');
+    assert_web_app(($directCanonicalEditBody['edit']['validation_state']??null)==='verified','Direct canonical edit did not verify Knowledge mirror');
+    assert_web_app(abs((float)($directCanonicalEditBody['edit']['confidence']??0)-0.95)<1e-12,'Direct canonical edit confidence mismatch');
+    assert_web_app(($directCanonicalEditBody['edit']['temperature']??null)==='warm','Direct canonical edit temperature mismatch');
+    assert_web_app(($directCanonicalEditBody['edit']['freshness_class']??null)==='stable','Direct canonical edit freshness mismatch');
+    $afterDirectCanonicalEdit=$users->resolve('https://id.example.test','alice-provider-subject')->readAs('owner',$libraryEditRef);
+    assert_web_app(
+        str_contains((string)($afterDirectCanonicalEdit['payload']['content']['content']??''),'14 de octubre de 1977'),
+        'Direct canonical Biblioteca edit did not persist corrected content'
+    );
+    assert_web_app(($afterDirectCanonicalEdit['payload']['metadata']['temperature']??null)==='warm','Direct canonical edit did not persist warm metadata');
+
     $invalidLibraryEdit=$app->handle(new HttpRequest(
         'POST',
         '/mcma/v1/ask',
