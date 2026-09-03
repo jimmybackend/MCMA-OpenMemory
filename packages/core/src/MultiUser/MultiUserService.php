@@ -304,6 +304,7 @@ final class MultiUserService
                     : Library::init($storage, 'private');
 
                 $library->initializeAccessControl(null, 'owner');
+                $library->ensureAiRecallAccess('owner');
 
                 if (!$this->libraryHasRef($library, self::ACCOUNT_REF)) {
                     $library->writeAs(
@@ -346,6 +347,11 @@ final class MultiUserService
         if (!hash_equals($libraryId, $library->libraryId())) {
             throw new RuntimeException('Multi-user library_id mismatch');
         }
+
+        // Existing libraries keep their encrypted permission policy across
+        // deployments. Upgrade only missing AI recall role capabilities while
+        // preserving every explicit deny/resource rule.
+        $library->ensureAiRecallAccess('owner');
 
         $this->assertUserMarker($library, $userId);
         return $library;
