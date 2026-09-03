@@ -78,3 +78,19 @@ Similarity alone does not determine priority. The RAG score combines similarity,
 
 Generated synthesis does not become trusted simply because its inputs were trusted. When remembered it still defaults to `unverified` / confidence `0.5` and must pass the normal validation workflow before direct reuse.
 
+
+## Broad recall and memory mutation safety
+
+Broad recall is not a new authorization mode. The requested subject is matched only against the authenticated user's actor-visible encrypted Knowledge and interaction archive. `retracted` and `disputed` material is excluded. Validation state, confidence and provenance remain attached to selected items, and the generation providers receive the selection as **untrusted reference data**, never as executable instructions.
+
+Broad recall intentionally allows labeled unverified episodic material to appear below trusted Knowledge when the user explicitly asks what MCMA remembers about an entity/topic. This does not lower the direct exact/semantic or multi-memory RAG trust gates and does not make those episodic items reusable Knowledge.
+
+Natural-language memory mutation is restricted to canonical `memory://user/...` objects visible to the authenticated owner. Client text cannot select arbitrary server paths, storage credentials, `memory://system/*`, `memory://access/*` or Vault. Ambiguous top target matches are refused.
+
+Updates use the normal actor-aware Library revision path and preserve stable object identity plus `previous_storage_hash`. Deletion is a versioned tombstone/retirement operation: reusable Knowledge is retracted and its semantic entry is removed when present, while previous encrypted revisions remain recoverable/auditable under the storage/version model.
+
+## Interrupted-request idempotency
+
+The browser generates a random `req_<32-hex>` before sending Chat work. The authenticated server binds recovery to the same user library and `conversation_id`. If the HTTP connection ends with a transient proxy/network failure, the browser polls a read-only status route for that canonical request instead of replaying generation.
+
+Once a request is archived, submitting the same `(conversation_id, request_id)` returns the archived result before any provider/billing path executes again. The pending id stored in `sessionStorage` contains no provider credential, key material or decrypted archive; it is only an opaque request/conversation locator.
